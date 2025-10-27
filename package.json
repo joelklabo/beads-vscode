@@ -1,0 +1,95 @@
+{
+  "name": "beads-vscode",
+  "displayName": "Beads Project Manager",
+  "description": "Manage Beads projects directly from VS Code.",
+  "version": "0.0.1",
+  "publisher": "beads",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onView:beadsExplorer",
+    "onCommand:beads.refresh",
+    "onCommand:beads.openBead",
+    "onCommand:beads.createBead",
+    "onCommand:beads.editExternalReference"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "beads.refresh",
+        "title": "Beads: Refresh"
+      },
+      {
+        "command": "beads.openBead",
+        "title": "Beads: Open"
+      },
+      {
+        "command": "beads.createBead",
+        "title": "Beads: Create"
+      },
+      {
+        "command": "beads.editExternalReference",
+        "title": "Beads: Edit External Reference"
+      }
+    ],
+    "views": {
+      "explorer": [
+        {
+          "id": "beadsExplorer",
+          "name": "Beads"
+        }
+      ]
+    },
+    "configuration": {
+      "type": "object",
+      "title": "Beads",
+      "properties": {
+        "beads.commandPath": {
+          "type": "string",
+          "default": "beads",
+          "description": "Path to the beads CLI executable"
+        },
+        "beads.projectRoot": {
+          "type": "string",
+          "default": "",
+          "description": "Override project root for beads commands"
+        },
+        "beads.dataFile": {
+          "type": "string",
+          "default": ".beads/beads.json",
+          "description": "Path to the beads data JSON file (relative to the project root or absolute)"
+        }
+      }
+    },
+    "menus": {
+      "view/item/context": [
+        {
+          "command": "beads.editExternalReference",
+          "when": "view == beadsExplorer && viewItem == bead",
+          "group": "navigation@1"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint . --ext ts",
+    "test": "npm run compile && node ./out/test/runTest.js"
+  },
+  "devDependencies": {
+    "@types/node": "^18.19.0",
+    "@types/vscode": "^1.85.0",
+    "@typescript-eslint/eslint-plugin": "^6.17.0",
+    "@typescript-eslint/parser": "^6.17.0",
+    "eslint": "^8.56.0",
+    "typescript": "^5.3.3",
+    "vscode-test": "^1.7.5"
+  }
+}
