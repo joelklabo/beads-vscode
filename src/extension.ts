@@ -148,7 +148,9 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<BeadTreeItem> {
 
 class BeadTreeItem extends vscode.TreeItem {
   constructor(public readonly bead: BeadItemData) {
-    super(bead.title, vscode.TreeItemCollapsibleState.None);
+    // Show ID before title
+    const label = `${bead.id} ${bead.title}`;
+    super(label, vscode.TreeItemCollapsibleState.None);
 
     const parts: string[] = [];
     if (bead.tags && bead.tags.length > 0) {
@@ -180,6 +182,36 @@ function resolveProjectRoot(config: vscode.WorkspaceConfiguration): string | und
   return undefined;
 }
 
+function naturalSort(a: BeadItemData, b: BeadItemData): number {
+  // Split IDs into parts (text and numbers)
+  const aParts = a.id.split(/(\d+)/);
+  const bParts = b.id.split(/(\d+)/);
+
+  for (let i = 0; i < Math.min(aParts.length, bParts.length); i++) {
+    const aPart = aParts[i];
+    const bPart = bParts[i];
+
+    // Check if both parts are numeric
+    const aNum = parseInt(aPart, 10);
+    const bNum = parseInt(bPart, 10);
+
+    if (!isNaN(aNum) && !isNaN(bNum)) {
+      // Compare as numbers
+      if (aNum !== bNum) {
+        return aNum - bNum;
+      }
+    } else {
+      // Compare as strings
+      if (aPart !== bPart) {
+        return aPart.localeCompare(bPart);
+      }
+    }
+  }
+
+  // If all parts are equal, shorter ID comes first
+  return aParts.length - bParts.length;
+}
+
 async function loadBeads(): Promise<{ items: BeadItemData[]; document: BeadsDocument; }> {
   const config = vscode.workspace.getConfiguration('beads');
   const projectRoot = resolveProjectRoot(config);
@@ -192,6 +224,10 @@ async function loadBeads(): Promise<{ items: BeadItemData[]; document: BeadsDocu
 
   const document = await readBeadsDocument(resolvedDataFile);
   const items = document.beads.map((entry, index) => normalizeBead(entry, index));
+
+  // Sort items using natural sort (handles numeric parts correctly)
+  items.sort(naturalSort);
+
   return { items, document };
 }
 
