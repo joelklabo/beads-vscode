@@ -124,7 +124,7 @@ suite('Utility Functions Test Suite', () => {
     test('should generate fallback title if missing', () => {
       const entry = { id: 'BEAD-1' };
       const result = normalizeBead(entry, 3);
-      assert.strictEqual(result.title, 'bead-3');
+      assert.strictEqual(result.title, 'BEAD-1');
     });
 
     test('should handle alternative field names', () => {
