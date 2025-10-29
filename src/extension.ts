@@ -91,6 +91,30 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<BeadTreeItem> {
     }
   }
 
+  async updateStatus(item: BeadItemData, newStatus: string): Promise<void> {
+    if (!this.document) {
+      void vscode.window.showErrorMessage('Beads data is not loaded yet. Try refreshing the explorer.');
+      return;
+    }
+
+    if (!item.raw || typeof item.raw !== 'object') {
+      void vscode.window.showErrorMessage('Unable to update this bead entry because its data is not editable.');
+      return;
+    }
+
+    const mutable = item.raw as Record<string, unknown>;
+    mutable['status'] = newStatus;
+
+    try {
+      await saveBeadsDocument(this.document);
+      await this.refresh();
+      void vscode.window.showInformationMessage(`Updated status to: ${newStatus}`);
+    } catch (error) {
+      console.error('Failed to persist beads document', error);
+      void vscode.window.showErrorMessage(formatError('Failed to save beads data file', error));
+    }
+  }
+
   private createTreeItem(item: BeadItemData): BeadTreeItem {
     const treeItem = new BeadTreeItem(item);
     treeItem.contextValue = 'bead';
@@ -112,9 +136,9 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<BeadTreeItem> {
     this.disposeWatcher();
 
     try {
-      const basePath = path.dirname(filePath);
-      const filename = path.basename(filePath);
-      const pattern = new vscode.RelativePattern(basePath, filename);
+      // Watch the .beads directory for any database file changes
+      // This includes *.db, *.db-wal, and *.db-shm files
+      const pattern = new vscode.RelativePattern(filePath, '*.{db,db-wal,db-shm}');
       const watcher = vscode.workspace.createFileSystemWatcher(pattern);
       const onChange = watcher.onDidChange(() => void this.refresh());
       const onCreate = watcher.onDidCreate(() => void this.refresh());
@@ -129,7 +153,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<BeadTreeItem> {
       this.watcherSubscriptions = [onChange, onCreate, onDelete];
       this.watchedFilePath = filePath;
     } catch (error) {
-      console.warn('Failed to start watcher for beads data file', error);
+      console.warn('Failed to start watcher for beads database', error);
     }
   }
 
@@ -248,10 +272,10 @@ async function loadBeads(): Promise<{ items: BeadItemData[]; document: BeadsDocu
     }
 
     // Create a document structure for compatibility
-    const dataFileConfig = config.get<string>('dataFile', '.beads/issues.jsonl');
-    const resolvedDataFile = resolveDataFilePath(dataFileConfig, projectRoot) || path.join(projectRoot, '.beads/issues.jsonl');
+    // Use the database path for file watching instead of JSONL
+    const dbPath = path.join(projectRoot, '.beads');
     const document: BeadsDocument = {
-      filePath: resolvedDataFile,
+      filePath: dbPath, // Watch the .beads directory for any db changes
       root: beads,
       beads
     };
@@ -323,12 +347,17 @@ async function saveBeadsDocument(document: BeadsDocument): Promise<void> {
 function getBeadDetailHtml(item: BeadItemData): string {
   const raw = item.raw as any;
   const description = raw?.description || '';
+  const design = raw?.design || '';
+  const acceptanceCriteria = raw?.acceptance_criteria || '';
+  const notes = raw?.notes || '';
   const issueType = raw?.issue_type || '';
   const priority = raw?.priority || '';
   const createdAt = raw?.created_at ? new Date(raw.created_at).toLocaleString() : '';
   const updatedAt = raw?.updated_at ? new Date(raw.updated_at).toLocaleString() : '';
+  const closedAt = raw?.closed_at ? new Date(raw.closed_at).toLocaleString() : '';
   const dependencies = raw?.dependencies || [];
   const assignee = raw?.assignee || '';
+  const labels = raw?.labels || [];
 
   const statusColor = {
     'open': '#3794ff',
@@ -366,11 +395,30 @@ function getBeadDetailHtml(item: BeadItemData): string {
             padding-bottom: 16px;
             margin-bottom: 24px;
         }
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 8px;
+        }
         .issue-id {
             font-size: 14px;
             color: var(--vscode-descriptionForeground);
             font-weight: 500;
             margin-bottom: 8px;
+        }
+        .edit-button {
+            background-color: var(--vscode-button-secondaryBackground);
+            color: var(--vscode-button-secondaryForeground);
+            border: 1px solid var(--vscode-button-border);
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .edit-button:hover {
+            background-color: var(--vscode-button-secondaryHoverBackground);
         }
         .title {
             font-size: 24px;
@@ -382,6 +430,7 @@ function getBeadDetailHtml(item: BeadItemData): string {
             flex-wrap: wrap;
             gap: 16px;
             margin-top: 12px;
+            align-items: center;
         }
         .badge {
             display: inline-block;
@@ -394,6 +443,55 @@ function getBeadDetailHtml(item: BeadItemData): string {
             background-color: ${statusColor}22;
             color: ${statusColor};
             border: 1px solid ${statusColor}44;
+            position: relative;
+        }
+        .status-badge.editable {
+            cursor: pointer;
+            padding-right: 24px;
+        }
+        .status-badge.editable:hover {
+            opacity: 0.8;
+        }
+        .status-badge.editable::after {
+            content: '▾';
+            position: absolute;
+            right: 6px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        .status-dropdown {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            margin-top: 4px;
+            background-color: var(--vscode-dropdown-background);
+            border: 1px solid var(--vscode-dropdown-border);
+            border-radius: 4px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            min-width: 150px;
+        }
+        .status-dropdown.show {
+            display: block;
+        }
+        .status-option {
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background-color 0.1s;
+        }
+        .status-option:hover {
+            background-color: var(--vscode-list-hoverBackground);
+        }
+        .status-option:first-child {
+            border-radius: 4px 4px 0 0;
+        }
+        .status-option:last-child {
+            border-radius: 0 0 4px 4px;
+        }
+        .status-wrapper {
+            position: relative;
         }
         .type-badge {
             background-color: var(--vscode-badge-background);
@@ -466,19 +564,102 @@ function getBeadDetailHtml(item: BeadItemData): string {
 </head>
 <body>
     <div class="header">
-        <div class="issue-id">${item.id}</div>
+        <div class="header-top">
+            <div class="issue-id">${item.id}</div>
+            <button class="edit-button" id="editButton">Edit</button>
+        </div>
         <h1 class="title">${escapeHtml(item.title)}</h1>
         <div class="metadata">
-            ${statusDisplay ? `<span class="badge status-badge">${statusDisplay}</span>` : ''}
+            <div class="status-wrapper">
+                <span class="badge status-badge" id="statusBadge" data-status="${item.status || 'open'}">${statusDisplay || 'Open'}</span>
+                <div class="status-dropdown" id="statusDropdown">
+                    <div class="status-option" data-status="open">Open</div>
+                    <div class="status-option" data-status="in_progress">In Progress</div>
+                    <div class="status-option" data-status="blocked">Blocked</div>
+                    <div class="status-option" data-status="closed">Closed</div>
+                </div>
+            </div>
             ${issueType ? `<span class="badge type-badge">${issueType.toUpperCase()}</span>` : ''}
             ${priorityLabel ? `<span class="badge priority-badge">${priorityLabel}</span>` : ''}
         </div>
     </div>
 
+    <script>
+        const vscode = acquireVsCodeApi();
+        let isEditMode = false;
+
+        const editButton = document.getElementById('editButton');
+        const statusBadge = document.getElementById('statusBadge');
+        const statusDropdown = document.getElementById('statusDropdown');
+
+        editButton.addEventListener('click', () => {
+            isEditMode = !isEditMode;
+
+            if (isEditMode) {
+                editButton.textContent = 'Done';
+                statusBadge.classList.add('editable');
+            } else {
+                editButton.textContent = 'Edit';
+                statusBadge.classList.remove('editable');
+                statusDropdown.classList.remove('show');
+            }
+        });
+
+        statusBadge.addEventListener('click', () => {
+            if (isEditMode) {
+                statusDropdown.classList.toggle('show');
+            }
+        });
+
+        document.querySelectorAll('.status-option').forEach(option => {
+            option.addEventListener('click', (e) => {
+                const newStatus = e.target.getAttribute('data-status');
+
+                // Send message to extension
+                vscode.postMessage({
+                    command: 'updateStatus',
+                    status: newStatus,
+                    issueId: '${item.id}'
+                });
+
+                // Close dropdown
+                statusDropdown.classList.remove('show');
+            });
+        });
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!statusBadge.contains(e.target) && !statusDropdown.contains(e.target)) {
+                statusDropdown.classList.remove('show');
+            }
+        });
+    </script>
+
     ${description ? `
     <div class="section">
         <div class="section-title">Description</div>
         <div class="description">${escapeHtml(description)}</div>
+    </div>
+    ` : ''}
+
+    ${design ? `
+    <div class="section">
+        <div class="section-title">Design</div>
+        <div class="description">${escapeHtml(design)}</div>
+    </div>
+    ` : ''}
+
+    ${acceptanceCriteria ? `
+    <div class="section">
+        <div class="section-title">Acceptance Criteria</div>
+        <div class="description">${escapeHtml(acceptanceCriteria)}</div>
+    </div>
+    ` : ''}
+
+    ${notes ? `
+    <div class="section">
+        <div class="section-title">Notes</div>
+        <div class="description">${escapeHtml(notes)}</div>
     </div>
     ` : ''}
 
@@ -489,13 +670,14 @@ function getBeadDetailHtml(item: BeadItemData): string {
         ${item.externalReferenceDescription ? `<div class="meta-item"><span class="meta-label">External Desc:</span><span class="meta-value">${escapeHtml(item.externalReferenceDescription)}</span></div>` : ''}
         ${createdAt ? `<div class="meta-item"><span class="meta-label">Created:</span><span class="meta-value">${createdAt}</span></div>` : ''}
         ${updatedAt ? `<div class="meta-item"><span class="meta-label">Updated:</span><span class="meta-value">${updatedAt}</span></div>` : ''}
+        ${closedAt ? `<div class="meta-item"><span class="meta-label">Closed:</span><span class="meta-value">${closedAt}</span></div>` : ''}
     </div>
 
-    ${item.tags && item.tags.length > 0 ? `
+    ${labels && labels.length > 0 ? `
     <div class="section">
         <div class="section-title">Labels</div>
         <div class="tags">
-            ${item.tags.map(tag => `<span class="tag">${escapeHtml(tag)}</span>`).join('')}
+            ${labels.map((label: string) => `<span class="tag">${escapeHtml(label)}</span>`).join('')}
         </div>
     </div>
     ` : ''}
@@ -505,8 +687,10 @@ function getBeadDetailHtml(item: BeadItemData): string {
         <div class="section-title">Dependencies</div>
         ${dependencies.map((dep: any) => `
             <div class="dependency-item">
-                <div class="dependency-type">${dep.type || 'blocks'}</div>
-                <div>${dep.depends_on_id || dep.issue_id}</div>
+                <div class="dependency-type">${dep.dep_type || dep.type || 'blocks'}</div>
+                <strong>${dep.id || dep.depends_on_id || dep.issue_id}</strong>
+                ${dep.title ? `<div style="margin-top: 4px;">${escapeHtml(dep.title)}</div>` : ''}
+                ${dep.status ? `<span class="badge status-badge" style="margin-top: 4px; display: inline-block;">${dep.status.toUpperCase()}</span>` : ''}
             </div>
         `).join('')}
     </div>
@@ -515,7 +699,7 @@ function getBeadDetailHtml(item: BeadItemData): string {
 </html>`;
 }
 
-async function openBead(item: BeadItemData): Promise<void> {
+async function openBead(item: BeadItemData, provider: BeadsTreeDataProvider): Promise<void> {
   const panel = vscode.window.createWebviewPanel(
     'beadDetail',
     item.id,
@@ -527,6 +711,25 @@ async function openBead(item: BeadItemData): Promise<void> {
   );
 
   panel.webview.html = getBeadDetailHtml(item);
+
+  // Handle messages from the webview
+  panel.webview.onDidReceiveMessage(
+    async (message) => {
+      switch (message.command) {
+        case 'updateStatus': {
+          await provider.updateStatus(item, message.status);
+          // Refresh the webview with updated data
+          await provider.refresh();
+          // Find the updated item
+          const updatedItem = provider['items'].find((i: BeadItemData) => i.id === item.id);
+          if (updatedItem) {
+            panel.webview.html = getBeadDetailHtml(updatedItem);
+          }
+          break;
+        }
+      }
+    }
+  );
 }
 
 async function createBead(): Promise<void> {
@@ -557,7 +760,7 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.window.registerTreeDataProvider('beadsExplorer', provider),
     vscode.commands.registerCommand('beads.refresh', () => provider.refresh()),
-    vscode.commands.registerCommand('beads.openBead', (item: BeadItemData) => openBead(item)),
+    vscode.commands.registerCommand('beads.openBead', (item: BeadItemData) => openBead(item, provider)),
     vscode.commands.registerCommand('beads.createBead', () => createBead()),
     vscode.commands.registerCommand('beads.editExternalReference', async (item: BeadItemData) => {
       if (!item) {
