@@ -1987,12 +1987,13 @@ async function visualizeDependencies(provider: BeadsTreeDataProvider): Promise<v
 
 export function activate(context: vscode.ExtensionContext): void {
   const provider = new BeadsTreeDataProvider(context);
+  const treeView = vscode.window.createTreeView('beadsExplorer', {
+    treeDataProvider: provider,
+    dragAndDropController: provider,
+    canSelectMany: true,
+  });
   context.subscriptions.push(
-    vscode.window.createTreeView('beadsExplorer', {
-      treeDataProvider: provider,
-      dragAndDropController: provider,
-      canSelectMany: true,
-    }),
+    treeView,
     vscode.commands.registerCommand('beads.refresh', () => provider.refresh()),
     vscode.commands.registerCommand('beads.search', () => provider.search()),
     vscode.commands.registerCommand('beads.clearSearch', () => provider.clearSearch()),
@@ -2023,6 +2024,59 @@ export function activate(context: vscode.ExtensionContext): void {
       }
 
       await provider.updateExternalReference(item, newValue.trim().length > 0 ? newValue.trim() : undefined);
+    }),
+    vscode.commands.registerCommand('beads.deleteBeads', async () => {
+      // Get selected items from tree view
+      const selection = treeView.selection;
+
+      if (!selection || selection.length === 0) {
+        void vscode.window.showWarningMessage('No beads selected');
+        return;
+      }
+
+      // Build confirmation message with list of beads
+      const beadsList = selection
+        .map(item => `  • ${item.bead.id} - ${item.bead.title}`)
+        .join('\n');
+
+      const message = selection.length === 1
+        ? `Are you sure you want to delete this bead?\n\n${beadsList}`
+        : `Are you sure you want to delete these ${selection.length} beads?\n\n${beadsList}`;
+
+      // Show confirmation dialog
+      const answer = await vscode.window.showWarningMessage(
+        message,
+        { modal: true },
+        'Delete'
+      );
+
+      if (answer !== 'Delete') {
+        return;
+      }
+
+      // Delete each bead
+      const configPath = vscode.workspace.getConfiguration('beads').get<string>('commandPath', 'bd');
+      const projectRoot = vscode.workspace.getConfiguration('beads').get<string>('projectRoot') ||
+        (vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd());
+
+      try {
+        const commandPath = await findBdCommand(configPath);
+
+        // Delete beads one by one
+        for (const item of selection) {
+          await execFileAsync(commandPath, ['delete', item.bead.id, '--force'], { cwd: projectRoot });
+        }
+
+        await provider.refresh();
+
+        const successMessage = selection.length === 1
+          ? `Deleted bead: ${selection[0].bead.id}`
+          : `Deleted ${selection.length} beads`;
+        void vscode.window.showInformationMessage(successMessage);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        void vscode.window.showErrorMessage(`Failed to delete beads: ${errorMessage}`);
+      }
     }),
   );
 

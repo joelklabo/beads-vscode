@@ -65,6 +65,11 @@
         "command": "beads.clearSortOrder",
         "title": "Beads: Clear Manual Sort Order",
         "icon": "$(list-ordered)"
+      },
+      {
+        "command": "beads.deleteBeads",
+        "title": "Beads: Delete",
+        "icon": "$(trash)"
       }
     ],
     "viewsContainers": {
@@ -143,9 +148,27 @@
           "command": "beads.editExternalReference",
           "when": "view == beadsExplorer && viewItem == bead",
           "group": "navigation@1"
+        },
+        {
+          "command": "beads.deleteBeads",
+          "when": "view == beadsExplorer && viewItem == bead",
+          "group": "7_modification@1"
         }
       ]
-    }
+    },
+    "keybindings": [
+      {
+        "command": "beads.deleteBeads",
+        "key": "delete",
+        "mac": "cmd+backspace",
+        "when": "focusedView == beadsExplorer && listHasSelectionOrFocus"
+      },
+      {
+        "command": "beads.deleteBeads",
+        "key": "backspace",
+        "when": "focusedView == beadsExplorer && listHasSelectionOrFocus && !inputFocus"
+      }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
