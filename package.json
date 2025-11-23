@@ -3,7 +3,7 @@
   "displayName": "Beads Project Manager",
   "description": "Manage Beads projects directly from VS Code.",
   "version": "0.0.1",
-  "publisher": "beads",
+  "publisher": "4UtopiaInc",
   "license": "MIT",
   "repository": {
     "type": "git",
