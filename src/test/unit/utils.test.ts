@@ -1,4 +1,5 @@
 import * as assert from 'assert';
+import * as path from 'path';
 import {
   normalizeBead,
   pickValue,
@@ -215,7 +216,7 @@ describe('Utility Functions', () => {
 
     it('should join relative path with project root', () => {
       const result = resolveDataFilePath('.beads/issues.jsonl', '/project');
-      assert.strictEqual(result, '/project/.beads/issues.jsonl');
+      assert.strictEqual(result, path.join('/project', '.beads/issues.jsonl'));
     });
 
     it('should return undefined if dataFile is empty', () => {
