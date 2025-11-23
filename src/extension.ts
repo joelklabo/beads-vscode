@@ -387,12 +387,12 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<BeadTreeItem>, vs
   }
 
   // Drag and drop implementation
-  async handleDrag(source: readonly BeadTreeItem[], dataTransfer: vscode.DataTransfer, _token: vscode.CancellationToken): Promise<void> {
+  async handleDrag(source: readonly BeadTreeItem[], dataTransfer: vscode.DataTransfer, _: vscode.CancellationToken): Promise<void> {
     const items = source.map(item => item.bead);
     dataTransfer.set('application/vnd.code.tree.beadsExplorer', new vscode.DataTransferItem(items));
   }
 
-  async handleDrop(target: BeadTreeItem | undefined, dataTransfer: vscode.DataTransfer, _token: vscode.CancellationToken): Promise<void> {
+  async handleDrop(target: BeadTreeItem | undefined, dataTransfer: vscode.DataTransfer, _: vscode.CancellationToken): Promise<void> {
     const transferItem = dataTransfer.get('application/vnd.code.tree.beadsExplorer');
     if (!transferItem) {
       return;
