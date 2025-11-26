@@ -108,8 +108,10 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<BeadTreeItem>, vs
   }
 
   async refresh(): Promise<void> {
+    console.log('[Provider DEBUG] refresh() called');
     // If a refresh is already in progress, mark that we need another one
     if (this.refreshInProgress) {
+      console.log('[Provider DEBUG] Refresh already in progress, queuing');
       this.pendingRefresh = true;
       return;
     }
@@ -119,6 +121,8 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<BeadTreeItem>, vs
       const result = await loadBeads();
       this.items = result.items;
       this.document = result.document;
+      console.log('[Provider DEBUG] After loadBeads, items count:', this.items.length);
+      console.log('[Provider DEBUG] Items IDs:', this.items.map(i => i.id).slice(0, 10));
       this.ensureWatcher(result.document.filePath);
 
       this.onDidChangeTreeDataEmitter.fire();
@@ -127,6 +131,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<BeadTreeItem>, vs
       this.refreshOpenPanels();
     } catch (error) {
       console.error('Failed to refresh beads', error);
+      console.error('[Provider DEBUG] Refresh error:', error);
       void vscode.window.showErrorMessage(formatError('Unable to refresh beads list', error));
     } finally {
       this.refreshInProgress = false;
@@ -340,9 +345,10 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<BeadTreeItem>, vs
     if (this.debounceTimer) {
       clearTimeout(this.debounceTimer);
     }
+    // Use a longer debounce (1 second) to avoid rapid refreshes from SQLite WAL activity
     this.debounceTimer = setTimeout(() => {
       void this.refresh();
-    }, 200); // 200ms debounce
+    }, 1000);
   }
 
   private ensureWatcher(filePath: string): void {
@@ -353,9 +359,10 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<BeadTreeItem>, vs
     this.disposeWatcher();
 
     try {
-      // Watch the .beads directory for any database file changes
-      // This includes *.db, *.db-wal, and *.db-shm files
-      const pattern = new vscode.RelativePattern(filePath, '*.{db,db-wal,db-shm}');
+      // Only watch the main .db file, not WAL/SHM files
+      // WAL files change constantly during normal SQLite operations and would cause excessive refreshes
+      // The main .db file only changes when WAL checkpoints occur or on direct writes
+      const pattern = new vscode.RelativePattern(filePath, '*.db');
       const watcher = vscode.workspace.createFileSystemWatcher(pattern);
       const onChange = watcher.onDidChange(() => this.debouncedRefresh());
       const onCreate = watcher.onDidCreate(() => this.debouncedRefresh());
@@ -577,6 +584,8 @@ async function loadBeads(): Promise<{ items: BeadItemData[]; document: BeadsDocu
   const projectRoot = resolveProjectRoot(config);
   const configPath = config.get<string>('commandPath', 'bd');
 
+  console.log('[loadBeads DEBUG] Starting loadBeads, projectRoot:', projectRoot);
+
   if (!projectRoot) {
     throw new Error('Unable to resolve project root. Set "beads.projectRoot" or open a workspace folder.');
   }
@@ -584,6 +593,7 @@ async function loadBeads(): Promise<{ items: BeadItemData[]; document: BeadsDocu
   try {
     // Find the bd command
     const commandPath = await findBdCommand(configPath);
+    console.log('[loadBeads DEBUG] Found bd command at:', commandPath);
 
     // Use bd export to get issues with dependencies (JSONL format)
     const { stdout } = await execFileAsync(commandPath, ['export'], {
@@ -591,11 +601,21 @@ async function loadBeads(): Promise<{ items: BeadItemData[]; document: BeadsDocu
       maxBuffer: 10 * 1024 * 1024 // 10MB buffer for large issue lists
     });
 
+    console.log('[loadBeads DEBUG] bd export stdout length:', stdout?.length ?? 0);
+    console.log('[loadBeads DEBUG] bd export stdout preview:', stdout?.substring(0, 500));
+
     // Parse JSONL output (one JSON object per line)
     let beads: any[] = [];
     if (stdout && stdout.trim()) {
       const lines = stdout.trim().split('\n');
+      console.log('[loadBeads DEBUG] Number of JSONL lines:', lines.length);
       beads = lines.map(line => JSON.parse(line));
+      console.log('[loadBeads DEBUG] Parsed beads count:', beads.length);
+      if (beads.length > 0) {
+        console.log('[loadBeads DEBUG] First bead raw:', JSON.stringify(beads[0], null, 2));
+      }
+    } else {
+      console.log('[loadBeads DEBUG] No stdout from bd export');
     }
 
     // Create a document structure for compatibility
@@ -608,6 +628,7 @@ async function loadBeads(): Promise<{ items: BeadItemData[]; document: BeadsDocu
     };
 
     const items = beads.map((entry, index) => normalizeBead(entry, index));
+    console.log('[loadBeads DEBUG] Normalized items count:', items.length);
 
     // Sort items using natural sort (handles numeric parts correctly)
     items.sort(naturalSort);
@@ -616,6 +637,7 @@ async function loadBeads(): Promise<{ items: BeadItemData[]; document: BeadsDocu
   } catch (error: any) {
     // Fallback to reading JSON file if CLI command fails
     console.warn('Failed to load beads via CLI, falling back to file reading:', error.message);
+    console.error('[loadBeads DEBUG] Full error:', error);
     return loadBeadsFromFile(projectRoot, config);
   }
 }
@@ -1266,14 +1288,34 @@ function getBeadDetailHtml(item: BeadItemData, allItems?: BeadItemData[]): strin
 }
 
 function getDependencyTreeHtml(items: BeadItemData[]): string {
+  // DEBUG: Log input to HTML generator
+  console.log('[getDependencyTreeHtml DEBUG] Received items count:', items?.length ?? 'undefined/null');
+
   // Build dependency graph
   const nodeMap = new Map<string, BeadItemData>();
   const edges: Array<{from: string, to: string, type: string}> = [];
 
-  items.forEach(item => {
+  // Handle null/undefined items
+  if (!items || !Array.isArray(items)) {
+    console.error('[getDependencyTreeHtml DEBUG] Items is not a valid array!', typeof items);
+    items = [];
+  }
+
+  items.forEach((item, idx) => {
     nodeMap.set(item.id, item);
     const raw = item.raw as any;
     const dependencies = raw?.dependencies || [];
+
+    // DEBUG: Log dependency info for first few items
+    if (idx < 3) {
+      console.log(`[getDependencyTreeHtml DEBUG] Item ${idx} (${item.id}):`, {
+        title: item.title,
+        status: item.status,
+        hasDependencies: dependencies.length > 0,
+        dependenciesCount: dependencies.length,
+        dependencies: dependencies
+      });
+    }
 
     dependencies.forEach((dep: any) => {
       const depType = dep.dep_type || dep.type || 'related';
@@ -1286,6 +1328,13 @@ function getDependencyTreeHtml(items: BeadItemData[]): string {
         });
       }
     });
+  });
+
+  // DEBUG: Log final graph data
+  console.log('[getDependencyTreeHtml DEBUG] Built graph:', {
+    nodeCount: nodeMap.size,
+    edgeCount: edges.length,
+    edges: edges.slice(0, 5)
   });
 
   // Serialize data for JavaScript, sorted by ID (descending order naturally)
@@ -1530,8 +1579,15 @@ function getDependencyTreeHtml(items: BeadItemData[]): string {
         const nodes = ${nodesJson};
         const edges = ${edgesJson};
 
+        console.log('[Dependency Tree] Script started');
         console.log('[Dependency Tree] Loaded', nodes.length, 'nodes and', edges.length, 'edges');
+        console.log('[Dependency Tree] Nodes:', JSON.stringify(nodes.slice(0, 5)));
         console.log('[Dependency Tree] Edges:', edges);
+
+        // DEBUG: Show visible indicator if nodes exist
+        if (nodes.length === 0) {
+            document.body.innerHTML = '<div style="padding: 40px; text-align: center; color: var(--vscode-errorForeground);"><h2>No beads found</h2><p>The visualizer received 0 nodes. Check the Output panel for debug logs.</p></div>';
+        }
 
         const nodeElements = new Map();
         const nodePositions = new Map();
@@ -1861,8 +1917,15 @@ function getDependencyTreeHtml(items: BeadItemData[]): string {
             isDragging = false;
         });
 
-        // Initial render
-        render();
+        // Initial render with error handling
+        try {
+            console.log('[Dependency Tree] Starting initial render...');
+            render();
+            console.log('[Dependency Tree] Initial render completed');
+        } catch (err) {
+            console.error('[Dependency Tree] Render error:', err);
+            document.body.innerHTML = '<div style="padding: 40px; color: var(--vscode-errorForeground);"><h2>Render Error</h2><pre>' + err.message + '</pre></div>';
+        }
     </script>
 </body>
 </html>`;
@@ -1966,6 +2029,13 @@ async function visualizeDependencies(provider: BeadsTreeDataProvider): Promise<v
 
   // Get all items from the provider
   const items = provider['items'] as BeadItemData[];
+
+  // DEBUG: Log the items being passed to the visualizer
+  console.log('[Visualizer DEBUG] Number of items from provider:', items?.length ?? 'undefined');
+  console.log('[Visualizer DEBUG] Items array:', JSON.stringify(items?.slice(0, 3), null, 2)); // First 3 items
+  if (items && items.length > 0) {
+    console.log('[Visualizer DEBUG] First item raw data:', JSON.stringify(items[0]?.raw, null, 2));
+  }
 
   panel.webview.html = getDependencyTreeHtml(items);
 
