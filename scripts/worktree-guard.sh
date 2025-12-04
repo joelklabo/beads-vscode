@@ -18,10 +18,13 @@ err() { echo "$*" >&2; }
 
 acquire_lock() {
   if command -v flock >/dev/null 2>&1; then
-    flock -w 5 "$LOCK_FILE" "$@" || {
-      err "worktree-guard: failed to acquire lock $LOCK_FILE"
-      exit 1
-    }
+    (
+      flock -w 5 9 || {
+        err "worktree-guard: failed to acquire lock $LOCK_FILE"
+        exit 1
+      }
+      "$@"
+    ) 9>"$LOCK_FILE"
     return
   fi
 
