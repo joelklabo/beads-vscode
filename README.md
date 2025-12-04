@@ -128,6 +128,10 @@ npm run lint
 
 See [TESTING.md](TESTING.md) for more information about the test infrastructure.
 
+### Multi-Agent Workflow
+
+For the hardened worktree-based multi-agent flow (atomic claims, merge queue, heartbeats, WAL), see [docs/MULTI_AGENT_ORCHESTRATION.md](docs/MULTI_AGENT_ORCHESTRATION.md).
+
 ### Running the Extension
 
 Launch the extension using the **Run > Start Debugging** command in VS Code. This will open a new Extension Development Host window with the Beads explorer view.
