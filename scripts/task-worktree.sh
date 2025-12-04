@@ -22,6 +22,7 @@ NC='\033[0m' # No Color
 
 # Default timeouts (can be tuned via env)
 LOCK_TIMEOUT_SECONDS="${LOCK_TIMEOUT_SECONDS:-15}"
+CLAIM_LOCK_TIMEOUT_SECONDS="${CLAIM_LOCK_TIMEOUT_SECONDS:-30}"
 HEARTBEAT_INTERVAL_SECONDS="${HEARTBEAT_INTERVAL_SECONDS:-10}"
 HEARTBEAT_STALE_SECONDS="${HEARTBEAT_STALE_SECONDS:-300}"
 
@@ -61,12 +62,20 @@ enable_wal_mode() {
 # Execute a command while holding an exclusive flock lock
 with_lock() {
   local lock_file="$1"; shift
+  local timeout="$LOCK_TIMEOUT_SECONDS"
+
+  # Optional override: with_lock <lock> <timeout> <cmd>...
+  if [[ "$1" =~ ^[0-9]+$ ]]; then
+    timeout="$1"
+    shift
+  fi
+
   mkdir -p "$(dirname "$lock_file")"
   if command -v flock >/dev/null 2>&1; then
     local lock_fd=200
     eval "exec ${lock_fd}>\"$lock_file\""
-    if ! flock -w "$LOCK_TIMEOUT_SECONDS" "$lock_fd"; then
-      log_error "Timeout acquiring lock: $lock_file"
+    if ! flock -w "$timeout" "$lock_fd"; then
+      log_error "Timeout acquiring lock after ${timeout}s: $lock_file"
       return 1
     fi
     set +e
@@ -81,8 +90,8 @@ with_lock() {
     local start_ts=$SECONDS
     local fallback_lock="${lock_file}.dlock"
     while ! mkdir "$fallback_lock" 2>/dev/null; do
-      if (( SECONDS - start_ts >= LOCK_TIMEOUT_SECONDS )); then
-        log_error "Timeout acquiring lock (fallback): $lock_file"
+      if (( SECONDS - start_ts >= timeout )); then
+        log_error "Timeout acquiring lock (fallback) after ${timeout}s: $lock_file"
         return 1
       fi
       sleep 0.2
@@ -151,6 +160,41 @@ verify_task_claimable() {
   return 0
 }
 
+# Verify then mark a task in_progress (returns 99 if rejected)
+claim_task_update() {
+  local task_id="$1"; local worker="$2"
+  if ! verify_task_claimable "$task_id" "$worker"; then
+    return 99
+  fi
+  npx bd update "$task_id" --status in_progress --assignee "$worker" --actor "$worker"
+}
+
+# Atomic claim wrapper using flock (or fallback) with configurable timeout
+claim_task_atomic() {
+  local task_id="$1"; local worker="$2"; local lock_file="$3"; local timeout="${4:-$CLAIM_LOCK_TIMEOUT_SECONDS}"
+  if [[ -z "$lock_file" ]]; then
+    lock_file="$(get_beads_dir)/claim.lock"
+  fi
+
+  if ! with_lock "$lock_file" "$timeout" claim_task_update "$task_id" "$worker"; then
+    local rc=$?
+    case "$rc" in
+      1)
+        log_error "Could not acquire claim lock within ${timeout}s at $lock_file"
+        ;;
+      99)
+        log_warn "Claim rejected: task $task_id is already in progress"
+        ;;
+      *)
+        log_warn "Failed to update task status for $task_id"
+        ;;
+    esac
+    return $rc
+  fi
+
+  return 0
+}
+
 # Verify we're in a worktree, not the main repo
 verify_in_worktree() {
   local expected_task="$1"
@@ -215,6 +259,7 @@ case "$COMMAND" in
     MAIN_REPO=$(get_main_repo)
     BEADS_DIR_PATH=$(get_beads_dir)
     LOCK_DIR="${BEADS_DIR_PATH}/locks"
+    CLAIM_LOCK_FILE="${BEADS_DIR_PATH}/claim.lock"
     HEARTBEAT_DIR="${BEADS_DIR_PATH}/heartbeats"
     export_beads_env "$BEADS_DIR_PATH"
     enable_wal_mode "$BEADS_DIR_PATH"
@@ -273,23 +318,17 @@ case "$COMMAND" in
       cd "$WORKTREE_PATH"
     fi
 
+    # Ensure a lock file exists for atomic claims
+    touch "$CLAIM_LOCK_FILE" 2>/dev/null || true
+
     # Link the shared beads database into the worktree for local bd commands
     if [[ ! -e .beads ]]; then
       ln -s "$BEADS_DIR_PATH" .beads
     fi
     
-    # Helper used inside locks for claim validation/update
-    claim_task() {
-      local task_id="$1"; local worker="$2"
-      if ! verify_task_claimable "$task_id" "$worker"; then
-        return 99
-      fi
-      npx bd update "$task_id" --status in_progress --assignee "$worker" --actor "$worker"
-    }
-
     # Re-verify task is still claimable (double-check after worktree setup)
     log_step "Re-verifying task claim (double-check)..."
-    if ! with_lock "${LOCK_DIR}/claim.lock" verify_task_claimable "$TASK_ID" "$WORKER"; then
+    if ! with_lock "$CLAIM_LOCK_FILE" "$CLAIM_LOCK_TIMEOUT_SECONDS" verify_task_claimable "$TASK_ID" "$WORKER"; then
       log_error "Task was claimed by another agent while setting up worktree!"
       log_step "Cleaning up worktree..."
       cd "$MAIN_REPO"
@@ -310,13 +349,7 @@ case "$COMMAND" in
     
     # Update task status in bd - this is the official claim (atomic with lock)
     log_step "Claiming task (marking as in_progress)..."
-    if ! with_lock "${LOCK_DIR}/claim.lock" claim_task "$TASK_ID" "$WORKER"; then
-      rc=$?
-      if [[ $rc -eq 99 ]]; then
-        log_warn "Claim rejected: task already in progress elsewhere"
-      else
-        log_warn "Could not update task status in bd (lock busy or bd error)"
-      fi
+    if ! claim_task_atomic "$TASK_ID" "$WORKER" "$CLAIM_LOCK_FILE" "$CLAIM_LOCK_TIMEOUT_SECONDS"; then
       exit 1
     fi
 
