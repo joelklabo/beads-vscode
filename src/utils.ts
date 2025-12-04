@@ -16,6 +16,8 @@ export interface BeadItemData {
   blockingDepsCount?: number;
   /** Timestamp when the task entered in_progress status (for stale detection) */
   inProgressSince?: string;
+  /** Issue type (epic, task, bug, feature, chore, spike) */
+  issueType?: string;
 }
 
 export function pickValue(entry: any, keys: string[], fallback?: string): string | undefined {
@@ -86,6 +88,7 @@ export function normalizeBead(entry: any, index = 0): BeadItemData {
   const status = pickValue(entry, ['status', 'state']);
   const tags = pickTags(entry);
   const updatedAt = pickValue(entry, ['updated_at', 'updatedAt', 'modified_at', 'modifiedAt']);
+  const issueType = pickValue(entry, ['issue_type', 'issueType', 'type']);
   const { value: externalReferenceRaw, key: externalReferenceKey } = pickFirstKey(entry, [
     'external_reference_id',
     'externalReferenceId',
@@ -133,6 +136,7 @@ export function normalizeBead(entry: any, index = 0): BeadItemData {
     raw: entry,
     blockingDepsCount,
     inProgressSince,
+    issueType,
   };
 }
 

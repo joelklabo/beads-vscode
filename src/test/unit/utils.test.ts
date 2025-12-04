@@ -183,6 +183,45 @@ describe('Utility Functions', () => {
       assert.strictEqual(result.status, 'closed');
       assert.strictEqual(result.externalReferenceId, 'REF-456');
     });
+
+    it('should extract issueType from issue_type field', () => {
+      const entry = {
+        id: 'BEAD-1',
+        title: 'Test Epic',
+        issue_type: 'epic'
+      };
+      const result = normalizeBead(entry, 0);
+      assert.strictEqual(result.issueType, 'epic');
+    });
+
+    it('should extract issueType from issueType field', () => {
+      const entry = {
+        id: 'BEAD-1',
+        title: 'Test Task',
+        issueType: 'task'
+      };
+      const result = normalizeBead(entry, 0);
+      assert.strictEqual(result.issueType, 'task');
+    });
+
+    it('should extract issueType from type field', () => {
+      const entry = {
+        id: 'BEAD-1',
+        title: 'Test Bug',
+        type: 'bug'
+      };
+      const result = normalizeBead(entry, 0);
+      assert.strictEqual(result.issueType, 'bug');
+    });
+
+    it('should handle missing issueType gracefully', () => {
+      const entry = {
+        id: 'BEAD-1',
+        title: 'No Type'
+      };
+      const result = normalizeBead(entry, 0);
+      assert.strictEqual(result.issueType, undefined);
+    });
   });
 
   describe('extractBeads', () => {
