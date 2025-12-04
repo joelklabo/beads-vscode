@@ -753,6 +753,98 @@ async function saveBeadsDocument(document: BeadsDocument): Promise<void> {
   }
 }
 
+interface DependencyTreeNode {
+  id: string;
+  title: string;
+  status: string;
+  isCurrent: boolean;
+  children: DependencyTreeNode[];
+}
+
+function buildDependencyTree(
+  itemId: string,
+  allItems: BeadItemData[],
+  direction: 'upstream' | 'downstream',
+  visited: Set<string> = new Set()
+): DependencyTreeNode | null {
+  if (visited.has(itemId)) {
+    return null; // Prevent cycles
+  }
+  visited.add(itemId);
+
+  const item = allItems.find(i => i.id === itemId);
+  if (!item) {
+    return null;
+  }
+
+  const raw = item.raw as any;
+  const children: DependencyTreeNode[] = [];
+
+  if (direction === 'upstream') {
+    // Find issues this one depends on (upstream)
+    const dependencies = raw?.dependencies || [];
+    for (const dep of dependencies) {
+      const targetId = dep.depends_on_id || dep.id || dep.issue_id;
+      if (targetId) {
+        const childNode = buildDependencyTree(targetId, allItems, direction, new Set(visited));
+        if (childNode) {
+          children.push(childNode);
+        }
+      }
+    }
+  } else {
+    // Find issues that depend on this one (downstream)
+    for (const otherItem of allItems) {
+      const otherRaw = otherItem.raw as any;
+      const otherDeps = otherRaw?.dependencies || [];
+      for (const dep of otherDeps) {
+        const targetId = dep.depends_on_id || dep.id || dep.issue_id;
+        if (targetId === itemId) {
+          const childNode = buildDependencyTree(otherItem.id, allItems, direction, new Set(visited));
+          if (childNode) {
+            children.push(childNode);
+          }
+        }
+      }
+    }
+  }
+
+  return {
+    id: item.id,
+    title: item.title,
+    status: item.status || 'open',
+    isCurrent: false,
+    children
+  };
+}
+
+function renderTreeHtml(node: DependencyTreeNode, currentId: string, isLast: boolean = true, prefix: string = ''): string {
+  const isCurrent = node.id === currentId;
+  const statusColors: Record<string, string> = {
+    'open': '#3794ff',
+    'in_progress': '#f9c513',
+    'blocked': '#f14c4c',
+    'closed': '#73c991'
+  };
+  const statusColor = statusColors[node.status] || '#666';
+  const connector = isLast ? '└── ' : '├── ';
+  const childPrefix = prefix + (isLast ? '    ' : '│   ');
+  
+  let html = `<div class="tree-node ${isCurrent ? 'current-node' : ''}" data-issue-id="${node.id}">`;
+  html += `<span class="tree-prefix">${prefix}${connector}</span>`;
+  html += `<span class="tree-status-dot" style="background-color: ${statusColor};"></span>`;
+  html += `<span class="tree-id">${node.id}</span>`;
+  html += `<span class="tree-title">${escapeHtml(node.title)}</span>`;
+  html += `</div>`;
+
+  node.children.forEach((child, index) => {
+    const isChildLast = index === node.children.length - 1;
+    html += renderTreeHtml(child, currentId, isChildLast, childPrefix);
+  });
+
+  return html;
+}
+
 function getBeadDetailHtml(item: BeadItemData, allItems?: BeadItemData[]): string {
   const raw = item.raw as any;
   const description = raw?.description || '';
@@ -767,6 +859,38 @@ function getBeadDetailHtml(item: BeadItemData, allItems?: BeadItemData[]): strin
   const dependencies = raw?.dependencies || [];
   const assignee = raw?.assignee || '';
   const labels = raw?.labels || [];
+
+  // Build dependency trees for visualization
+  let dependencyTreeHtml = '';
+  if (allItems && allItems.length > 0) {
+    const upstreamTree = buildDependencyTree(item.id, allItems, 'upstream');
+    const downstreamTree = buildDependencyTree(item.id, allItems, 'downstream');
+    
+    const hasUpstream = upstreamTree && upstreamTree.children.length > 0;
+    const hasDownstream = downstreamTree && downstreamTree.children.length > 0;
+    
+    if (hasUpstream || hasDownstream) {
+      dependencyTreeHtml = `
+        <div class="dependency-tree-section">
+            <div class="dependency-tree-header" id="treeHeader">
+                <span class="tree-toggle" id="treeToggle">▼</span>
+                <span class="section-title" style="margin: 0;">Dependency Tree</span>
+            </div>
+            <div class="dependency-tree-container" id="treeContainer">`;
+      
+      if (hasUpstream) {
+        dependencyTreeHtml += `<div class="tree-direction-label">↑ Depends On (upstream)</div>`;
+        dependencyTreeHtml += renderTreeHtml(upstreamTree!, item.id, true, '');
+      }
+      
+      if (hasDownstream) {
+        dependencyTreeHtml += `<div class="tree-direction-label">↓ Blocked By This (downstream)</div>`;
+        dependencyTreeHtml += renderTreeHtml(downstreamTree!, item.id, true, '');
+      }
+      
+      dependencyTreeHtml += `</div></div>`;
+    }
+  }
 
   // Separate outgoing dependencies (this issue depends on) from incoming (this issue blocks)
   const dependsOn: any[] = [];
@@ -1060,6 +1184,81 @@ function getBeadDetailHtml(item: BeadItemData, allItems?: BeadItemData[]): strin
             color: var(--vscode-textLink-activeForeground);
             text-decoration: underline;
         }
+        .dependency-tree-section {
+            margin: 24px 0;
+        }
+        .dependency-tree-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .dependency-tree-header:hover {
+            opacity: 0.8;
+        }
+        .tree-toggle {
+            font-size: 12px;
+            transition: transform 0.2s;
+        }
+        .tree-toggle.collapsed {
+            transform: rotate(-90deg);
+        }
+        .dependency-tree-container {
+            font-family: monospace;
+            font-size: 13px;
+            line-height: 1.8;
+            padding: 12px;
+            background-color: var(--vscode-textBlockQuote-background);
+            border-radius: 4px;
+            margin-top: 12px;
+            overflow-x: auto;
+        }
+        .dependency-tree-container.collapsed {
+            display: none;
+        }
+        .tree-node {
+            white-space: nowrap;
+            cursor: pointer;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+        .tree-node:hover {
+            background-color: var(--vscode-list-hoverBackground);
+        }
+        .tree-node.current-node {
+            background-color: var(--vscode-editor-selectionBackground);
+            font-weight: 600;
+        }
+        .tree-prefix {
+            color: var(--vscode-descriptionForeground);
+        }
+        .tree-status-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 6px;
+        }
+        .tree-id {
+            color: var(--vscode-textLink-foreground);
+            margin-right: 8px;
+        }
+        .tree-title {
+            color: var(--vscode-foreground);
+        }
+        .tree-direction-label {
+            font-size: 11px;
+            color: var(--vscode-descriptionForeground);
+            text-transform: uppercase;
+            font-weight: 600;
+            margin: 16px 0 8px 0;
+            padding-bottom: 4px;
+            border-bottom: 1px solid var(--vscode-panel-border);
+        }
+        .tree-direction-label:first-child {
+            margin-top: 0;
+        }
     </style>
 </head>
 <body>
@@ -1162,6 +1361,8 @@ function getBeadDetailHtml(item: BeadItemData, allItems?: BeadItemData[]): strin
     </div>
     ` : ''}
 
+    ${dependencyTreeHtml}
+
     <script>
         const vscode = acquireVsCodeApi();
         let isEditMode = false;
@@ -1176,6 +1377,32 @@ function getBeadDetailHtml(item: BeadItemData, allItems?: BeadItemData[]): strin
         const addLabelButton = document.getElementById('addLabelButton');
         const inReviewButtonText = document.getElementById('inReviewButtonText');
         const labelsContainer = document.getElementById('labelsContainer');
+
+        // Dependency tree toggle
+        const treeHeader = document.getElementById('treeHeader');
+        const treeToggle = document.getElementById('treeToggle');
+        const treeContainer = document.getElementById('treeContainer');
+        
+        if (treeHeader && treeToggle && treeContainer) {
+            treeHeader.addEventListener('click', () => {
+                treeToggle.classList.toggle('collapsed');
+                treeContainer.classList.toggle('collapsed');
+            });
+        }
+
+        // Tree node clicks - navigate to that issue
+        document.querySelectorAll('.tree-node').forEach(node => {
+            node.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const issueId = node.getAttribute('data-issue-id');
+                if (issueId && issueId !== '${item.id}') {
+                    vscode.postMessage({
+                        command: 'openBead',
+                        beadId: issueId
+                    });
+                }
+            });
+        });
 
         let originalTitle = issueTitle.textContent;
 
