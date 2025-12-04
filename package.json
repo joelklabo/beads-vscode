@@ -30,78 +30,78 @@
     "commands": [
       {
         "command": "beads.refresh",
-        "title": "Beads: Refresh",
+        "title": "%command.beads.refresh%",
         "icon": "$(refresh)"
       },
       {
         "command": "beads.search",
-        "title": "Beads: Search",
+        "title": "%command.beads.search%",
         "icon": "$(search)"
       },
       {
         "command": "beads.clearSearch",
-        "title": "Beads: Clear Search",
+        "title": "%command.beads.clearSearch%",
         "icon": "$(clear-all)"
       },
       {
         "command": "beads.openBead",
-        "title": "Beads: Open"
+        "title": "%command.beads.openBead%"
       },
       {
         "command": "beads.createBead",
-        "title": "Beads: Create",
+        "title": "%command.beads.createBead%",
         "icon": "$(add)"
       },
       {
         "command": "beads.editExternalReference",
-        "title": "Beads: Edit External Reference"
+        "title": "%command.beads.editExternalReference%"
       },
       {
         "command": "beads.visualizeDependencies",
-        "title": "Beads: Visualize Dependencies",
+        "title": "%command.beads.visualizeDependencies%",
         "icon": "$(graph)"
       },
       {
         "command": "beads.clearSortOrder",
-        "title": "Beads: Clear Manual Sort Order",
+        "title": "%command.beads.clearSortOrder%",
         "icon": "$(list-ordered)"
       },
       {
         "command": "beads.toggleSortMode",
-        "title": "Beads: Cycle Sort Mode (ID → Status → Epic)",
+        "title": "%command.beads.toggleSortMode%",
         "icon": "$(list-tree)"
       },
       {
         "command": "beads.refreshActivityFeed",
-        "title": "Beads: Refresh Activity Feed",
+        "title": "%command.beads.refreshActivityFeed%",
         "icon": "$(refresh)"
       },
       {
         "command": "beads.filterActivityFeed",
-        "title": "Beads: Filter Activity Feed",
+        "title": "%command.beads.filterActivityFeed%",
         "icon": "$(filter)"
       },
       {
         "command": "beads.clearActivityFeedFilter",
-        "title": "Beads: Clear Activity Feed Filter",
+        "title": "%command.beads.clearActivityFeedFilter%",
         "icon": "$(clear-all)"
       },
       {
         "command": "beads.activityFeed.openEvent",
-        "title": "Beads: Open Activity Feed Item"
+        "title": "%command.beads.activityFeed.openEvent%"
       },
       {
         "command": "beads.activityFeed.openSelected",
-        "title": "Beads: Open Selected Activity Feed Item"
+        "title": "%command.beads.activityFeed.openSelected%"
       },
       {
         "command": "beads.openActivityFeedPanel",
-        "title": "Beads: Open Activity Feed Panel",
+        "title": "%command.beads.openActivityFeedPanel%",
         "icon": "$(timeline-open)"
       },
       {
         "command": "beads.deleteBeads",
-        "title": "Beads: Delete",
+        "title": "%command.beads.deleteBeads%",
         "icon": "$(trash)"
       }
     ],

@@ -1,0 +1,18 @@
+{
+  "command.beads.refresh": "Beads: Refresh",
+  "command.beads.search": "Beads: Search",
+  "command.beads.clearSearch": "Beads: Clear Search",
+  "command.beads.openBead": "Beads: Open",
+  "command.beads.createBead": "Beads: Create",
+  "command.beads.editExternalReference": "Beads: Edit External Reference",
+  "command.beads.visualizeDependencies": "Beads: Visualize Dependencies",
+  "command.beads.clearSortOrder": "Beads: Clear Manual Sort Order",
+  "command.beads.toggleSortMode": "Beads: Cycle Sort Mode (ID → Status → Epic)",
+  "command.beads.refreshActivityFeed": "Beads: Refresh Activity Feed",
+  "command.beads.filterActivityFeed": "Beads: Filter Activity Feed",
+  "command.beads.clearActivityFeedFilter": "Beads: Clear Activity Feed Filter",
+  "command.beads.activityFeed.openEvent": "Beads: Open Activity Feed Item",
+  "command.beads.activityFeed.openSelected": "Beads: Open Selected Activity Feed Item",
+  "command.beads.openActivityFeedPanel": "Beads: Open Activity Feed Panel",
+  "command.beads.deleteBeads": "Beads: Delete"
+}

@@ -29,6 +29,8 @@ import {
 } from './providers/beads/store';
 
 const execFileAsync = promisify(execFile);
+const t = vscode.l10n.t;
+const PROJECT_ROOT_ERROR = t('Unable to resolve project root. Set "beads.projectRoot" or open a workspace folder.');
 
 function createNonce(): string {
   return Math.random().toString(36).slice(2, 15) + Math.random().toString(36).slice(2, 15);
@@ -42,7 +44,7 @@ async function runWorktreeGuard(projectRoot: string): Promise<void> {
   if (!guardEnabled) {
     if (!guardWarningShown) {
       guardWarningShown = true;
-      void vscode.window.showWarningMessage('Worktree guard disabled; operations may be unsafe.');
+      void vscode.window.showWarningMessage(t('Worktree guard disabled; operations may be unsafe.'));
     }
     return;
   }
@@ -67,7 +69,7 @@ async function runBdCommand(args: string[], projectRoot: string, options: BdComm
   const requireGuard = options.requireGuard !== false;
 
   if (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0 && !workspaceFolder) {
-    throw new Error(`Project root ${projectRoot} is not within an open workspace folder`);
+    throw new Error(t('Project root {0} is not within an open workspace folder', projectRoot));
   }
 
   if (requireGuard) {
@@ -400,7 +402,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     } catch (error) {
       console.error('Failed to refresh beads', error);
       console.error('[Provider DEBUG] Refresh error:', error);
-      void vscode.window.showErrorMessage(formatError('Unable to refresh beads list', error));
+      void vscode.window.showErrorMessage(formatError(t('Unable to refresh beads list'), error));
     } finally {
       this.refreshInProgress = false;
 
@@ -460,8 +462,8 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
 
   async search(): Promise<void> {
     const query = await vscode.window.showInputBox({
-      prompt: 'Search beads by ID, title, description, labels, status, etc.',
-      placeHolder: 'Enter search query',
+      prompt: t('Search beads by ID, title, description, labels, status, etc.'),
+      placeHolder: t('Enter search query'),
       value: this.searchQuery,
     });
 
@@ -474,24 +476,24 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
 
     if (this.searchQuery) {
       const count = this.filterItems(this.items).length;
-      void vscode.window.showInformationMessage(`Found ${count} bead(s) matching "${this.searchQuery}"`);
+      void vscode.window.showInformationMessage(t('Found {0} bead(s) matching "{1}"', count, this.searchQuery));
     }
   }
 
   clearSearch(): void {
     this.searchQuery = '';
     this.onDidChangeTreeDataEmitter.fire();
-    void vscode.window.showInformationMessage('Search cleared');
+    void vscode.window.showInformationMessage(t('Search cleared'));
   }
 
   async updateExternalReference(item: BeadItemData, newValue: string | undefined): Promise<void> {
     if (!this.document) {
-      void vscode.window.showErrorMessage('Beads data is not loaded yet. Try refreshing the explorer.');
+      void vscode.window.showErrorMessage(t('Beads data is not loaded yet. Try refreshing the explorer.'));
       return;
     }
 
     if (!item.raw || typeof item.raw !== 'object') {
-      void vscode.window.showErrorMessage('Unable to update this bead entry because its data is not editable.');
+      void vscode.window.showErrorMessage(t('Unable to update this bead entry because its data is not editable.'));
       return;
     }
 
@@ -509,7 +511,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
       await this.refresh();
     } catch (error) {
       console.error('Failed to persist beads document', error);
-      void vscode.window.showErrorMessage(formatError('Failed to save beads data file', error));
+      void vscode.window.showErrorMessage(formatError(t('Failed to save beads data file'), error));
     }
   }
 
@@ -518,17 +520,17 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     const projectRoot = resolveProjectRoot(config);
 
     if (!projectRoot) {
-      void vscode.window.showErrorMessage('Unable to resolve project root. Set "beads.projectRoot" or open a workspace folder.');
+      void vscode.window.showErrorMessage(PROJECT_ROOT_ERROR);
       return;
     }
 
     try {
       await runBdCommand(['update', item.id, '--status', newStatus], projectRoot);
       await this.refresh();
-      void vscode.window.showInformationMessage(`Updated status to: ${newStatus}`);
+      void vscode.window.showInformationMessage(t('Updated status to: {0}', newStatus));
     } catch (error) {
       console.error('Failed to update status', error);
-      void vscode.window.showErrorMessage(formatError('Failed to update status', error));
+      void vscode.window.showErrorMessage(formatError(t('Failed to update status'), error));
     }
   }
 
@@ -537,17 +539,17 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     const projectRoot = resolveProjectRoot(config);
 
     if (!projectRoot) {
-      void vscode.window.showErrorMessage('Unable to resolve project root. Set "beads.projectRoot" or open a workspace folder.');
+      void vscode.window.showErrorMessage(PROJECT_ROOT_ERROR);
       return;
     }
 
     try {
       await runBdCommand(['update', item.id, '--title', newTitle], projectRoot);
       await this.refresh();
-      void vscode.window.showInformationMessage(`Updated title to: ${newTitle}`);
+      void vscode.window.showInformationMessage(t('Updated title to: {0}', newTitle));
     } catch (error) {
       console.error('Failed to update title', error);
-      void vscode.window.showErrorMessage(formatError('Failed to update title', error));
+      void vscode.window.showErrorMessage(formatError(t('Failed to update title'), error));
     }
   }
 
@@ -556,17 +558,17 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     const projectRoot = resolveProjectRoot(config);
 
     if (!projectRoot) {
-      void vscode.window.showErrorMessage('Unable to resolve project root. Set "beads.projectRoot" or open a workspace folder.');
+      void vscode.window.showErrorMessage(PROJECT_ROOT_ERROR);
       return;
     }
 
     try {
       await runBdCommand(['label', 'add', item.id, label], projectRoot);
       await this.refresh();
-      void vscode.window.showInformationMessage(`Added label: ${label}`);
+      void vscode.window.showInformationMessage(t('Added label: {0}', label));
     } catch (error) {
       console.error('Failed to add label', error);
-      void vscode.window.showErrorMessage(formatError('Failed to add label', error));
+      void vscode.window.showErrorMessage(formatError(t('Failed to add label'), error));
     }
   }
 
@@ -575,17 +577,17 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     const projectRoot = resolveProjectRoot(config);
 
     if (!projectRoot) {
-      void vscode.window.showErrorMessage('Unable to resolve project root. Set "beads.projectRoot" or open a workspace folder.');
+      void vscode.window.showErrorMessage(PROJECT_ROOT_ERROR);
       return;
     }
 
     try {
       await runBdCommand(['label', 'remove', item.id, label], projectRoot);
       await this.refresh();
-      void vscode.window.showInformationMessage(`Removed label: ${label}`);
+      void vscode.window.showInformationMessage(t('Removed label: {0}', label));
     } catch (error) {
       console.error('Failed to remove label', error);
-      void vscode.window.showErrorMessage(formatError('Failed to remove label', error));
+      void vscode.window.showErrorMessage(formatError(t('Failed to remove label'), error));
     }
   }
 
@@ -595,7 +597,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
 
     treeItem.command = {
       command: 'beads.openBead',
-      title: 'Open Bead',
+      title: t('Open Bead'),
       arguments: [item],
     };
 
@@ -737,7 +739,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     this.manualSortOrder.clear();
     void this.context.workspaceState.update('beads.manualSortOrder', undefined);
     this.onDidChangeTreeDataEmitter.fire();
-    void vscode.window.showInformationMessage('Manual sort order cleared');
+    void vscode.window.showInformationMessage(t('Manual sort order cleared'));
   }
 
   private loadSortMode(): void {
@@ -847,9 +849,9 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     }
     this.saveSortMode();
     this.onDidChangeTreeDataEmitter.fire();
-    const modeDisplay = this.sortMode === 'id' ? 'ID (natural)' : 
-                        this.sortMode === 'status' ? 'Status' : 'Epic';
-    void vscode.window.showInformationMessage(`Sort mode: ${modeDisplay}`);
+    const modeDisplay = this.sortMode === 'id' ? t('ID (natural)') : 
+                        this.sortMode === 'status' ? t('Status') : t('Epic');
+    void vscode.window.showInformationMessage(t('Sort mode: {0}', modeDisplay));
   }
 
   getSortMode(): 'id' | 'status' | 'epic' {
@@ -2461,7 +2463,7 @@ async function openBead(item: BeadItemData, provider: BeadsTreeDataProvider): Pr
     const validated = validateLittleGlenMessage(message, allowedCommands);
     if (!validated) {
       console.warn('[Little Glen] Ignoring invalid panel message');
-      void vscode.window.showWarningMessage('Ignored invalid request from Little Glen panel.');
+      void vscode.window.showWarningMessage(t('Ignored invalid request from Little Glen panel.'));
       return;
     }
 
@@ -2483,7 +2485,7 @@ async function openBead(item: BeadItemData, provider: BeadsTreeDataProvider): Pr
         if (targetBead) {
           await openBead(targetBead, provider);
         } else {
-          void vscode.window.showWarningMessage(`Issue ${validated.beadId} not found`);
+          void vscode.window.showWarningMessage(t('Issue {0} not found', validated.beadId));
         }
         return;
       }
@@ -2508,7 +2510,7 @@ async function openBeadFromFeed(
 
   if (!target) {
     console.warn(`[ActivityFeed] Issue ${issueId} not found when opening from feed`);
-    void vscode.window.showWarningMessage(`Issue ${issueId} no longer exists or is not loaded.`);
+    void vscode.window.showWarningMessage(t('Issue {0} no longer exists or is not loaded.', issueId));
     return false;
   }
 
@@ -2517,15 +2519,15 @@ async function openBeadFromFeed(
     return true;
   } catch (error) {
     console.error(`[ActivityFeed] Failed to open issue ${issueId} from feed:`, error);
-    void vscode.window.showErrorMessage(formatError('Failed to open issue from activity feed', error));
+    void vscode.window.showErrorMessage(formatError(t('Failed to open issue from activity feed'), error));
     return false;
   }
 }
 
 async function createBead(): Promise<void> {
   const name = await vscode.window.showInputBox({
-    prompt: 'Enter a title for the new bead',
-    placeHolder: 'Implement feature X',
+    prompt: t('Enter a title for the new bead'),
+    placeHolder: t('Implement feature X'),
   });
 
   if (!name) {
@@ -2538,16 +2540,16 @@ async function createBead(): Promise<void> {
   try {
     await runBdCommand(['create', name], projectRoot!);
     void vscode.commands.executeCommand('beads.refresh');
-    void vscode.window.showInformationMessage(`Created bead: ${name}`);
+    void vscode.window.showInformationMessage(t('Created bead: {0}', name));
   } catch (error) {
-    void vscode.window.showErrorMessage(formatError('Failed to create bead', error));
+    void vscode.window.showErrorMessage(formatError(t('Failed to create bead'), error));
   }
 }
 
 async function visualizeDependencies(provider: BeadsTreeDataProvider): Promise<void> {
   const panel = vscode.window.createWebviewPanel(
     'beadDependencyTree',
-    'Beads Dependency Tree',
+    t('Beads Dependency Tree'),
     vscode.ViewColumn.One,
     {
       enableScripts: true,
@@ -2580,7 +2582,7 @@ async function visualizeDependencies(provider: BeadsTreeDataProvider): Promise<v
       if (item) {
         await openBead(item, provider);
       } else {
-        void vscode.window.showWarningMessage(`Issue ${validated.beadId} not found`);
+        void vscode.window.showWarningMessage(t('Issue {0} not found', validated.beadId));
       }
     }
   });
@@ -2823,7 +2825,7 @@ function getActivityFeedPanelHtml(events: import('./activityFeed').EventData[]):
 async function openActivityFeedPanel(activityFeedProvider: ActivityFeedTreeDataProvider, beadsProvider: BeadsTreeDataProvider): Promise<void> {
   const panel = vscode.window.createWebviewPanel(
     'activityFeedPanel',
-    'Activity Feed',
+    t('Activity Feed'),
     vscode.ViewColumn.One,
     {
       enableScripts: true,
@@ -2856,7 +2858,7 @@ async function openActivityFeedPanel(activityFeedProvider: ActivityFeedTreeDataP
         await openBead(item, beadsProvider);
       } else {
         // If item not found in current view, just show a message
-        void vscode.window.showInformationMessage(`Opening issue ${validated.beadId}`);
+        void vscode.window.showInformationMessage(t('Opening issue {0}', validated.beadId));
       }
     }
   });
@@ -2926,55 +2928,55 @@ export function activate(context: vscode.ExtensionContext): void {
     // Activity Feed commands
     vscode.commands.registerCommand('beads.refreshActivityFeed', () => activityFeedProvider.refresh()),
     vscode.commands.registerCommand('beads.filterActivityFeed', async () => {
-      const options: vscode.QuickPickItem[] = [
-        { label: 'All Events', description: 'Show all event types' },
-        { label: 'Created', description: 'Show issue creation events' },
-        { label: 'Closed', description: 'Show issue closed events' },
-        { label: 'Status Changes', description: 'Show status change events' },
-        { label: 'Dependencies', description: 'Show dependency events' },
-        { label: 'Today', description: 'Show events from today' },
-        { label: 'This Week', description: 'Show events from this week' },
-        { label: 'This Month', description: 'Show events from this month' },
+      const options: Array<vscode.QuickPickItem & { value: string }> = [
+        { label: t('All Events'), description: t('Show all event types'), value: 'all' },
+        { label: t('Created'), description: t('Show issue creation events'), value: 'created' },
+        { label: t('Closed'), description: t('Show issue closed events'), value: 'closed' },
+        { label: t('Status Changes'), description: t('Show status change events'), value: 'status' },
+        { label: t('Dependencies'), description: t('Show dependency events'), value: 'dependencies' },
+        { label: t('Today'), description: t('Show events from today'), value: 'today' },
+        { label: t('This Week'), description: t('Show events from this week'), value: 'week' },
+        { label: t('This Month'), description: t('Show events from this month'), value: 'month' },
       ];
 
       const selection = await vscode.window.showQuickPick(options, {
-        placeHolder: 'Filter activity feed by...',
+        placeHolder: t('Filter activity feed by...'),
       });
 
       if (!selection) {
         return;
       }
 
-      switch (selection.label) {
-        case 'All Events':
+      switch (selection.value) {
+        case 'all':
           activityFeedProvider.clearFilters();
           break;
-        case 'Created':
+        case 'created':
           activityFeedProvider.setEventTypeFilter(['created'] as EventType[]);
           break;
-        case 'Closed':
+        case 'closed':
           activityFeedProvider.setEventTypeFilter(['closed'] as EventType[]);
           break;
-        case 'Status Changes':
+        case 'status':
           activityFeedProvider.setEventTypeFilter(['status_changed'] as EventType[]);
           break;
-        case 'Dependencies':
+        case 'dependencies':
           activityFeedProvider.setEventTypeFilter(['dependency_added', 'dependency_removed'] as EventType[]);
           break;
-        case 'Today':
+        case 'today':
           activityFeedProvider.setTimeRangeFilter('today');
           break;
-        case 'This Week':
+        case 'week':
           activityFeedProvider.setTimeRangeFilter('week');
           break;
-        case 'This Month':
+        case 'month':
           activityFeedProvider.setTimeRangeFilter('month');
           break;
       }
     }),
     vscode.commands.registerCommand('beads.clearActivityFeedFilter', () => {
       activityFeedProvider.clearFilters();
-      void vscode.window.showInformationMessage('Activity feed filter cleared');
+      void vscode.window.showInformationMessage(t('Activity feed filter cleared'));
     }),
     vscode.commands.registerCommand('beads.activityFeed.openEvent', (issueId?: string) => openActivityFeedEvent(issueId)),
     vscode.commands.registerCommand('beads.activityFeed.openSelected', () => openActivityFeedEvent()),
@@ -2995,9 +2997,9 @@ export function activate(context: vscode.ExtensionContext): void {
         : '';
 
       const newValue = await vscode.window.showInputBox({
-        prompt: 'Set the external reference for this bead (format: ID:description)',
+        prompt: t('Set the external reference for this bead (format: ID:description)'),
         value: currentValue,
-        placeHolder: 'Enter "ID:description" or leave empty to remove',
+        placeHolder: t('Enter "ID:description" or leave empty to remove'),
       });
 
       if (newValue === undefined) {
@@ -3011,14 +3013,14 @@ export function activate(context: vscode.ExtensionContext): void {
       const selection = treeView.selection;
 
       if (!selection || selection.length === 0) {
-        void vscode.window.showWarningMessage('No beads selected');
+        void vscode.window.showWarningMessage(t('No beads selected'));
         return;
       }
       
       // Filter for BeadTreeItems only (not StatusSectionItems)
       const beadItems = selection.filter((item): item is BeadTreeItem => item instanceof BeadTreeItem);
       if (beadItems.length === 0) {
-        void vscode.window.showWarningMessage('No beads selected (only status sections selected)');
+        void vscode.window.showWarningMessage(t('No beads selected (only status sections selected)'));
         return;
       }
 
@@ -3028,17 +3030,19 @@ export function activate(context: vscode.ExtensionContext): void {
         .join('\n');
 
       const message = beadItems.length === 1
-        ? `Are you sure you want to delete this bead?\n\n${beadsList}`
-        : `Are you sure you want to delete these ${beadItems.length} beads?\n\n${beadsList}`;
+        ? t('Are you sure you want to delete this bead?\n\n{0}', beadsList)
+        : t('Are you sure you want to delete these {0} beads?\n\n{1}', beadItems.length, beadsList);
+
+      const deleteLabel = t('Delete');
 
       // Show confirmation dialog
       const answer = await vscode.window.showWarningMessage(
         message,
         { modal: true },
-        'Delete'
+        deleteLabel
       );
 
-      if (answer !== 'Delete') {
+      if (answer !== deleteLabel) {
         return;
       }
 
@@ -3055,12 +3059,12 @@ export function activate(context: vscode.ExtensionContext): void {
         await provider.refresh();
 
         const successMessage = beadItems.length === 1
-          ? `Deleted bead: ${beadItems[0].bead.id}`
-          : `Deleted ${beadItems.length} beads`;
+          ? t('Deleted bead: {0}', beadItems[0].bead.id)
+          : t('Deleted {0} beads', beadItems.length);
         void vscode.window.showInformationMessage(successMessage);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
-        void vscode.window.showErrorMessage(`Failed to delete beads: ${errorMessage}`);
+        void vscode.window.showErrorMessage(t('Failed to delete beads: {0}', errorMessage));
       }
     }),
   );

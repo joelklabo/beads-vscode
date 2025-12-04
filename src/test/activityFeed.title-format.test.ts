@@ -33,7 +33,11 @@ function createVscodeStub() {
     constructor(public id: string) {}
   }
 
+  const t = (message: string, ...args: any[]) =>
+    message.replace(/\{(\d+)\}/g, (_match, index) => String(args[Number(index)] ?? `{${index}}`));
+
   return {
+    l10n: { t },
     TreeItem,
     MarkdownString,
     ThemeIcon,
