@@ -272,7 +272,7 @@
     "test:harness": "bash ./scripts/agent-harness/run-placeholder.sh",
     "test:tui:smoke": "echo 'TODO: add TUI smoke test' && exit 0",
     "test:web:skeleton": "echo 'Playwright skeleton disabled' && exit 0",
-    "test:tui": "tsx tui/src/__tests__/nav.runner.tsx && tsx tui/src/__tests__/eventsStore.test.ts"
+    "test:tui": "tsx tui/src/__tests__/nav.runner.tsx && tsx tui/src/__tests__/eventsStore.test.ts && tsx tui/src/__tests__/graph.test.ts"
   },
   "devDependencies": {
     "@beads/bd": "^0.29.0",
