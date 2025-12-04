@@ -238,6 +238,30 @@ Test with mocked `execFile`:
 ### Phase 3 (Future)
 - Integrate with VSCode tasks
 - Add git commit message templates
+
+## Worktree Guard Interface (new)
+
+### Canonical identity
+- `worktreeId = <worker>/<task-id>` (matches branch name and directory suffix)
+- Path: `<repo>/../worktrees/<worker>/<task-id>`
+- Branch: same as worktreeId
+
+### Guard command
+`bd worktree guard [--fix] [--json]`
+- Detects duplicate/missing worktrees, stale heartbeats, stuck locks, branch/path mismatches.
+- Uses shared locks (`.beads/locks/claim-*.lock`, `.beads/merge.lock`) and heartbeats in `.beads/heartbeats/`.
+- All bd calls run with `BEADS_NO_DAEMON=1` and explicit `BEADS_DIR`.
+
+### VS Code integration
+- Before finishing/merging from the UI, optionally run guard in read-only mode and block if violations exist.
+- Surface guard findings in Problems panel with quick-fix links (cleanup, reopen task, prune worktree).
+- Activity feed entries should include `worktreeId` so duplicates can be deduped per task.
+
+### Shared helpers
+- `resolveWorktreeId(pathOrBranch)` → {worker, taskId, branch}
+- `isCanonicalWorktreePath(path)` → boolean
+- `listWorktrees()` → normalized list from `git worktree list --porcelain`
+- `runGuard({fix?: boolean, format?: 'json'|'text'})` → parsed results for UI/TUI.
 - Add issue templates
 - Add custom views (by priority, assignee, etc.)
 
