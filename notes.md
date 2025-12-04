@@ -66,8 +66,36 @@ Remediation checklist for broken worktrees
 
 ### Next steps (suggested)
 - Implement harness runner in scripts/agent-harness: temp repo, seed tasks, spawn N agents running claim-next/finish loops, export trace JSON, assert no deadlocks.
-- Add fixtures and malicious payload tests for Little Glen security alongside CSP docs (ties to vc9z/v7t8).
 - Add comparison table to this note (tool vs. pros/cons vs. CI support).
+
+## File size & collision audit (beads-vscode-2ty)
+
+Snapshot: 2025-12-04. LOC from wc -l (excluding node_modules/out); churn = count of commits touching file (`git log --name-only` uniq).
+
+| File | LOC | Churn | Collision risk | Suggested split / owners |
+| --- | --- | --- | --- | --- |
+| src/extension.ts | 3466 | 45 | Very high (core commands, webviews, hover) | Extract modules: commands/registration, Little Glen webview handlers, activity feed panel, worktree guard wrappers. Owner: VS Code surface. |
+| scripts/task-worktree.sh | 1244 | 15 | High (all agents rely on it) | Split into guard/lock lib + start/finish/audit subcommands; add library for JSON output to ease tests. Owner: Ops tooling. |
+| src/activityFeedProvider.ts | 669 | 3 | Medium (list rendering + fetch) | Move fetch/normalize to separate service; isolate view model from TreeDataProvider. |
+| src/activityFeed.ts | 616 | 2 | Medium | Split formatter utilities vs fetch logic; co-locate tests per slice. |
+| src/utils.ts | 419 | 11 | High (shared helpers, sanitizer) | Separate concerns: bead normalization/time in one module; HTML/sanitize helpers in another; linkify in its own file. |
+| INTERFACE_DESIGN.md | 359 | 4 | Low (doc) | Keep but move per-feature contracts to dedicated docs/ design files. |
+| src/test/unit/utils.test.ts | 556 | 8 | Medium (broad coverage) | Mirror splits from utils to smaller test files. |
+| src/test/suite/integration.test.ts | 573 | 4 | Medium | Consider per-surface suites (extension, activity feed). |
+
+Top 5 collision-prone areas (rationale):
+1) src/extension.ts — single bucket for commands/webviews; frequent concurrent edits.  
+2) scripts/task-worktree.sh — every agent uses start/finish; lock logic risky to touch.  
+3) src/utils.ts — mixed helpers (HTML, time, bead parsing) touched by multiple security tasks.  
+4) src/activityFeedProvider.ts — tree rendering plus state; any UI tweak collides.  
+5) src/test/unit/utils.test.ts — monolithic tests mirroring utils; refactors conflict easily.
+
+Recommended sequencing (reduce merge pain):
+1) Split extension.ts into sub-modules (commands.ts, littleGlen.ts, dependencyTree.ts, activityFeedPanel.ts); update imports.  
+2) Refactor utils.ts into scoped files and align unit tests accordingly.  
+3) Extract task-worktree.sh libraries (lock/guard/fs helpers) and add JSON audit output for tests.  
+4) Move activity feed fetch/format into a service and shrink provider.  
+5) Restructure tests to mirror new module boundaries (smaller, focused files).
 
 ## AI & VS Code APIs (beads-vscode-8ve)
 

@@ -118,6 +118,10 @@ async updateSomething(item: BeadItemData, value: string): Promise<void> {
 
 This project uses [Beads](https://github.com/steveyegge/beads) (`bd`) for issue tracking. CLI installed as dev dependency.
 
+### Issue Hygiene
+
+- **No personal names in titles.** Issue titles must stay role/area-focused (feature, surface, behavior). Do not include assignees or user names in titles; anyone can work on them.
+
 ### Quick Reference
 
 ```bash

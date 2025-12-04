@@ -16,13 +16,10 @@ Refactor the extension into smaller, domain-focused modules to reduce merge conf
 2) Worktree/guard shared module
 - Move worktree helpers, guard invocation wrapper into `worktree/` module reused by CLI wrappers and extension.
 
-3) AI/Inline actions module (future)
-- Isolate AI-related commands (ties to epic jde) in `ai/` folder.
-
-4) Testing structure
+3) Testing structure
 - Mirror src layout in tests; add module-level test entrypoints.
 
-5) Build/paths
+4) Build/paths
 - Update tsconfig path aliases to new module folders; adjust imports.
 
 ## Acceptance alignment
