@@ -240,3 +240,35 @@ Test with mocked `execFile`:
 - Add git commit message templates
 - Add issue templates
 - Add custom views (by priority, assignee, etc.)
+
+## Visual Design: Issue Type Icons
+
+### Icon Selection Rationale
+
+Issue types are differentiated using creative, memorable icons from the VS Code Codicon library. Icons were chosen to be:
+
+- **Distinctive**: Each type has a unique visual identity
+- **Intuitive**: Icon meaning maps naturally to the issue type
+- **Theme-compatible**: All icons work in both light and dark themes
+
+### Icon Mapping
+
+| Issue Type | Icon | Rationale |
+|------------|------|-----------|
+| `epic` | `rocket` | Conveys launching toward a big goal/initiative |
+| `task` | `tasklist` | Clear work item checklist visual |
+| `bug` | `bug` | Universal bug symbol (kept from original) |
+| `feature` | `sparkle` | Represents something new and shiny |
+| `spike` | `telescope` | Research/exploration - looking ahead |
+| `chore` | `wrench` | Tool/maintenance work indicator |
+
+### Icon Color Logic
+
+Icons are colored based on issue status:
+
+- **Open**: Blue (`charts.blue`)
+- **In Progress**: Yellow (`charts.yellow`) or Orange (`charts.orange` if stale)
+- **Blocked**: Red (`errorForeground`)
+- **Closed**: Green checkmark (`pass` icon with `testing.iconPassed`)
+
+Closed issues always show a checkmark (✓) regardless of type.
