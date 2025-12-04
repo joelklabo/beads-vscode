@@ -10,7 +10,8 @@ export type LittleGlenCommand =
   | { command: 'updateStatus'; status: string }
   | { command: 'updateTitle'; title: string }
   | { command: 'addLabel' | 'removeLabel'; label: string }
-  | { command: 'addDependency'; issueId?: string };
+  | { command: 'addDependency'; issueId?: string }
+  | { command: 'removeDependency'; sourceId?: string; targetId?: string; contextId?: string };
 
 export type AllowedLittleGlenCommand = LittleGlenCommand['command'];
 
@@ -99,6 +100,18 @@ export function validateLittleGlenMessage(
       const issueId = message.issueId;
       if (issueId === undefined || isValidBeadId(issueId)) {
         return { command, issueId };
+      }
+      return undefined;
+    }
+    case 'removeDependency': {
+      const sourceId = message.sourceId;
+      const targetId = message.targetId;
+      const contextId = message.contextId;
+      const idsValid = (sourceId === undefined || isValidBeadId(sourceId))
+        && (targetId === undefined || isValidBeadId(targetId))
+        && (contextId === undefined || isValidBeadId(contextId));
+      if (idsValid) {
+        return { command, sourceId, targetId, contextId };
       }
       return undefined;
     }
