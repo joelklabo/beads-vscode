@@ -9,6 +9,7 @@
 import * as path from 'path';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
+import { parseUtcDate } from './utils';
 
 const execFileAsync = promisify(execFile);
 
@@ -314,8 +315,11 @@ export function truncateString(str: string, maxLength: number): string {
  * Format relative time for display
  * More detailed version optimized for activity feed
  */
-export function formatRelativeTimeDetailed(date: Date): string {
-  const now = new Date();
+export function formatRelativeTimeDetailed(date: Date, now: Date = new Date()): string {
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
   const diffMs = now.getTime() - date.getTime();
   const diffSecs = Math.floor(diffMs / 1000);
   const diffMins = Math.floor(diffSecs / 60);
@@ -385,8 +389,11 @@ export function formatDateTime(date: Date): string {
 /**
  * Get time group label for grouping events (Today, Yesterday, This Week, etc.)
  */
-export function getTimeGroup(date: Date): string {
-  const now = new Date();
+export function getTimeGroup(date: Date, now: Date = new Date()): string {
+  if (Number.isNaN(date.getTime())) {
+    return 'Older';
+  }
+
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
@@ -423,7 +430,7 @@ export function normalizeEvent(
   const eventType = normalizeEventType(raw.event_type);
   const oldValue = parseEventValue(raw.old_value);
   const newValue = parseEventValue(raw.new_value);
-  const createdAt = new Date(raw.created_at);
+  const createdAt = parseUtcDate(raw.created_at);
   const issueInfo = issueInfoMap?.get(raw.issue_id);
   
   const baseEvent = {
