@@ -700,6 +700,18 @@ get_worktree_path() {
   echo "${main_repo}/../worktrees/${worker}/${task_id}"
 }
 
+# Remove zero-length merge locks that can linger after failures
+clean_stale_merge_locks() {
+  local lock_dir="${BEADS_DIR}/locks"
+  for name in merge.lock merge-queue.lock; do
+    local file="${lock_dir}/${name}"
+    if [[ -f "$file" && ! -s "$file" ]]; then
+      rm -f "$file"
+      log_info "Removed stale lock: $file"
+    fi
+  done
+}
+
 COMMAND="${1:-}"
 WORKER="${2:-}"
 TASK_ID="${3:-}"
@@ -863,6 +875,9 @@ case "$COMMAND" in
     HEARTBEAT_PID_FILE="${WORKTREE_PATH}/.heartbeat.pid"
     
     log_info "Finishing task $TASK_ID for worker $WORKER"
+
+    # Clear any leftover zero-length merge locks to avoid false contention
+    clean_stale_merge_locks
     
     # Check if worktree exists
     if [[ ! -d "$WORKTREE_PATH" ]]; then
