@@ -53,6 +53,11 @@
         "icon": "$(add)"
       },
       {
+        "command": "beads.addDependency",
+        "title": "%command.beads.addDependency%",
+        "icon": "$(link)"
+      },
+      {
         "command": "beads.editExternalReference",
         "title": "%command.beads.editExternalReference%"
       },
@@ -287,6 +292,11 @@
           "group": "navigation@1"
         },
         {
+          "command": "beads.addDependency",
+          "when": "view == beadsExplorer && viewItem == bead && config.beads.enableDependencyEditing",
+          "group": "navigation@2"
+        },
+        {
           "command": "beads.deleteBeads",
           "when": "view == beadsExplorer && viewItem == bead",
           "group": "7_modification@1"
@@ -319,7 +329,7 @@
     "watch": "tsc -watch -p ./",
     "lint": "eslint . --ext ts",
     "test": "npm run test:unit",
-    "test:unit": "npm run compile && mocha ./out/test/unit/**/*.test.js ./out/test/sanitization.test.js ./out/test/littleGlen.command-validation.test.js ./out/test/log-redaction.test.js ./out/test/activityFeed.timestamps.test.js ./out/test/title-format.test.js ./out/test/activityFeed.title-format.test.js ./out/test/multi-root.cli.test.js ./out/test/tooltips.security.test.js",
+    "test:unit": "npm run compile && mocha ./out/test/unit/**/*.test.js ./out/test/deps.add.test.js ./out/test/sanitization.test.js ./out/test/littleGlen.command-validation.test.js ./out/test/log-redaction.test.js ./out/test/activityFeed.timestamps.test.js ./out/test/title-format.test.js ./out/test/activityFeed.title-format.test.js ./out/test/multi-root.cli.test.js ./out/test/tooltips.security.test.js",
     "test:bd-cli": "npm run compile && mocha ./out/test/bd-cli.test.js",
     "test:integration": "npm run compile && node ./out/test/runTest.js",
     "test:stress": "./scripts/stress-test.sh",

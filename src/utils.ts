@@ -7,3 +7,4 @@ export * from './utils/stale';
 export * from './utils/sanitize';
 export * from './utils/environment';
 export * from './utils/cli';
+export * from './utils/dependencies';

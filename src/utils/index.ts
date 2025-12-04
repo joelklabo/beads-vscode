@@ -8,3 +8,4 @@ export * from './stale';
 export * from './sanitize';
 export * from './environment';
 export * from './cli';
+export * from './dependencies';
