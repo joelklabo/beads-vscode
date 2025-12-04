@@ -119,9 +119,81 @@ export class ActivityEventItem extends vscode.TreeItem {
 }
 
 /**
+ * Statistics summary section item
+ */
+export class StatisticsSectionItem extends vscode.TreeItem {
+  public readonly statistics: ActivityStatistics;
+
+  constructor(statistics: ActivityStatistics) {
+    super('📊 Activity Statistics', vscode.TreeItemCollapsibleState.Expanded);
+
+    this.statistics = statistics;
+    this.contextValue = 'statisticsSection';
+
+    // Build description with key stat
+    this.description = `${statistics.eventsToday} today`;
+
+    // Build rich tooltip
+    this.tooltip = this.buildTooltip(statistics);
+  }
+
+  private buildTooltip(stats: ActivityStatistics): vscode.MarkdownString {
+    const md = new vscode.MarkdownString();
+    md.isTrusted = true;
+
+    md.appendMarkdown('### Activity Statistics\n\n');
+    md.appendMarkdown(`📅 **Events Today**: ${stats.eventsToday}\n\n`);
+    md.appendMarkdown(`📆 **Events This Week**: ${stats.eventsThisWeek}\n\n`);
+    
+    if (stats.mostActiveIssue) {
+      md.appendMarkdown(`🔥 **Most Active Issue**: ${stats.mostActiveIssue.issueId} (${stats.mostActiveIssue.count} events)\n\n`);
+    }
+    
+    md.appendMarkdown(`📈 **Issues Closed (7 days)**: ${stats.issuesClosedLastWeek}\n\n`);
+    md.appendMarkdown(`⚡ **Velocity**: ${stats.velocity.toFixed(1)} issues/day\n\n`);
+    
+    if (stats.currentStreak > 0) {
+      md.appendMarkdown(`🔥 **Current Streak**: ${stats.currentStreak} day${stats.currentStreak !== 1 ? 's' : ''}\n\n`);
+    }
+
+    return md;
+  }
+}
+
+/**
+ * Individual statistic tree item
+ */
+export class StatisticItem extends vscode.TreeItem {
+  constructor(label: string, value: string, icon: string, description?: string) {
+    super(label, vscode.TreeItemCollapsibleState.None);
+
+    this.description = value;
+    this.contextValue = 'statisticItem';
+    
+    this.iconPath = new vscode.ThemeIcon(icon, new vscode.ThemeColor('foreground'));
+    
+    if (description) {
+      this.tooltip = description;
+    }
+  }
+}
+
+/**
+ * Activity statistics data
+ */
+export interface ActivityStatistics {
+  eventsToday: number;
+  eventsThisWeek: number;
+  mostActiveIssue?: { issueId: string; count: number };
+  issuesClosedLastWeek: number;
+  velocity: number; // issues closed per day
+  currentStreak: number; // days with activity
+}
+
+/**
  * Union type for tree items in the activity feed
  */
-export type ActivityTreeItem = TimeGroupItem | ActivityEventItem;
+export type ActivityTreeItem = StatisticsSectionItem | StatisticItem | TimeGroupItem | ActivityEventItem;
 
 /**
  * Tree data provider for the activity feed view
@@ -165,6 +237,16 @@ export class ActivityFeedTreeDataProvider
   }
 
   async getChildren(element?: ActivityTreeItem): Promise<ActivityTreeItem[]> {
+    // If element is a StatisticsSectionItem, return individual statistic items
+    if (element instanceof StatisticsSectionItem) {
+      return this.createStatisticItems(element.statistics);
+    }
+
+    // If element is a StatisticItem, it has no children
+    if (element instanceof StatisticItem) {
+      return [];
+    }
+
     // If element is a TimeGroupItem, return its events
     if (element instanceof TimeGroupItem) {
       return element.events.map((event) => new ActivityEventItem(event));
@@ -175,12 +257,23 @@ export class ActivityFeedTreeDataProvider
       return [];
     }
 
-    // Root level - return time groups
+    // Root level - return statistics and time groups
     if (this.events.length === 0) {
       await this.refresh();
     }
 
-    return this.createTimeGroups();
+    const items: ActivityTreeItem[] = [];
+
+    // Add statistics section if we have events
+    if (this.events.length > 0) {
+      const statistics = this.calculateStatistics();
+      items.push(new StatisticsSectionItem(statistics));
+    }
+
+    // Add time groups
+    items.push(...this.createTimeGroups());
+
+    return items;
   }
 
   private createTimeGroups(): TimeGroupItem[] {
@@ -208,6 +301,121 @@ export class ActivityFeedTreeDataProvider
     }
 
     return groups;
+  }
+
+  private calculateStatistics(): ActivityStatistics {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const weekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    // Count events today and this week
+    const eventsToday = this.events.filter(e => e.createdAt >= todayStart).length;
+    const eventsThisWeek = this.events.filter(e => e.createdAt >= weekStart).length;
+
+    // Find most active issue
+    const issueCounts = new Map<string, number>();
+    for (const event of this.events) {
+      const count = issueCounts.get(event.issueId) || 0;
+      issueCounts.set(event.issueId, count + 1);
+    }
+
+    let mostActiveIssue: { issueId: string; count: number } | undefined;
+    let maxCount = 0;
+    for (const [issueId, count] of issueCounts.entries()) {
+      if (count > maxCount) {
+        maxCount = count;
+        mostActiveIssue = { issueId, count };
+      }
+    }
+
+    // Count issues closed in last week
+    const closedEvents = this.events.filter(
+      e => e.createdAt >= weekStart && (e.eventType === 'closed')
+    );
+    const issuesClosedLastWeek = new Set(closedEvents.map(e => e.issueId)).size;
+
+    // Calculate velocity (issues closed per day)
+    const velocity = issuesClosedLastWeek / 7;
+
+    // Calculate current streak (consecutive days with activity)
+    let currentStreak = 0;
+    const dayMap = new Map<string, boolean>();
+    for (const event of this.events) {
+      const dayKey = event.createdAt.toISOString().split('T')[0];
+      dayMap.set(dayKey, true);
+    }
+
+    const today = new Date();
+    for (let i = 0; i < 365; i++) {
+      const checkDate = new Date(today.getTime() - i * 24 * 60 * 60 * 1000);
+      const dayKey = checkDate.toISOString().split('T')[0];
+      if (dayMap.has(dayKey)) {
+        currentStreak++;
+      } else {
+        break;
+      }
+    }
+
+    return {
+      eventsToday,
+      eventsThisWeek,
+      mostActiveIssue,
+      issuesClosedLastWeek,
+      velocity,
+      currentStreak,
+    };
+  }
+
+  private createStatisticItems(stats: ActivityStatistics): StatisticItem[] {
+    const items: StatisticItem[] = [];
+
+    items.push(new StatisticItem(
+      'Events Today',
+      stats.eventsToday.toString(),
+      'calendar',
+      'Number of events recorded today'
+    ));
+
+    items.push(new StatisticItem(
+      'Events This Week',
+      stats.eventsThisWeek.toString(),
+      'calendar',
+      'Number of events in the last 7 days'
+    ));
+
+    if (stats.mostActiveIssue) {
+      items.push(new StatisticItem(
+        'Most Active Issue',
+        stats.mostActiveIssue.issueId,
+        'flame',
+        `${stats.mostActiveIssue.count} events`
+      ));
+    }
+
+    items.push(new StatisticItem(
+      'Issues Closed (7d)',
+      stats.issuesClosedLastWeek.toString(),
+      'pass',
+      'Issues closed in the last 7 days'
+    ));
+
+    items.push(new StatisticItem(
+      'Velocity',
+      `${stats.velocity.toFixed(1)}/day`,
+      'graph',
+      'Average issues closed per day'
+    ));
+
+    if (stats.currentStreak > 0) {
+      items.push(new StatisticItem(
+        'Current Streak',
+        `${stats.currentStreak} day${stats.currentStreak !== 1 ? 's' : ''}`,
+        'flame',
+        'Consecutive days with activity'
+      ));
+    }
+
+    return items;
   }
 
   async refresh(): Promise<void> {

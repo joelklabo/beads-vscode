@@ -191,7 +191,6 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   private debounceTimer: NodeJS.Timeout | undefined;
   private staleRefreshTimer: NodeJS.Timeout | undefined;
   private treeView: vscode.TreeView<TreeItemType> | undefined;
-  private treeView: vscode.TreeView<TreeItemType> | undefined;
 
   // Manual sort order: Map<issueId, sortIndex>
   private manualSortOrder: Map<string, number> = new Map();
@@ -3078,8 +3077,6 @@ async function openActivityFeedPanel(activityFeedProvider: ActivityFeedTreeDataP
   
   const { fetchEvents } = await import('./activityFeed');
   const result = await fetchEvents(projectRoot, { limit: 100 });
-  Set tree view reference for badge updates
-  provider.setTreeView(treeView);
 
   // 
   panel.webview.html = getActivityFeedPanelHtml(result.events);
