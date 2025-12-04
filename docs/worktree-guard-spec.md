@@ -53,6 +53,28 @@ Implementation Hooks
 - Merge lock held > timeout → prompt operator to inspect PID/`lsof .beads/merge.lock`; allow forced clear with `--fix`.
 - Branch/path mismatch → rename branch or recreate worktree; guard should block finish until fixed.
 
+## Registry Schema (.beads/worktrees.json)
+```json
+{
+  "schemaVersion": 1,
+  "generatedAt": 1733290000000,
+  "entries": [
+    {
+      "id": "Cherry/beads-vscode-123",
+      "name": "Cherry/beads-vscode-123",
+      "path": "/abs/path/../worktrees/Cherry/beads-vscode-123",
+      "branch": "Cherry/beads-vscode-123",
+      "commit": "abc123",
+      "lastSeen": 1733290000000,
+      "lockedBy": "merge" // optional
+    }
+  ]
+}
+```
+- Written atomically (tmp + rename) by shared helper in `src/worktree.ts`.
+- `lastSeen` is epoch millis; guard filters out entries older than stale threshold.
+- `id` must match branch and trailing path component.
+
 ## Decisions
 - Lock backend: flock with python+mkdir fallbacks (already in task-worktree.sh).
 - Heartbeat interval/stale: 60s / 180s.
