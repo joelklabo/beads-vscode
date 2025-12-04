@@ -1,5 +1,27 @@
-```prompt
+---
+description: Turn a feature request into a complete `bd` epic + task tree with dependencies and file coverage.
+argument-hint: PROMPT=[<prompt>]
+---
+
+# Task Creator
+
 You are an expert software architect and project planner. Your mission is to transform a feature request into an EXHAUSTIVE, PRODUCTION-READY tree of `bd` tasks with proper dependencies.
+
+## CRITICAL: bd CLI Commands
+
+**This project uses git worktrees. All bd commands MUST use `--no-daemon` and `--json`.**
+
+```bash
+# ✅ CORRECT - All commands use --no-daemon and --json
+npx bd --no-daemon create "Title" -d "Description" -t task -p 2 --json
+npx bd --no-daemon list --status open --json
+npx bd --no-daemon dep add bd-child bd-parent --type blocks --json
+
+# ❌ WRONG - Missing --no-daemon (will corrupt worktree state)
+npx bd create "Title" -d "Description" -t task -p 2 --json
+```
+
+---
 
 ## YOUR PROCESS
 
@@ -13,21 +35,17 @@ First, gather comprehensive context:
    - Security considerations
    - Accessibility requirements (WCAG)
    - Performance implications
-   - Similar implementations in popular projects
 
 2. **Codebase Analysis** - Explore the workspace to understand:
    - Existing architecture and patterns
    - Related code that will be affected
    - Testing patterns used
    - Configuration and environment setup
-   - Build and deployment pipeline
-   - Existing dependencies that could be leveraged
 
 3. **Requirements Extraction** - From your research, identify:
    - Functional requirements (what it must do)
    - Non-functional requirements (performance, security, scalability)
    - Edge cases and error scenarios
-   - User experience considerations
    - Integration points with existing features
 
 ### PHASE 2: TASK DECOMPOSITION
@@ -43,69 +61,31 @@ Break down the work into atomic, well-defined tasks following these principles:
 
 **Required Task Categories (include ALL that apply):**
 
-1. **📋 Planning & Design Tasks**
-   - Architecture decision records
-   - API design / interface contracts
-   - Data model design
-   - UI/UX mockup review
-
-2. **🏗️ Infrastructure Tasks**
-   - Database migrations
-   - Configuration changes
-   - Environment setup
-   - CI/CD pipeline updates
-
-3. **🔧 Core Implementation Tasks**
-   - Break into vertical slices (not horizontal layers)
-   - Each slice delivers working functionality
-   - Order by dependency chain
-
-4. **🧪 Testing Tasks**
-   - Unit tests for each component
-   - Integration tests for workflows
-   - E2E tests for critical paths
-   - Performance/load tests if applicable
-
-5. **📖 Documentation Tasks**
-   - Code documentation
-   - API documentation
-   - User documentation
-   - Architecture documentation updates
-
-6. **🔒 Security & Compliance Tasks**
-   - Security review
-   - Input validation
-   - Authorization checks
-   - Audit logging if needed
-
-7. **♿ Accessibility Tasks**
-   - Keyboard navigation
-   - Screen reader support
-   - Color contrast verification
-   - ARIA attributes
-
-8. **🚀 Deployment & Release Tasks**
-   - Feature flag setup
-   - Rollout plan
-   - Monitoring/alerting
-   - Rollback procedure
+1. **📋 Planning & Design Tasks** - Architecture, API design, data model
+2. **🏗️ Infrastructure Tasks** - Migrations, config, CI/CD
+3. **🔧 Core Implementation Tasks** - Vertical slices (not horizontal layers)
+4. **🧪 Testing Tasks** - Unit, integration, E2E
+5. **📖 Documentation Tasks** - Code docs, user docs, architecture
+6. **🔒 Security Tasks** - Validation, authorization, audit logging
+7. **♿ Accessibility Tasks** - Keyboard nav, screen reader, ARIA
+8. **🚀 Deployment Tasks** - Feature flags, rollout, monitoring
 
 ### PHASE 3: DEPENDENCY MAPPING
 
 Create a proper dependency DAG (Directed Acyclic Graph):
 
 - **`blocks:`** - Task A must complete before Task B can start
+- **Direction:** `bd dep add <dependent> <dependency>` means "dependent needs dependency"
 - Use dependencies to enforce proper ordering
-- Identify parallelizable work streams
-- Ensure no circular dependencies
+- Tasks touching the same files MUST have blocking dependencies (not parallel)
 
 ### PHASE 4: ISSUE CREATION
 
-Create issues using this format:
+**Create issues using these exact commands:**
 
 ```bash
 # Create parent epic first
-npx bd create "Epic: [Feature Name]" \
+npx bd --no-daemon create "Epic: [Feature Name]" \
   -t epic \
   -p 2 \
   -d "Complete implementation of [feature].
@@ -119,13 +99,14 @@ npx bd create "Epic: [Feature Name]" \
 
 ## Out of Scope
 - Item 1
-- Item 2"
+- Item 2" \
+  --json
 
 # Then create child tasks with dependencies
 # IMPORTANT: Always include a ## Files section for worker coordination!
-npx bd create "[Task Title]" \
+npx bd --no-daemon create "[Task Title]" \
   -t task \
-  -p [1-3] \
+  -p 2 \
   -d "[Detailed description including:
 - What exactly to implement
 - Acceptance criteria
@@ -135,7 +116,13 @@ npx bd create "[Task Title]" \
 - path/to/file1.ts (modify: add X function)
 - path/to/file2.ts (modify: update Y interface)
 - path/to/file3.test.ts (create: new test file)" \
-  --deps "blocks:bd-[parent-id]"
+  --deps "parent-child:bd-[epic-id]" \
+  --json
+
+# Add blocking dependencies between tasks
+# Syntax: bd dep add <dependent> <dependency>
+# "bd-task-b depends on bd-task-a" → bd dep add bd-task-b bd-task-a
+npx bd --no-daemon dep add bd-[child-id] bd-[parent-id] --type blocks --json
 ```
 
 **Why the Files section is critical:**
@@ -146,18 +133,25 @@ npx bd create "[Task Title]" \
 
 ### PRIORITY GUIDELINES
 
-- **P1 (Urgent):** Blockers, security issues, critical path items
-- **P2 (Normal):** Core feature work, most tasks
-- **P3 (Low):** Nice-to-haves, documentation, polish
+| Priority | Use Case |
+|----------|----------|
+| `0` | Critical: security, data loss, broken builds |
+| `1` | High: blockers, critical path items |
+| `2` | Medium: core feature work (default) |
+| `3` | Low: polish, optimization |
+| `4` | Backlog: future ideas |
 
 ### TASK TYPES
 
-- `epic` - Parent container for related work
-- `feature` - User-facing functionality
-- `task` - Implementation work
-- `bug` - Defect fix
-- `chore` - Maintenance, refactoring
-- `spike` - Research/investigation (timeboxed)
+| Type | Use Case |
+|------|----------|
+| `epic` | Large feature composed of multiple issues |
+| `feature` | User-facing functionality |
+| `task` | Implementation work, tests, docs, refactoring |
+| `bug` | Something broken that needs fixing |
+| `chore` | Maintenance work (dependencies, tooling) |
+
+---
 
 ## OUTPUT FORMAT
 
@@ -169,22 +163,24 @@ After research, present:
 
 3. **Task Tree Visualization**
 ```
-bd-001 Epic: [Feature]
-├── bd-002 Design: API contract (blocks: bd-001)
-├── bd-003 Spike: Evaluate libraries (blocks: bd-001)
-├── bd-004 Setup: Database migration (blocks: bd-002)
-├── bd-005 Impl: Core logic (blocks: bd-004)
-│   ├── bd-006 Impl: Sub-feature A (blocks: bd-005)
-│   └── bd-007 Impl: Sub-feature B (blocks: bd-005)
-├── bd-008 Test: Unit tests (blocks: bd-005, bd-006, bd-007)
-├── bd-009 Test: Integration tests (blocks: bd-008)
-├── bd-010 Docs: API documentation (blocks: bd-005)
-└── bd-011 Deploy: Feature flag setup (blocks: bd-009)
+bd-xxx Epic: [Feature]
+├── bd-xxx Design: API contract (blocks: epic)
+├── bd-xxx Impl: Core logic (blocks: design)
+│   ├── bd-xxx Impl: Sub-feature A (blocks: core)
+│   └── bd-xxx Impl: Sub-feature B (blocks: core)
+├── bd-xxx Test: Unit tests (blocks: impl tasks)
+└── bd-xxx Docs: Documentation (blocks: impl)
 ```
 
-4. **Execute the Creation** - Actually run the `npx bd create` commands
+4. **Execute the Creation** - Actually run the `npx bd --no-daemon create ...` commands
 
-5. **Verification** - Run `npx bd list --json` and `npx bd dep tree <epic-id>` to confirm structure
+5. **Verification** - Run these commands to confirm structure:
+```bash
+npx bd --no-daemon list --json
+npx bd --no-daemon dep tree <epic-id> --json
+```
+
+---
 
 ## QUALITY CHECKLIST
 
@@ -201,31 +197,6 @@ Before finishing, verify:
 - [ ] Parallel work streams are identified
 - [ ] Epic has clear success criteria
 
-## EXAMPLE
-
-**Input:** "Add user avatar upload to profiles"
-
-**Output Tasks (abbreviated):**
-1. Epic: User Avatar Upload Feature
-2. Spike: Evaluate image processing libraries (P2, blocks epic)
-3. Design: Avatar API endpoints (P2, blocks epic)
-4. Setup: S3 bucket configuration (P2, blocks design)
-5. Impl: Image upload endpoint (P2, blocks design, spike)
-6. Impl: Image resize/crop service (P2, blocks spike)
-7. Impl: Avatar storage service (P2, blocks setup)
-8. Impl: Avatar retrieval endpoint (P2, blocks storage)
-9. Impl: Profile UI avatar component (P2, blocks retrieval)
-10. Impl: Upload modal with crop tool (P2, blocks resize, UI)
-11. Test: Unit tests for image service (P2, blocks impl tasks)
-12. Test: Integration tests for upload flow (P2, blocks unit tests)
-13. Test: E2E test avatar change (P2, blocks integration)
-14. Security: Validate file types & scan (P1, blocks upload impl)
-15. Accessibility: Avatar alt text & focus (P2, blocks UI)
-16. Docs: Avatar API documentation (P3, blocks impl)
-17. Deploy: CDN cache invalidation setup (P2, blocks retrieval)
-
 ---
 
 **NOW: Research the feature request thoroughly, then create a comprehensive task tree. Do not ask clarifying questions - make reasonable assumptions and note them in the epic description.**
-
-```

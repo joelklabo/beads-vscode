@@ -1,8 +1,215 @@
-# GitHub Copilot Instructions for beads-vscode
+# Agent Instructions for beads-vscode
+
+> **For AI coding agents.** This document defines how to work in this repository, with emphasis on bd CLI commands and worktree workflows.
 
 ## Project Overview
 
 This is a **VS Code extension** that provides a GUI for [Beads](https://github.com/steveyegge/beads) - a lightweight issue tracker designed for AI coding agents. The extension integrates with the `bd` CLI tool to display and manage issues directly in VS Code's sidebar.
+
+## ⚠️ Critical: Worktree Environment
+
+**This project uses git worktrees for multi-agent development.** The daemon mode does NOT work correctly with worktrees because all worktrees share the same `.beads` database.
+
+### Required: Always Use `--no-daemon`
+
+**Every `bd` command MUST include `--no-daemon`** to bypass the daemon and operate directly on the database. This prevents commits/pushes to the wrong branch.
+
+```bash
+# ✅ CORRECT - All commands use --no-daemon
+npx bd --no-daemon ready --json
+npx bd --no-daemon list --status open --json
+npx bd --no-daemon create "Title" -d "Description" -t task -p 2 --json
+
+# ❌ WRONG - Missing --no-daemon (will use daemon, may corrupt worktree state)
+npx bd ready --json
+```
+
+### Alternative: Set Environment Variable
+
+For an entire session, you can set:
+```bash
+export BEADS_NO_DAEMON=1
+npx bd ready --json  # Now uses direct mode automatically
+```
+
+---
+
+## bd CLI Quick Reference
+
+**All commands require `--no-daemon` and should use `--json` for programmatic output.**
+
+### Finding Work
+
+```bash
+# See unblocked issues (START HERE)
+npx bd --no-daemon ready --json
+
+# Filter ready work
+npx bd --no-daemon ready --json --limit 20
+npx bd --no-daemon ready --json --priority 1
+npx bd --no-daemon ready --json --assignee alice
+
+# See blocked issues
+npx bd --no-daemon blocked --json
+
+# Find stale/forgotten issues
+npx bd --no-daemon stale --days 30 --json
+```
+
+### Viewing Issues
+
+```bash
+# List all issues
+npx bd --no-daemon list --json
+
+# Filter by status
+npx bd --no-daemon list --status open --json
+npx bd --no-daemon list --status in_progress --json
+npx bd --no-daemon list --status closed --json
+
+# Filter by priority (0=critical, 1=high, 2=medium, 3=low, 4=backlog)
+npx bd --no-daemon list --priority 1 --json
+
+# Filter by assignee
+npx bd --no-daemon list --assignee alice --json
+
+# Show specific issue details
+npx bd --no-daemon show <issue-id> --json
+```
+
+### Creating Issues
+
+```bash
+# Create a task (default type)
+npx bd --no-daemon create "Task title" \
+  -d "Detailed description of what needs to be done" \
+  -p 2 \
+  -t task \
+  --json
+
+# Create with type: bug, feature, task, epic, chore
+npx bd --no-daemon create "Fix login bug" -t bug -p 1 --json
+npx bd --no-daemon create "Add OAuth support" -t feature -p 2 --json
+npx bd --no-daemon create "Q4 Platform Improvements" -t epic -p 1 --json
+
+# Create with inline dependencies
+npx bd --no-daemon create "Subtask" \
+  -d "Description" \
+  -p 2 \
+  --deps "discovered-from:bd-abc" \
+  --json
+
+# Create with labels
+npx bd --no-daemon create "Security fix" -t bug -p 0 -l security,urgent --json
+
+# Create with assignee
+npx bd --no-daemon create "Task" -t task -a alice --json
+```
+
+### Updating Issues
+
+```bash
+# Update status
+npx bd --no-daemon update <issue-id> --status in_progress --json
+npx bd --no-daemon update <issue-id> --status open --json
+
+# Update priority
+npx bd --no-daemon update <issue-id> --priority 1 --json
+
+# Update assignee
+npx bd --no-daemon update <issue-id> --assignee bob --json
+
+# Update title/description
+npx bd --no-daemon update <issue-id> --title "New title" --json
+npx bd --no-daemon update <issue-id> -d "New description" --json
+
+# Add/remove labels
+npx bd --no-daemon update <issue-id> --add-label urgent --json
+npx bd --no-daemon update <issue-id> --remove-label wontfix --json
+```
+
+### Closing Issues
+
+```bash
+# Close with reason
+npx bd --no-daemon close <issue-id> --reason "Implemented" --json
+
+# Close multiple issues
+npx bd --no-daemon close bd-abc bd-def bd-ghi --reason "Batch complete" --json
+```
+
+### Dependencies
+
+```bash
+# Add dependency: <issue-id> is blocked by <depends-on-id>
+# Syntax: bd dep add <issue-that-depends> <issue-it-depends-on>
+npx bd --no-daemon dep add bd-child bd-parent --type blocks --json
+
+# Dependency types:
+# - blocks (default): Hard blocker, affects bd ready
+# - parent-child: Hierarchical (epic→task), no blocking
+# - related: Informational link, no blocking
+# - discovered-from: Issue found during work on another
+
+# Examples:
+npx bd --no-daemon dep add bd-task bd-epic --type parent-child --json
+npx bd --no-daemon dep add bd-a bd-b --type related --json
+npx bd --no-daemon dep add bd-new bd-current --type discovered-from --json
+
+# Remove dependency
+npx bd --no-daemon dep remove bd-child bd-parent --json
+
+# View dependency tree
+npx bd --no-daemon dep tree <issue-id> --json
+
+# Detect cycles
+npx bd --no-daemon dep cycles --json
+```
+
+### Other Commands
+
+```bash
+# Database info
+npx bd --no-daemon info --json
+
+# Statistics
+npx bd --no-daemon stats --json
+
+# Search
+npx bd --no-daemon search "query" --json
+
+# Sync (manual)
+npx bd --no-daemon sync
+```
+
+---
+
+## Dependency Direction (Critical!)
+
+**The dependency direction is: `bd dep add <dependent> <dependency>`**
+
+Think of it as: "Issue A **depends on** Issue B" → `bd dep add A B`
+
+```bash
+# Task needs epic to exist first (parent-child)
+npx bd --no-daemon dep add bd-task bd-epic --type parent-child --json
+
+# Feature B requires Feature A to be done first (blocks)
+npx bd --no-daemon dep add bd-feature-b bd-feature-a --type blocks --json
+
+# ❌ WRONG: This makes the epic depend on the task!
+npx bd --no-daemon dep add bd-epic bd-task --type parent-child --json
+```
+
+### Verification
+
+After adding dependencies, verify with:
+```bash
+npx bd --no-daemon blocked --json
+# Tasks should be blocked by their prerequisites
+```
+
+---
 
 ## Tech Stack
 
@@ -95,14 +302,14 @@ Unit tests go in `src/test/unit/`, integration tests in `src/test/suite/`.
 ### Calling the bd CLI
 ```typescript
 const commandPath = await findBdCommand(configPath);
-await execFileAsync(commandPath, ['subcommand', 'arg1', '--flag'], { cwd: projectRoot });
+await execFileAsync(commandPath, ['--no-daemon', 'subcommand', 'arg1', '--flag', '--json'], { cwd: projectRoot });
 ```
 
 ### Updating issue state
 ```typescript
 async updateSomething(item: BeadItemData, value: string): Promise<void> {
   // 1. Get config and resolve paths
-  // 2. Call bd command
+  // 2. Call bd command with --no-daemon
   // 3. await this.refresh()
   // 4. Show success message
 }
@@ -114,66 +321,100 @@ async updateSomething(item: BeadItemData, value: string): Promise<void> {
 - **Dev**: TypeScript, ESLint, Mocha, @vscode/test-electron, @vscode/vsce, @beads/bd
 - **External**: `bd` CLI is included as a dev dependency (run via `npx bd`)
 
-## Using bd for Issue Tracking
+---
 
-This project uses [Beads](https://github.com/steveyegge/beads) (`bd`) for issue tracking. CLI installed as dev dependency.
-
-### Issue Hygiene
+## Issue Hygiene
 
 - **No personal names in titles.** Issue titles must stay role/area-focused (feature, surface, behavior). Do not include assignees or user names in titles; anyone can work on them.
+- **Always include descriptions.** Every issue should explain why it exists, what needs to be done, and how it was discovered (if applicable).
+- **Use `## Files` section.** List specific files to be modified for worker coordination.
 
-### Quick Reference
+### Issue Types
 
-```bash
-# List & filter
-npx bd list                          # All issues
-npx bd list --status open            # By status: open, in_progress, closed
-npx bd ready                         # Issues with no blockers (start here!)
+| Type | Use Case |
+|------|----------|
+| `epic` | Large feature composed of multiple issues |
+| `feature` | User-facing functionality |
+| `task` | Implementation work, tests, docs, refactoring |
+| `bug` | Something broken that needs fixing |
+| `chore` | Maintenance work (dependencies, tooling) |
 
-# Create issues
-npx bd create "Title" -p 1 -t task   # -p: priority 1-4, -t: task|bug|feature|epic
-npx bd create "Title" -d "Details"   # -d: description
+### Priorities
 
-# Update & close
-npx bd update bd-xyz --status in_progress
-npx bd close bd-xyz --reason "Done"
-
-# Dependencies (critical for task ordering)
-npx bd dep add <child> <parent> --type blocks       # child blocked by parent
-npx bd dep add <child> <parent> --type parent-child # hierarchy (epic→task)
-npx bd dep add <a> <b> --type related               # informational link
-npx bd dep tree bd-xyz                              # visualize deps
-
-# Other
-npx bd show bd-xyz                   # Issue details
-npx bd search "query"                # Full-text search
-npx bd stats                         # Project statistics
-```
+| Priority | Meaning |
+|----------|---------|
+| `0` | Critical: security, data loss, broken builds |
+| `1` | High: major features, important bugs |
+| `2` | Medium: default, nice-to-have features |
+| `3` | Low: polish, optimization |
+| `4` | Backlog: future ideas |
 
 ### Dependency Types
 
-| Type | Use Case | Effect |
-|------|----------|--------|
-| `blocks` | Task A must complete before B | B won't appear in `bd ready` |
-| `parent-child` | Epic contains tasks | Hierarchy only, no blocking |
-| `related` | Cross-reference issues | Informational link |
+| Type | Use Case | Effect on `bd ready` |
+|------|----------|----------------------|
+| `blocks` | Hard dependency - A must complete before B | B hidden until A closed |
+| `parent-child` | Hierarchical (epic→task) | No blocking effect |
+| `related` | Cross-reference | No blocking effect |
+| `discovered-from` | Found during work on another issue | No blocking effect |
 
-**Note**: `child` type doesn't exist—use `parent-child` for hierarchy.
+---
 
-### Workflow
+## Worktree Workflow for Multi-Agent Development
 
-1. `npx bd create "Epic" -t epic -p 1` → Create epic
-2. `npx bd create "Task" -t task -p 2` → Create tasks  
-3. `npx bd dep add <task> <epic> --type parent-child` → Link to epic
-4. `npx bd dep add <task2> <task1> --type blocks` → Set execution order
-5. `npx bd ready` → See what's unblocked
-6. `npx bd update <id> --status in_progress` → Start work
-7. `npx bd close <id> --reason "Done"` → Complete
+This project uses `./scripts/task-worktree.sh` for isolated agent work:
 
-### JSON Output
-
-All commands support `--json` for programmatic access:
 ```bash
-npx bd list --json | jq '.[] | select(.status=="open")'
-npx bd show bd-xyz --json
+# Start a task (creates worktree, marks in_progress)
+./scripts/task-worktree.sh start <worker-name> <task-id>
+cd /path/to/worktrees/<worker-name>/<task-id>
+
+# Verify you're in the correct worktree
+./scripts/task-worktree.sh verify <task-id>
+
+# After work is complete
+./scripts/task-worktree.sh finish <worker-name> <task-id>
+
+# Check status of all worktrees
+./scripts/task-worktree.sh status
+
+# Cleanup worker's worktrees
+./scripts/task-worktree.sh cleanup <worker-name>
+```
+
+### Key Rules for Worktree Workflow
+
+1. **Never modify main repo directly** - Always work in worktrees
+2. **Always verify location** before editing: `./scripts/task-worktree.sh verify <task-id>`
+3. **Check for file conflicts** before starting a task - compare `## Files` sections of in_progress tasks
+4. **bd commands always point to main repo's `.beads`** - The script handles this
+
+---
+
+## Example: Complete Workflow
+
+```bash
+# 1. Find ready work
+npx bd --no-daemon ready --json
+
+# 2. Check for conflicts with in_progress tasks
+npx bd --no-daemon list --status in_progress --json
+
+# 3. Start the task
+./scripts/task-worktree.sh start agent-1 bd-abc123
+cd /Users/honk/code/worktrees/agent-1/bd-abc123
+
+# 4. Verify location
+./scripts/task-worktree.sh verify bd-abc123
+
+# 5. View task details
+npx bd --no-daemon show bd-abc123 --json
+
+# 6. Implement, test, commit
+npm run compile && npm run lint && npm run test:unit
+git add -A
+git commit -m "bd-abc123: Implement feature X"
+
+# 7. Finish (merge to main, cleanup)
+./scripts/task-worktree.sh finish agent-1 bd-abc123
 ```
