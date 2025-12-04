@@ -236,6 +236,8 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   
   // Collapsed state for status sections
   private collapsedSections: Set<string> = new Set();
+  // Collapsed state for epics (id -> collapsed)
+  private collapsedEpics: Map<string, boolean> = new Map();
 
   constructor(private readonly context: vscode.ExtensionContext) {
     // Load persisted sort order
@@ -471,7 +473,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     const sortedEpics = Array.from(epicMap.values()).sort(naturalSort);
     sortedEpics.forEach(epic => {
       const children = childrenMap.get(epic.id) || [];
-      const isCollapsed = this.collapsedSections.has(`epic-${epic.id}`);
+      const isCollapsed = this.collapsedEpics.get(epic.id) === true;
       sections.push(new EpicTreeItem(epic, children, isCollapsed));
     });
 
@@ -871,14 +873,37 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   }
   
   private loadCollapsedSections(): void {
-    const saved = this.context.workspaceState.get<string[]>('beads.collapsedSections');
-    if (saved) {
-      this.collapsedSections = new Set(saved);
+    const savedSections = this.context.workspaceState.get<string[]>('beads.collapsedSections');
+    if (savedSections) {
+      this.collapsedSections = new Set(savedSections.filter(key => !key.startsWith('epic-')));
+      // Migration: legacy epic keys stored in collapsedSections (epic-<id>)
+      savedSections.forEach(key => {
+        if (key.startsWith('epic-')) {
+          const epicId = key.replace('epic-', '');
+          this.collapsedEpics.set(epicId, true);
+        }
+      });
+    }
+
+    const savedEpics = this.context.workspaceState.get<Record<string, boolean>>('beads.collapsedEpics');
+    if (savedEpics) {
+      this.collapsedEpics = new Map(Object.entries(savedEpics));
     }
   }
   
   private saveCollapsedSections(): void {
-    void this.context.workspaceState.update('beads.collapsedSections', Array.from(this.collapsedSections));
+    // Persist non-epic sections
+    const sectionStates = Array.from(this.collapsedSections).filter(key => !key.startsWith('epic-'));
+    void this.context.workspaceState.update('beads.collapsedSections', sectionStates);
+
+    // Persist epic collapse states separately
+    const epicState: Record<string, boolean> = {};
+    this.collapsedEpics.forEach((collapsed, epicId) => {
+      if (collapsed) {
+        epicState[epicId] = true;
+      }
+    });
+    void this.context.workspaceState.update('beads.collapsedEpics', epicState);
   }
   
   toggleSectionCollapse(status: string): void {
@@ -908,6 +933,15 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   }
 
   handleCollapseChange(element: TreeItemType, isCollapsed: boolean): void {
+    if (element instanceof EpicTreeItem && element.epic) {
+      this.collapsedEpics.set(element.epic.id, isCollapsed);
+      this.saveCollapsedSections();
+      element.updateIcon(isCollapsed);
+      element.collapsibleState = isCollapsed ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.Expanded;
+      this.onDidChangeTreeDataEmitter.fire(element);
+      return;
+    }
+
     const key = this.getCollapseKey(element);
     if (!key) {
       return;
@@ -919,12 +953,6 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
       this.collapsedSections.delete(key);
     }
     this.saveCollapsedSections();
-
-    // Update epic icons to reflect expanded/collapsed state immediately
-    if (element instanceof EpicTreeItem) {
-      element.updateIcon(isCollapsed);
-      element.collapsibleState = isCollapsed ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.Expanded;
-    }
 
     this.onDidChangeTreeDataEmitter.fire(element);
   }
