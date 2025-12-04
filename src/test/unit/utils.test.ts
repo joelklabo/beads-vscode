@@ -9,7 +9,8 @@ import {
   extractBeads,
   formatError,
   escapeHtml,
-  linkifyText
+  linkifyText,
+  formatRelativeTime
 } from '../../utils';
 
 describe('Utility Functions', () => {
@@ -289,6 +290,49 @@ describe('Utility Functions', () => {
     it('should handle URLs with paths and query strings', () => {
       const result = linkifyText('https://linear.app/ereborbank/issue/ERE-1718/implement-statement-correction');
       assert.strictEqual(result, '<a href="https://linear.app/ereborbank/issue/ERE-1718/implement-statement-correction" class="external-link" target="_blank">https://linear.app/ereborbank/issue/ERE-1718/implement-statement-correction</a>');
+    });
+  });
+
+  describe('formatRelativeTime', () => {
+    it('should return empty string for undefined', () => {
+      const result = formatRelativeTime(undefined);
+      assert.strictEqual(result, '');
+    });
+
+    it('should return "just now" for very recent times', () => {
+      const now = new Date();
+      const result = formatRelativeTime(now.toISOString());
+      assert.strictEqual(result, 'just now');
+    });
+
+    it('should return minutes ago', () => {
+      const date = new Date(Date.now() - 5 * 60 * 1000); // 5 minutes ago
+      const result = formatRelativeTime(date.toISOString());
+      assert.strictEqual(result, '5m ago');
+    });
+
+    it('should return hours ago', () => {
+      const date = new Date(Date.now() - 3 * 60 * 60 * 1000); // 3 hours ago
+      const result = formatRelativeTime(date.toISOString());
+      assert.strictEqual(result, '3h ago');
+    });
+
+    it('should return days ago', () => {
+      const date = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000); // 2 days ago
+      const result = formatRelativeTime(date.toISOString());
+      assert.strictEqual(result, '2d ago');
+    });
+
+    it('should return weeks ago', () => {
+      const date = new Date(Date.now() - 2 * 7 * 24 * 60 * 60 * 1000); // 2 weeks ago
+      const result = formatRelativeTime(date.toISOString());
+      assert.strictEqual(result, '2w ago');
+    });
+
+    it('should return months ago for older dates', () => {
+      const date = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000); // 60 days ago
+      const result = formatRelativeTime(date.toISOString());
+      assert.strictEqual(result, '2mo ago');
     });
   });
 });

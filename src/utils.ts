@@ -3,14 +3,17 @@ import * as path from 'path';
 export interface BeadItemData {
   id: string;
   title: string;
+  description?: string;
   filePath?: string;
   status?: string;
   tags?: string[];
+  updatedAt?: string;
   externalReferenceId?: string;
   externalReferenceDescription?: string;
   raw?: unknown;
   idKey?: string;
   externalReferenceKey?: string;
+  blockingDepsCount?: number;
 }
 
 export function pickValue(entry: any, keys: string[], fallback?: string): string | undefined {
@@ -76,9 +79,11 @@ export function pickTags(entry: any): string[] | undefined {
 export function normalizeBead(entry: any, index = 0): BeadItemData {
   const { value: id, key: idKey } = pickFirstKey(entry, ['id', 'uuid', 'beadId']);
   const title = pickValue(entry, ['title', 'name'], id ?? `bead-${index}`) ?? `bead-${index}`;
+  const description = pickValue(entry, ['description', 'desc', 'body']);
   const filePath = pickValue(entry, ['file', 'path', 'filename']);
   const status = pickValue(entry, ['status', 'state']);
   const tags = pickTags(entry);
+  const updatedAt = pickValue(entry, ['updated_at', 'updatedAt', 'modified_at', 'modifiedAt']);
   const { value: externalReferenceRaw, key: externalReferenceKey } = pickFirstKey(entry, [
     'external_reference_id',
     'externalReferenceId',
@@ -96,17 +101,31 @@ export function normalizeBead(entry: any, index = 0): BeadItemData {
     externalReferenceDescription = parts.length > 1 ? parts[1] : undefined;
   }
 
+  // Count blocking dependencies (those not closed)
+  let blockingDepsCount = 0;
+  const dependencies = entry?.dependencies || [];
+  for (const dep of dependencies) {
+    const depType = dep.dep_type || dep.type || 'related';
+    if (depType === 'blocks') {
+      // We'll count it - the actual status check happens in extension.ts with all items
+      blockingDepsCount++;
+    }
+  }
+
   return {
     id: id ?? `bead-${index}`,
     idKey,
     title,
+    description,
     filePath,
     status,
     tags,
+    updatedAt,
     externalReferenceId,
     externalReferenceDescription,
     externalReferenceKey,
     raw: entry,
+    blockingDepsCount,
   };
 }
 
@@ -190,4 +209,34 @@ export function createTooltip(bead: BeadItemData): string {
     parts.push(`External Ref: ${displayText} (${bead.externalReferenceId})`);
   }
   return parts.join('\n');
+}
+
+export function formatRelativeTime(dateString: string | undefined): string {
+  if (!dateString) {
+    return '';
+  }
+  
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffSecs = Math.floor(diffMs / 1000);
+  const diffMins = Math.floor(diffSecs / 60);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+  const diffWeeks = Math.floor(diffDays / 7);
+  const diffMonths = Math.floor(diffDays / 30);
+
+  if (diffSecs < 60) {
+    return 'just now';
+  } else if (diffMins < 60) {
+    return `${diffMins}m ago`;
+  } else if (diffHours < 24) {
+    return `${diffHours}h ago`;
+  } else if (diffDays < 7) {
+    return `${diffDays}d ago`;
+  } else if (diffWeeks < 4) {
+    return `${diffWeeks}w ago`;
+  } else {
+    return `${diffMonths}mo ago`;
+  }
 }
