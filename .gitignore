@@ -6,3 +6,7 @@ out
 DISTRIBUTION.md
 AGENTS.md
 .gitattributes
+
+# Git worktrees for multi-agent workflow (stored outside repo)
+# Note: worktrees are at ../worktrees/, not in repo, but just in case
+worktrees/

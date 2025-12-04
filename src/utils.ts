@@ -20,6 +20,8 @@ export interface BeadItemData {
   issueType?: string;
   /** Parent issue ID for parent-child relationships (used for epic grouping) */
   parentId?: string;
+  /** Number of child issues (for epics) */
+  childCount?: number;
 }
 
 export function pickValue(entry: any, keys: string[], fallback?: string): string | undefined {

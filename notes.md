@@ -2,5 +2,4 @@
 
 - Add feedback so users can submit ideas and suggestions as github issues.
 - Remove prefixes from names. Add more detail.
-- Update visualize dependencies to use `deps`.
-- Pass "name" to /task.worker to have assignees on tasks.
+- Activity feed has wrong timestamps. And it doesn't seem to always update. I guess it stops at 100 events?
