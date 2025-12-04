@@ -238,8 +238,8 @@ export function formatRelativeTime(dateString: string | undefined): string {
   if (!dateString) {
     return '';
   }
-  
-  const date = new Date(dateString);
+
+  const date = parseUtcDate(dateString);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffSecs = Math.floor(diffMs / 1000);
@@ -262,6 +262,27 @@ export function formatRelativeTime(dateString: string | undefined): string {
   } else {
     return `${diffMonths}mo ago`;
   }
+}
+
+/**
+ * Parse a timestamp string into a Date, treating missing timezone info as UTC and
+ * normalizing space-separated formats from SQLite (`YYYY-MM-DD HH:MM:SS`).
+ */
+export function parseUtcDate(timestamp: string | undefined): Date {
+  if (!timestamp) {
+    return new Date(NaN);
+  }
+
+  const trimmed = timestamp.trim();
+  if (!trimmed) {
+    return new Date(NaN);
+  }
+
+  const withT = trimmed.replace(' ', 'T');
+  const hasZone = /([+-]\d{2}:?\d{2}|Z)$/i.test(withT);
+  const normalized = hasZone ? withT : `${withT}Z`;
+
+  return new Date(normalized);
 }
 
 /**
