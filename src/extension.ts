@@ -11,6 +11,7 @@ import {
   resolveDataFilePath,
   formatError,
   escapeHtml,
+  sanitizeTooltipText,
   linkifyText,
   formatRelativeTime,
   isStale,
@@ -23,6 +24,10 @@ import { EventType } from './activityFeed';
 import { validateLittleGlenMessage, AllowedLittleGlenCommand } from './littleGlen/validation';
 
 const execFileAsync = promisify(execFile);
+
+function createNonce(): string {
+  return Math.random().toString(36).slice(2, 15) + Math.random().toString(36).slice(2, 15);
+}
 
 async function findBdCommand(configPath: string): Promise<string> {
   // If user specified a path other than default, try to use it
@@ -588,7 +593,8 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     this.openPanels.forEach((panel, beadId) => {
       const updatedItem = this.items.find((i: BeadItemData) => i.id === beadId);
       if (updatedItem) {
-        panel.webview.html = getBeadDetailHtml(updatedItem, this.items);
+        const nonce = createNonce();
+        panel.webview.html = getBeadDetailHtml(updatedItem, this.items, panel.webview, nonce);
       }
     });
   }
@@ -1172,12 +1178,15 @@ class BeadTreeItem extends vscode.TreeItem {
   
   private buildRichTooltip(bead: BeadItemData, isTaskStale: boolean, staleInfo: { hoursInProgress: number; formattedTime: string } | undefined): vscode.MarkdownString {
     const md = new vscode.MarkdownString();
-    md.isTrusted = true;
-    md.supportHtml = true;
+    md.isTrusted = false;
+    md.supportHtml = false;
+
+    const safeId = sanitizeTooltipText(bead.id);
+    const safeTitle = sanitizeTooltipText(bead.title);
     
     // Title and ID
-    md.appendMarkdown(`### ${bead.id}\n\n`);
-    md.appendMarkdown(`**${bead.title}**\n\n`);
+    md.appendMarkdown(`### ${safeId}\n\n`);
+    md.appendMarkdown(`**${safeTitle}**\n\n`);
     
     // Status with colored indicator
     const statusEmoji: Record<string, string> = {
@@ -1217,12 +1226,12 @@ class BeadTreeItem extends vscode.TreeItem {
     // Description preview
     if (bead.description) {
       const preview = bead.description.substring(0, 200).replace(/\n/g, ' ').trim();
-      md.appendMarkdown(`📝 ${preview}${bead.description.length > 200 ? '…' : ''}\n\n`);
+      md.appendMarkdown(`📝 ${sanitizeTooltipText(preview)}${bead.description.length > 200 ? '…' : ''}\n\n`);
     }
     
     // Tags
     if (bead.tags && bead.tags.length > 0) {
-      md.appendMarkdown(`🏷️ ${bead.tags.join(', ')}\n\n`);
+      md.appendMarkdown(`🏷️ ${bead.tags.map(sanitizeTooltipText).join(', ')}\n\n`);
     }
     
     // Blocking dependencies
@@ -1239,18 +1248,18 @@ class BeadTreeItem extends vscode.TreeItem {
     // External reference
     if (bead.externalReferenceId) {
       const displayText = bead.externalReferenceDescription || bead.externalReferenceId;
-      md.appendMarkdown(`↗️ **External:** ${displayText}\n\n`);
+      md.appendMarkdown(`↗️ **External:** ${sanitizeTooltipText(displayText)}\n\n`);
     }
 
     if (this.worktreeId) {
-      md.appendMarkdown(`🏷️ Worktree: ${this.worktreeId}\n\n`);
+      md.appendMarkdown(`🏷️ Worktree: ${sanitizeTooltipText(this.worktreeId)}\n\n`);
     }
     
     // File path
     if (bead.filePath) {
-      md.appendMarkdown(`📁 ${bead.filePath}\n`);
+      md.appendMarkdown(`📁 ${sanitizeTooltipText(bead.filePath)}\n`);
     }
-    
+
     return md;
   }
 }
@@ -1519,7 +1528,12 @@ function renderTreeHtml(node: DependencyTreeNode, currentId: string, isLast: boo
   return html;
 }
 
-function getBeadDetailHtml(item: BeadItemData, allItems?: BeadItemData[]): string {
+function getBeadDetailHtml(
+  item: BeadItemData,
+  allItems: BeadItemData[] | undefined,
+  webview: vscode.Webview,
+  nonce: string
+): string {
   const raw = item.raw as any;
   const description = raw?.description || '';
   const design = raw?.design || '';
@@ -1623,13 +1637,24 @@ function getBeadDetailHtml(item: BeadItemData, allItems?: BeadItemData[]): strin
     ? item.status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
     : '';
 
+  const csp = [
+    "default-src 'none'",
+    `img-src ${webview.cspSource} https: data:`,
+    `style-src 'nonce-${nonce}' ${webview.cspSource}`,
+    `script-src 'nonce-${nonce}'`,
+    `font-src ${webview.cspSource}`,
+    "connect-src 'none'",
+    "frame-src 'none'"
+  ].join('; ');
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${item.id}</title>
-    <style>
+    <meta http-equiv="Content-Security-Policy" content="${csp}">
+    <style nonce="${nonce}">
         body {
             font-family: var(--vscode-font-family);
             font-size: var(--vscode-font-size);
@@ -2037,7 +2062,7 @@ function getBeadDetailHtml(item: BeadItemData, allItems?: BeadItemData[]): strin
 
     ${dependencyTreeHtml}
 
-    <script>
+    <script nonce="${nonce}">
         const vscode = acquireVsCodeApi();
         let isEditMode = false;
 
@@ -2893,6 +2918,7 @@ function getDependencyTreeHtml(items: BeadItemData[]): string {
 }
 
 async function openBead(item: BeadItemData, provider: BeadsTreeDataProvider): Promise<void> {
+  const nonce = createNonce();
   const panel = vscode.window.createWebviewPanel(
     'beadDetail',
     item.id,
@@ -2900,12 +2926,13 @@ async function openBead(item: BeadItemData, provider: BeadsTreeDataProvider): Pr
     {
       enableScripts: true,
       retainContextWhenHidden: true,
+      localResourceRoots: [vscode.Uri.joinPath(vscode.workspace.workspaceFolders?.[0]?.uri ?? vscode.Uri.file(process.cwd())), provider['context']?.extensionUri ?? vscode.Uri.file(process.cwd())],
     }
   );
 
   // Get all items from the provider to calculate reverse dependencies
   const allItems = provider['items'] as BeadItemData[];
-  panel.webview.html = getBeadDetailHtml(item, allItems);
+  panel.webview.html = getBeadDetailHtml(item, allItems, panel.webview, nonce);
 
   // Register this panel so it can be refreshed when data changes
   provider.registerPanel(item.id, panel);

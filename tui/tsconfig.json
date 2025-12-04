@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "target": "es2020",
+    "jsx": "react-jsx",
+    "esModuleInterop": true,
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "strict": true,
+    "types": ["node"],
+    "skipLibCheck": true,
+    "outDir": "out"
+  },
+  "include": ["src/**/*"]
+}
