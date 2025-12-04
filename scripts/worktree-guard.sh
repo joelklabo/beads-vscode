@@ -55,11 +55,43 @@ const repo = process.env.REPO_ROOT;
 const helperPath = path.join(repo, 'out', 'worktree.js');
 const { syncRegistry } = require(helperPath);
 
+const removeEmptyAdminDirs = () => {
+  const adminDirs = [
+    path.join(repo, '.git', 'worktrees'),
+    path.join(repo, '.git', 'beads-worktrees'),
+  ];
+
+  for (const dir of adminDirs) {
+    if (!fs.existsSync(dir)) continue;
+    for (const entry of fs.readdirSync(dir)) {
+      const full = path.join(dir, entry);
+      try {
+        const stats = fs.statSync(full);
+        if (!stats.isDirectory()) continue;
+        if (fs.readdirSync(full).length === 0) {
+          fs.rmdirSync(full);
+        }
+      } catch (err) {
+        // best effort cleanup; ignore errors
+      }
+    }
+  }
+};
+
+removeEmptyAdminDirs();
+
 const registry = syncRegistry(repo);
 
 const issues = [];
 
+const isAdminPath = (p) =>
+  p.includes(`${path.sep}.git${path.sep}worktrees${path.sep}`) ||
+  p.includes(`${path.sep}.git${path.sep}beads-worktrees${path.sep}`);
+
 for (const entry of registry.entries) {
+  if (isAdminPath(entry.path)) {
+    continue; // ignore git admin directories
+  }
   if (!/worktrees\//.test(entry.path)) {
     continue; // ignore main repo entry
   }

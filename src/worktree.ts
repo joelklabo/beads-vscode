@@ -63,10 +63,14 @@ export const buildRegistryFromGit = (repoRoot: string, now = Date.now()): Worktr
     encoding: 'utf8',
   });
 
-  const entries = parsePorcelain(porcelain).map((e) => ({
-    ...e,
-    lastSeen: now,
-  }));
+  const entries = parsePorcelain(porcelain)
+    .map((e) => ({
+      ...e,
+      lastSeen: now,
+    }))
+    // Drop stray admin directories (e.g., .git/beads-worktrees/*) that can
+    // appear in git's porcelain output when worktrees were not pruned.
+    .filter((e) => e.path === path.resolve(repoRoot) || isCanonicalWorktreePath(repoRoot, e.path));
 
   return {
     entries,
