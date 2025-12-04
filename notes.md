@@ -68,6 +68,38 @@ Remediation checklist for broken worktrees
 - Implement harness runner in scripts/agent-harness: temp repo, seed tasks, spawn N agents running claim-next/finish loops, export trace JSON, assert no deadlocks.
 - Add fixtures and malicious payload tests for Little Glen security alongside CSP docs (ties to vc9z/v7t8).
 - Add comparison table to this note (tool vs. pros/cons vs. CI support).
+
+## AI & VS Code APIs (beads-vscode-8ve)
+
+Context (2025-12-04): VS Code 1.104 adds auto model selection and a custom OpenAI-compatible provider in Insiders; Chat Participant API docs refreshed 2025-11-12; GitHub Copilot Extension (server-side) sunsets 2025-11-10 (chat participants not affected).
+
+### Comparison
+| Option | UX surface | Engine/version req. | Auth & quotas | Pros | Cons / risks | Go / No-go |
+| --- | --- | --- | --- | --- | --- | --- |
+| Copilot chat participant (@beads) | Chat + inline chat + agent mode | VS Code >=1.95 stable; Copilot Chat extension (latest); model picker/auto-select in 1.104+ | Copilot subscription or Copilot Free (low quota); subject to Copilot org policies | Deep VS Code API hooks, tool calling, easy Marketplace ship; agent mode can edit multiple files; minimal infra | Paywall; model churn when Auto picks cheaper models; org policies may block; offline impossible | **Go** as primary UX; gate on capability check |
+| vscode.lm API with BYO provider | Any command/view; can reuse existing UI | VS Code >=1.102 (LM + MCP); Insiders 1.104+ for custom OpenAI provider | Bring-your-own key (OpenAI/Azure/Gemini/Ollama); you own rate limits | Works without Copilot; supports local/offline via Ollama; lets us pick cheapest/allowed models | More UX work (no chat UI out of box); need our own backoff/quota handling; model list may be empty | **Go** as fallback/offline |
+| Copilot agent mode only (no participant) | Agent sidebar only | Copilot Chat ext; VS Code >=1.104 | Copilot subscription | Zero build effort; good for internal dogfood | No Beads-specific tools/prompts; opaque edits; hard to validate actions | **No-go** for users; OK for internal use |
+
+### Recommendation
+- Ship a Copilot chat participant (@beads) for guided Beads flows (search, update, guard remediation). Detect Copilot availability; show friendly error when blocked.
+- Offer optional BYO provider path via `vscode.lm` with OpenAI-compatible endpoint or Ollama for offline/local scenarios.
+- Keep UI lean (chat + quick fixes); avoid new webviews until Little Glen hardening lands.
+
+### Minimum versions & prerequisites
+- VS Code: target 1.104+ (auto model selection, custom provider plumbing).
+- Copilot Chat extension: latest; Copilot subscription recommended for full quotas/models.
+- Fallback: OpenAI-compatible endpoint or Ollama with tool-calling model for agent-like actions.
+
+### Risks & mitigations
+- Model churn/quotas: implement `selectChatModels` with vendor/family filters; retry/backoff and surface “model unavailable” toast instead of stack traces.
+- Policy/paywall: if no Copilot models, prompt to configure BYO provider or use offline mode.
+- Data controls: respect workspace trust; never send file content without explicit consent; prefer partial snippets.
+- API instability (LM picker churn around 1.103–1.104): wrap LM calls in try/catch and fall back to palette commands.
+
+### Go / No-go call
+- Copilot participant: **GO** (primary).
+- Pure `vscode.lm` path: **GO** (fallback/offline).
+- Server-side Copilot Extension (GitHub App): **NO-GO** (sunset 2025-11-10).
 ## Ink TUI parity thoughts (beads-vscode-1u7)
 
 - Surfaces to align: list/search/sort, detail view, edit/update, dependency graph, stale/risk badges, worktree badges.
