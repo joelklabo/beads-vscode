@@ -301,22 +301,19 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   }
 
   async getChildren(element?: TreeItemType): Promise<TreeItemType[]> {
-    // If element is a StatusSectionItem, return its children (BeadTreeItems)
+    // Return children based on element type
     if (element instanceof StatusSectionItem) {
       return element.beads.map((item) => this.createTreeItem(item));
     }
     
-    // If element is a WarningSectionItem, return its children (BeadTreeItems)
     if (element instanceof WarningSectionItem) {
       return element.beads.map((item) => this.createTreeItem(item));
     }
     
-    // If element is an EpicTreeItem, return its children (BeadTreeItems)
     if (element instanceof EpicTreeItem) {
       return element.children.map((item) => this.createTreeItem(item));
     }
     
-    // If element is a BeadTreeItem, it has no children
     if (element instanceof BeadTreeItem) {
       return [];
     }
@@ -328,17 +325,14 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
 
     const filteredItems = this.filterItems(this.items);
     
-    // If in status mode, return status sections
     if (this.sortMode === 'status') {
       return this.createStatusSections(filteredItems);
     }
     
-    // If in epic mode, return epic sections
     if (this.sortMode === 'epic') {
-      return this.createEpicSections(filteredItems);
+      return this.createEpicTree(filteredItems);
     }
     
-    // Otherwise return flat list sorted by manual order or natural ID
     const sortedItems = this.applySortOrder(filteredItems);
     return sortedItems.map((item) => this.createTreeItem(item));
   }
@@ -395,78 +389,63 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     return sections;
   }
   
-  private createEpicSections(items: BeadItemData[]): (EpicTreeItem | WarningSectionItem)[] {
+  private createEpicTree(items: BeadItemData[]): (EpicTreeItem | WarningSectionItem)[] {
     // Get stale threshold from configuration (in minutes, convert to hours for isStale)
     const config = vscode.workspace.getConfiguration('beads');
     const thresholdMinutes = config.get<number>('staleThresholdMinutes', 10);
     const thresholdHours = thresholdMinutes / 60;
     
-    // Find stale items
+    // Find stale items so we can surface them above the tree
     const staleItems = items.filter(item => isStale(item, thresholdHours));
     
-    // Build map of epics and their children
-    const epicMap = new Map<string, BeadItemData>(); // epicId -> epic item
-    const childrenMap = new Map<string, BeadItemData[]>(); // parentId -> children
+    // Build maps for epics and their children
+    const epicMap = new Map<string, BeadItemData>();
+    const childrenMap = new Map<string, BeadItemData[]>();
     const ungrouped: BeadItemData[] = [];
     
-    // First pass: identify all epics
+    // Register epics
     items.forEach(item => {
       if (item.issueType === 'epic') {
         epicMap.set(item.id, item);
-        // Initialize children array for this epic
-        if (!childrenMap.has(item.id)) {
-          childrenMap.set(item.id, []);
-        }
+        childrenMap.set(item.id, []);
       }
     });
     
-    // Second pass: group non-epic items by their parent
+    // Attach children or mark ungrouped
     items.forEach(item => {
-      // Skip epics themselves - they'll be section headers
       if (item.issueType === 'epic') {
         return;
       }
-      
-      if (item.parentId && epicMap.has(item.parentId)) {
-        // Item has a parent epic that exists
-        const children = childrenMap.get(item.parentId) || [];
-        children.push(item);
-        childrenMap.set(item.parentId, children);
+
+      const parentId = item.parentId;
+      if (parentId && childrenMap.has(parentId)) {
+        childrenMap.get(parentId)!.push(item);
       } else {
-        // No parent or parent doesn't exist - goes to ungrouped
         ungrouped.push(item);
       }
     });
     
-    // Sort children within each group by natural ID
-    childrenMap.forEach(children => {
-      children.sort(naturalSort);
-    });
+    // Sort children and ungrouped lists
+    childrenMap.forEach(children => children.sort(naturalSort));
     ungrouped.sort(naturalSort);
     
-    // Create section items
     const sections: (EpicTreeItem | WarningSectionItem)[] = [];
-    
-    // Add warning section at the top if there are stale items
+
+    // Stale tasks section (collapsible)
     if (staleItems.length > 0) {
       const isCollapsed = this.collapsedSections.has('stale');
       sections.push(new WarningSectionItem(staleItems, thresholdMinutes, isCollapsed));
     }
-    
-    // Add epic sections (sorted by epic ID)
+
+    // Epic folders
     const sortedEpics = Array.from(epicMap.values()).sort(naturalSort);
     sortedEpics.forEach(epic => {
       const children = childrenMap.get(epic.id) || [];
-      if (children.length > 0) {
-        const isCollapsed = this.collapsedSections.has(`epic-${epic.id}`);
-        sections.push(new EpicTreeItem(epic, children, isCollapsed));
-      }
+      const isCollapsed = this.collapsedSections.has(`epic-${epic.id}`);
+      sections.push(new EpicTreeItem(epic, children, isCollapsed));
     });
-    // Update badge with stale count
-      this.updateBadge();
 
-      
-    // Add ungrouped section at the end if there are ungrouped items
+    // Ungrouped bucket at the end
     if (ungrouped.length > 0) {
       const isCollapsed = this.collapsedSections.has('ungrouped');
       sections.push(new EpicTreeItem(null, ungrouped, isCollapsed));
