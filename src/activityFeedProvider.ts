@@ -16,6 +16,7 @@ import {
   groupEventsByTime,
   formatRelativeTimeDetailed,
 } from './activityFeed';
+import { currentWorktreeId } from './worktree';
 import { formatError } from './utils';
 
 /**
@@ -65,7 +66,7 @@ export class TimeGroupItem extends vscode.TreeItem {
 export class ActivityEventItem extends vscode.TreeItem {
   public readonly event: EventData;
 
-  constructor(event: EventData) {
+  constructor(event: EventData, worktreeId?: string) {
     super(event.description, vscode.TreeItemCollapsibleState.None);
 
     this.event = event;
@@ -90,7 +91,7 @@ export class ActivityEventItem extends vscode.TreeItem {
     );
 
     // Rich tooltip
-    this.tooltip = this.buildTooltip(event);
+    this.tooltip = this.buildTooltip(event, worktreeId);
 
     // Command to navigate to the issue
     this.command = {
@@ -100,7 +101,7 @@ export class ActivityEventItem extends vscode.TreeItem {
     };
   }
 
-  private buildTooltip(event: EventData): vscode.MarkdownString {
+  private buildTooltip(event: EventData, worktreeId?: string): vscode.MarkdownString {
     const md = new vscode.MarkdownString();
     md.isTrusted = true;
 
@@ -113,6 +114,9 @@ export class ActivityEventItem extends vscode.TreeItem {
 
     md.appendMarkdown(`👤 Actor: ${event.actor}\n\n`);
     md.appendMarkdown(`🕐 ${event.createdAt.toLocaleString()}\n`);
+    if (worktreeId) {
+      md.appendMarkdown(`\n🏷️ Worktree: ${worktreeId}\n`);
+    }
 
     return md;
   }
@@ -218,6 +222,7 @@ export class ActivityFeedTreeDataProvider
   private filterEventTypes: EventType[] | undefined;
   private filterIssueId: string | undefined;
   private filterTimeRange: 'today' | 'week' | 'month' | 'all' = 'all';
+  private worktreeId: string | undefined;
   
   // Collapsed sections
   private collapsedGroups: Set<string> = new Set();
@@ -249,7 +254,7 @@ export class ActivityFeedTreeDataProvider
 
     // If element is a TimeGroupItem, return its events
     if (element instanceof TimeGroupItem) {
-      return element.events.map((event) => new ActivityEventItem(event));
+      return element.events.map((event) => new ActivityEventItem(event, this.worktreeId));
     }
 
     // If element is an ActivityEventItem, it has no children
@@ -434,6 +439,8 @@ export class ActivityFeedTreeDataProvider
         return;
       }
 
+      this.worktreeId = currentWorktreeId(projectRoot);
+
       // Build filter options
       const options: FetchEventsOptions = {
         limit: this.pageSize,
@@ -469,7 +476,13 @@ export class ActivityFeedTreeDataProvider
       }
 
       const result = await fetchEvents(projectRoot, options);
-      this.events = result.events;
+      const unique = new Map<number, EventData>();
+      result.events.forEach((e) => {
+        if (!unique.has(e.id)) {
+          unique.set(e.id, e);
+        }
+      });
+      this.events = Array.from(unique.values()).map((e) => ({ ...e, worktreeId: this.worktreeId }));
       this.totalEvents = result.totalCount;
 
       this.onDidChangeTreeDataEmitter.fire();

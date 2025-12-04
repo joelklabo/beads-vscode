@@ -33,6 +33,7 @@ export interface EventData {
   id: number;
   issueId: string;
   issueTitle?: string;
+  worktreeId?: string;
   eventType: EventType;
   actor: string;
   oldValue: ParsedEventValue | null;

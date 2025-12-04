@@ -18,6 +18,7 @@ import {
 } from './utils';
 import { ActivityFeedTreeDataProvider } from './activityFeedProvider';
 import { EventType } from './activityFeed';
+import { currentWorktreeId } from './worktree';
 
 const execFileAsync = promisify(execFile);
 
@@ -58,6 +59,38 @@ async function findBdCommand(configPath: string): Promise<string> {
   }
 
   throw new Error('bd command not found. Please install beads CLI: https://github.com/steveyegge/beads');
+}
+
+let guardWarningShown = false;
+
+async function runWorktreeGuard(projectRoot: string): Promise<void> {
+  const config = vscode.workspace.getConfiguration('beads');
+  const guardEnabled = config.get<boolean>('enableWorktreeGuard', true);
+  if (!guardEnabled) {
+    if (!guardWarningShown) {
+      guardWarningShown = true;
+      void vscode.window.showWarningMessage('Worktree guard disabled; operations may be unsafe.');
+    }
+    return;
+  }
+
+  const guardPath = path.join(projectRoot, 'scripts', 'worktree-guard.sh');
+  try {
+    await fs.access(guardPath);
+  } catch {
+    return;
+  }
+
+  await execFileAsync(guardPath, { cwd: projectRoot });
+}
+
+async function runBdCommand(args: string[], projectRoot: string, requireGuard = true): Promise<void> {
+  if (requireGuard) {
+    await runWorktreeGuard(projectRoot);
+  }
+
+  const commandPath = await findBdCommand(vscode.workspace.getConfiguration('beads').get<string>('commandPath', 'bd'));
+  await execFileAsync(commandPath, args, { cwd: projectRoot });
 }
 
 interface BeadsDocument {
@@ -628,7 +661,6 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
 
   async updateStatus(item: BeadItemData, newStatus: string): Promise<void> {
     const config = vscode.workspace.getConfiguration('beads');
-    const configPath = config.get<string>('commandPath', 'bd');
     const projectRoot = resolveProjectRoot(config);
 
     if (!projectRoot) {
@@ -637,8 +669,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     }
 
     try {
-      const commandPath = await findBdCommand(configPath);
-      await execFileAsync(commandPath, ['update', item.id, '--status', newStatus], { cwd: projectRoot });
+      await runBdCommand(['update', item.id, '--status', newStatus], projectRoot, true);
       await this.refresh();
       void vscode.window.showInformationMessage(`Updated status to: ${newStatus}`);
     } catch (error) {
@@ -649,7 +680,6 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
 
   async updateTitle(item: BeadItemData, newTitle: string): Promise<void> {
     const config = vscode.workspace.getConfiguration('beads');
-    const configPath = config.get<string>('commandPath', 'bd');
     const projectRoot = resolveProjectRoot(config);
 
     if (!projectRoot) {
@@ -658,8 +688,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     }
 
     try {
-      const commandPath = await findBdCommand(configPath);
-      await execFileAsync(commandPath, ['update', item.id, '--title', newTitle], { cwd: projectRoot });
+      await runBdCommand(['update', item.id, '--title', newTitle], projectRoot, true);
       await this.refresh();
       void vscode.window.showInformationMessage(`Updated title to: ${newTitle}`);
     } catch (error) {
@@ -670,7 +699,6 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
 
   async addLabel(item: BeadItemData, label: string): Promise<void> {
     const config = vscode.workspace.getConfiguration('beads');
-    const configPath = config.get<string>('commandPath', 'bd');
     const projectRoot = resolveProjectRoot(config);
 
     if (!projectRoot) {
@@ -679,8 +707,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     }
 
     try {
-      const commandPath = await findBdCommand(configPath);
-      await execFileAsync(commandPath, ['label', 'add', item.id, label], { cwd: projectRoot });
+      await runBdCommand(['label', 'add', item.id, label], projectRoot, true);
       await this.refresh();
       void vscode.window.showInformationMessage(`Added label: ${label}`);
     } catch (error) {
@@ -691,7 +718,6 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
 
   async removeLabel(item: BeadItemData, label: string): Promise<void> {
     const config = vscode.workspace.getConfiguration('beads');
-    const configPath = config.get<string>('commandPath', 'bd');
     const projectRoot = resolveProjectRoot(config);
 
     if (!projectRoot) {
@@ -700,8 +726,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     }
 
     try {
-      const commandPath = await findBdCommand(configPath);
-      await execFileAsync(commandPath, ['label', 'remove', item.id, label], { cwd: projectRoot });
+      await runBdCommand(['label', 'remove', item.id, label], projectRoot, true);
       await this.refresh();
       void vscode.window.showInformationMessage(`Removed label: ${label}`);
     } catch (error) {
@@ -1040,7 +1065,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
 }
 
 class BeadTreeItem extends vscode.TreeItem {
-  constructor(public readonly bead: BeadItemData) {
+  constructor(public readonly bead: BeadItemData, private readonly worktreeId?: string) {
     // Show ID before title
     const label = `${bead.id} ${bead.title}`;
     super(label, vscode.TreeItemCollapsibleState.None);
@@ -1199,6 +1224,10 @@ class BeadTreeItem extends vscode.TreeItem {
     if (bead.externalReferenceId) {
       const displayText = bead.externalReferenceDescription || bead.externalReferenceId;
       md.appendMarkdown(`↗️ **External:** ${displayText}\n\n`);
+    }
+
+    if (this.worktreeId) {
+      md.appendMarkdown(`🏷️ Worktree: ${this.worktreeId}\n\n`);
     }
     
     // File path
@@ -2905,12 +2934,10 @@ async function createBead(): Promise<void> {
   }
 
   const config = vscode.workspace.getConfiguration('beads');
-  const configPath = config.get<string>('commandPath', 'bd');
   const projectRoot = resolveProjectRoot(config);
 
   try {
-    const commandPath = await findBdCommand(configPath);
-    await execFileAsync(commandPath, ['create', name], { cwd: projectRoot });
+    await runBdCommand(['create', name], projectRoot!, true);
     void vscode.commands.executeCommand('beads.refresh');
     void vscode.window.showInformationMessage(`Created bead: ${name}`);
   } catch (error) {
@@ -3397,16 +3424,13 @@ export function activate(context: vscode.ExtensionContext): void {
       }
 
       // Delete each bead
-      const configPath = vscode.workspace.getConfiguration('beads').get<string>('commandPath', 'bd');
-      const projectRoot = vscode.workspace.getConfiguration('beads').get<string>('projectRoot') ||
-        (vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd());
+      const config = vscode.workspace.getConfiguration('beads');
+      const projectRoot = resolveProjectRoot(config) || (vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd());
 
       try {
-        const commandPath = await findBdCommand(configPath);
-
-        // Delete beads one by one
+        // Delete beads one by one with guard
         for (const item of beadItems) {
-          await execFileAsync(commandPath, ['delete', item.bead.id, '--force'], { cwd: projectRoot });
+          await runBdCommand(['delete', item.bead.id, '--force'], projectRoot!, true);
         }
 
         await provider.refresh();
