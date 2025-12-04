@@ -14,6 +14,8 @@ export interface BeadItemData {
   idKey?: string;
   externalReferenceKey?: string;
   blockingDepsCount?: number;
+  /** Timestamp when the task entered in_progress status (for stale detection) */
+  inProgressSince?: string;
 }
 
 export function pickValue(entry: any, keys: string[], fallback?: string): string | undefined {
@@ -112,6 +114,10 @@ export function normalizeBead(entry: any, index = 0): BeadItemData {
     }
   }
 
+  // For stale detection: if status is in_progress, use updated_at as proxy for when it entered that status
+  // A more accurate approach would track status change events, but updated_at is a good approximation
+  const inProgressSince = status === 'in_progress' ? updatedAt : undefined;
+
   return {
     id: id ?? `bead-${index}`,
     idKey,
@@ -126,6 +132,7 @@ export function normalizeBead(entry: any, index = 0): BeadItemData {
     externalReferenceKey,
     raw: entry,
     blockingDepsCount,
+    inProgressSince,
   };
 }
 
@@ -239,4 +246,62 @@ export function formatRelativeTime(dateString: string | undefined): string {
   } else {
     return `${diffMonths}mo ago`;
   }
+}
+
+/**
+ * Default threshold in hours for considering an in_progress task as stale.
+ * Tasks in progress for longer than this are flagged as potentially stuck.
+ */
+export const DEFAULT_STALE_THRESHOLD_HOURS = 24;
+
+/**
+ * Determines if a task is considered stale based on how long it has been in_progress.
+ * @param bead The bead item to check
+ * @param thresholdHours Number of hours after which an in_progress task is considered stale
+ * @returns true if the task is stale, false otherwise
+ */
+export function isStale(bead: BeadItemData, thresholdHours: number = DEFAULT_STALE_THRESHOLD_HOURS): boolean {
+  // Only in_progress tasks can be stale
+  if (bead.status !== 'in_progress' || !bead.inProgressSince) {
+    return false;
+  }
+
+  const inProgressDate = new Date(bead.inProgressSince);
+  const now = new Date();
+  const diffMs = now.getTime() - inProgressDate.getTime();
+  const diffHours = diffMs / (1000 * 60 * 60);
+
+  return diffHours >= thresholdHours;
+}
+
+/**
+ * Calculates how long a task has been in_progress.
+ * @param bead The bead item to check
+ * @returns Object with hours in progress and formatted string, or undefined if not in progress
+ */
+export function getStaleInfo(bead: BeadItemData): { hoursInProgress: number; formattedTime: string } | undefined {
+  if (bead.status !== 'in_progress' || !bead.inProgressSince) {
+    return undefined;
+  }
+
+  const inProgressDate = new Date(bead.inProgressSince);
+  const now = new Date();
+  const diffMs = now.getTime() - inProgressDate.getTime();
+  const hoursInProgress = diffMs / (1000 * 60 * 60);
+
+  // Format the time in a human-readable way
+  const days = Math.floor(hoursInProgress / 24);
+  const hours = Math.floor(hoursInProgress % 24);
+
+  let formattedTime: string;
+  if (days > 0) {
+    formattedTime = hours > 0 ? `${days}d ${hours}h` : `${days}d`;
+  } else if (hours > 0) {
+    formattedTime = `${hours}h`;
+  } else {
+    const minutes = Math.floor((diffMs / (1000 * 60)) % 60);
+    formattedTime = `${minutes}m`;
+  }
+
+  return { hoursInProgress, formattedTime };
 }

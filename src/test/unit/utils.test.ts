@@ -10,7 +10,11 @@ import {
   formatError,
   escapeHtml,
   linkifyText,
-  formatRelativeTime
+  formatRelativeTime,
+  isStale,
+  getStaleInfo,
+  DEFAULT_STALE_THRESHOLD_HOURS,
+  BeadItemData
 } from '../../utils';
 
 describe('Utility Functions', () => {
@@ -333,6 +337,111 @@ describe('Utility Functions', () => {
       const date = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000); // 60 days ago
       const result = formatRelativeTime(date.toISOString());
       assert.strictEqual(result, '2mo ago');
+    });
+  });
+
+  describe('isStale', () => {
+    const createBead = (status: string, inProgressSince?: string): BeadItemData => ({
+      id: 'test-1',
+      idKey: 'test-1',
+      title: 'Test Task',
+      status,
+      inProgressSince,
+      raw: {}
+    });
+
+    it('should return false for non-in_progress tasks', () => {
+      const bead = createBead('open');
+      assert.strictEqual(isStale(bead), false);
+    });
+
+    it('should return false for closed tasks', () => {
+      const bead = createBead('closed');
+      assert.strictEqual(isStale(bead), false);
+    });
+
+    it('should return false for in_progress tasks without inProgressSince', () => {
+      const bead = createBead('in_progress');
+      assert.strictEqual(isStale(bead), false);
+    });
+
+    it('should return false for recently started in_progress tasks', () => {
+      const oneHourAgo = new Date(Date.now() - 1 * 60 * 60 * 1000);
+      const bead = createBead('in_progress', oneHourAgo.toISOString());
+      assert.strictEqual(isStale(bead), false);
+    });
+
+    it('should return true for tasks in progress longer than default threshold', () => {
+      const thirtyHoursAgo = new Date(Date.now() - 30 * 60 * 60 * 1000);
+      const bead = createBead('in_progress', thirtyHoursAgo.toISOString());
+      assert.strictEqual(isStale(bead), true);
+    });
+
+    it('should respect custom threshold', () => {
+      const threeHoursAgo = new Date(Date.now() - 3 * 60 * 60 * 1000);
+      const bead = createBead('in_progress', threeHoursAgo.toISOString());
+      // Not stale with 4 hour threshold
+      assert.strictEqual(isStale(bead, 4), false);
+      // Stale with 2 hour threshold
+      assert.strictEqual(isStale(bead, 2), true);
+    });
+
+    it('should have default threshold of 24 hours', () => {
+      assert.strictEqual(DEFAULT_STALE_THRESHOLD_HOURS, 24);
+    });
+  });
+
+  describe('getStaleInfo', () => {
+    const createBead = (status: string, inProgressSince?: string): BeadItemData => ({
+      id: 'test-1',
+      idKey: 'test-1',
+      title: 'Test Task',
+      status,
+      inProgressSince,
+      raw: {}
+    });
+
+    it('should return undefined for non-in_progress tasks', () => {
+      const bead = createBead('open');
+      assert.strictEqual(getStaleInfo(bead), undefined);
+    });
+
+    it('should return undefined for in_progress without inProgressSince', () => {
+      const bead = createBead('in_progress');
+      assert.strictEqual(getStaleInfo(bead), undefined);
+    });
+
+    it('should return info for in_progress tasks with timestamp', () => {
+      const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+      const bead = createBead('in_progress', twoHoursAgo.toISOString());
+      const info = getStaleInfo(bead);
+      assert.ok(info);
+      assert.ok(info.hoursInProgress >= 1.9 && info.hoursInProgress <= 2.1);
+      assert.strictEqual(info.formattedTime, '2h');
+    });
+
+    it('should format days and hours correctly', () => {
+      const twoDaysThreeHoursAgo = new Date(Date.now() - (2 * 24 + 3) * 60 * 60 * 1000);
+      const bead = createBead('in_progress', twoDaysThreeHoursAgo.toISOString());
+      const info = getStaleInfo(bead);
+      assert.ok(info);
+      assert.strictEqual(info.formattedTime, '2d 3h');
+    });
+
+    it('should format days only when no extra hours', () => {
+      const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+      const bead = createBead('in_progress', threeDaysAgo.toISOString());
+      const info = getStaleInfo(bead);
+      assert.ok(info);
+      assert.strictEqual(info.formattedTime, '3d');
+    });
+
+    it('should format minutes for very short durations', () => {
+      const thirtyMinsAgo = new Date(Date.now() - 30 * 60 * 1000);
+      const bead = createBead('in_progress', thirtyMinsAgo.toISOString());
+      const info = getStaleInfo(bead);
+      assert.ok(info);
+      assert.strictEqual(info.formattedTime, '30m');
     });
   });
 });
