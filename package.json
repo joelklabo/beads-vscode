@@ -112,6 +112,11 @@
         "command": "beads.deleteBeads",
         "title": "%command.beads.deleteBeads%",
         "icon": "$(trash)"
+      },
+      {
+        "command": "beads.bulkUpdateStatus",
+        "title": "%command.beads.bulkUpdateStatus%",
+        "icon": "$(checklist)"
       }
     ],
     "viewsContainers": {
@@ -302,20 +307,20 @@
           "when": "view == beadsExplorer",
           "group": "navigation@5"
         },
-    {
-      "command": "beads.visualizeDependencies",
-      "when": "view == beadsExplorer",
-      "group": "navigation@6"
-    },
-    {
-      "command": "beads.exportMarkdown",
-      "when": "view == beadsExplorer && config.beads.exportMarkdown.enabled",
-      "group": "navigation@7"
-    },
-    {
-      "command": "beads.clearSortOrder",
-      "when": "view == beadsExplorer",
-      "group": "1_sort@1"
+        {
+          "command": "beads.visualizeDependencies",
+          "when": "view == beadsExplorer",
+          "group": "navigation@6"
+        },
+        {
+          "command": "beads.exportMarkdown",
+          "when": "view == beadsExplorer && config.beads.exportMarkdown.enabled",
+          "group": "navigation@7"
+        },
+        {
+          "command": "beads.clearSortOrder",
+          "when": "view == beadsExplorer",
+          "group": "1_sort@1"
         },
         {
           "command": "beads.filterActivityFeed",
@@ -336,6 +341,11 @@
           "command": "beads.openActivityFeedPanel",
           "when": "view == activityFeed",
           "group": "navigation@4"
+        },
+        {
+          "command": "beads.bulkUpdateStatus",
+          "when": "view == beadsExplorer && beads.bulkActionsEnabled",
+          "group": "navigation@8"
         }
       ],
       "view/item/context": [
@@ -344,20 +354,31 @@
           "when": "view == beadsExplorer && viewItem == bead",
           "group": "navigation@1"
         },
-    {
-      "command": "beads.addDependency",
-      "when": "view == beadsExplorer && viewItem == bead && config.beads.enableDependencyEditing",
-      "group": "navigation@2"
-    },
-    {
-      "command": "beads.exportMarkdown",
-      "when": "view == beadsExplorer && viewItem == bead && config.beads.exportMarkdown.enabled",
-      "group": "navigation@3"
-    },
-    {
-      "command": "beads.deleteBeads",
-      "when": "view == beadsExplorer && viewItem == bead",
-      "group": "7_modification@1"
+        {
+          "command": "beads.addDependency",
+          "when": "view == beadsExplorer && viewItem == bead && config.beads.enableDependencyEditing",
+          "group": "navigation@2"
+        },
+        {
+          "command": "beads.exportMarkdown",
+          "when": "view == beadsExplorer && viewItem == bead && config.beads.exportMarkdown.enabled",
+          "group": "navigation@3"
+        },
+        {
+          "command": "beads.deleteBeads",
+          "when": "view == beadsExplorer && viewItem == bead",
+          "group": "7_modification@1"
+        },
+        {
+          "command": "beads.bulkUpdateStatus",
+          "when": "view == beadsExplorer && viewItem == bead && beads.bulkActionsEnabled",
+          "group": "7_modification@2"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "beads.bulkUpdateStatus",
+          "when": "beads.bulkActionsEnabled"
         }
       ]
     },
@@ -387,7 +408,7 @@
     "watch": "tsc -watch -p ./",
     "lint": "eslint . --ext ts",
     "test": "npm run test:unit",
-    "test:unit": "npm run compile && mocha ./out/test/unit/**/*.test.js ./out/test/deps.add.test.js ./out/test/sanitization.test.js ./out/test/littleGlen.command-validation.test.js ./out/test/log-redaction.test.js ./out/test/activityFeed.timestamps.test.js ./out/test/title-format.test.js ./out/test/activityFeed.title-format.test.js ./out/test/multi-root.cli.test.js ./out/test/tooltips.security.test.js ./out/test/export.markdown.test.js",
+    "test:unit": "npm run compile && mocha ./out/test/unit/**/*.test.js ./out/test/deps.add.test.js ./out/test/sanitization.test.js ./out/test/littleGlen.command-validation.test.js ./out/test/log-redaction.test.js ./out/test/activityFeed.timestamps.test.js ./out/test/title-format.test.js ./out/test/activityFeed.title-format.test.js ./out/test/multi-root.cli.test.js ./out/test/tooltips.security.test.js ./out/test/export.markdown.test.js ./out/test/bulk.status.test.js",
     "test:bd-cli": "npm run compile && mocha ./out/test/bd-cli.test.js",
     "test:integration": "npm run compile && node ./out/test/runTest.js",
     "test:stress": "./scripts/stress-test.sh",

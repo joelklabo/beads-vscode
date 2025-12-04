@@ -15,6 +15,8 @@ import {
   warnIfDependencyEditingUnsupported as warnIfDependencyEditingUnsupportedCli,
   writeBeadsMarkdownFile,
   MarkdownExportHeaders,
+  buildBulkSelection,
+  executeBulkStatusUpdate,
 } from './utils';
 import { ActivityFeedTreeDataProvider, ActivityEventItem } from './activityFeedProvider';
 import { EventType } from './activityFeed';
@@ -97,11 +99,13 @@ async function warnIfDependencyEditingUnsupported(workspaceFolder?: vscode.Works
 interface BdCommandOptions {
   workspaceFolder?: vscode.WorkspaceFolder;
   requireGuard?: boolean;
+  execOverride?: typeof execCliWithPolicy;
 }
 
 async function runBdCommand(args: string[], projectRoot: string, options: BdCommandOptions = {}): Promise<void> {
   const workspaceFolder = options.workspaceFolder ?? vscode.workspace.getWorkspaceFolder(vscode.Uri.file(projectRoot));
   const requireGuard = options.requireGuard !== false;
+  const executor = options.execOverride ?? execCliWithPolicy;
 
   if (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0 && !workspaceFolder) {
     throw new Error(t('Project root {0} is not within an open workspace folder', projectRoot));
@@ -116,7 +120,7 @@ async function runBdCommand(args: string[], projectRoot: string, options: BdComm
   const commandPath = await findBdCommand(commandPathSetting);
   const cliPolicy = getCliExecutionConfig(config);
 
-  await execCliWithPolicy({
+  await executor({
     commandPath,
     args,
     cwd: projectRoot,
@@ -1813,7 +1817,7 @@ function getBeadDetailHtml(
         <div class="section-title">${escapeHtml(strings.dependsOnLabel)}</div>
         ${dependsOn.map((dep: any) => `
             <div class="dependency-item" data-issue-id="${dep.id}">
-                ${dependencyEditingEnabled ? `<button class=\"dependency-remove\" data-source-id=\"${escapeHtml(item.id)}\" data-target-id=\"${escapeHtml(dep.id)}\">${escapeHtml(strings.removeDependencyLabel)}</button>` : ''}
+                ${dependencyEditingEnabled ? `<button class="dependency-remove" data-source-id="${escapeHtml(item.id)}" data-target-id="${escapeHtml(dep.id)}">${escapeHtml(strings.removeDependencyLabel)}</button>` : ''}
                 <div class="dependency-type">${dep.type}</div>
                 <strong>${dep.id}</strong>
                 ${dep.title ? `<div style="margin-top: 4px;">${escapeHtml(dep.title)}</div>` : ''}
@@ -1828,7 +1832,7 @@ function getBeadDetailHtml(
         <div class="section-title">${escapeHtml(strings.blocksLabel)}</div>
         ${blocks.map((dep: any) => `
             <div class="dependency-item" data-issue-id="${dep.id}">
-                ${dependencyEditingEnabled ? `<button class=\"dependency-remove\" data-source-id=\"${escapeHtml(dep.id)}\" data-target-id=\"${escapeHtml(item.id)}\">${escapeHtml(strings.removeDependencyLabel)}</button>` : ''}
+                ${dependencyEditingEnabled ? `<button class="dependency-remove" data-source-id="${escapeHtml(dep.id)}" data-target-id="${escapeHtml(item.id)}">${escapeHtml(strings.removeDependencyLabel)}</button>` : ''}
                 <div class="dependency-type">${dep.type}</div>
                 <strong>${dep.id}</strong>
                 ${dep.title ? `<div style="margin-top: 4px;">${escapeHtml(dep.title)}</div>` : ''}
@@ -2358,7 +2362,7 @@ function getDependencyTreeHtml(items: BeadItemData[], strings: DependencyTreeStr
     <div class="controls">
         <button class="control-button" onclick="resetZoom()">${escapeHtml(strings.resetView)}</button>
         <button class="control-button" onclick="autoLayout()">${escapeHtml(strings.autoLayout)}</button>
-        ${dependencyEditingEnabled ? `<button class=\"control-button\" id=\"removeEdgeButton\">${escapeHtml(strings.removeDependencyLabel)}</button>` : ''}
+        ${dependencyEditingEnabled ? `<button class="control-button" id="removeEdgeButton">${escapeHtml(strings.removeDependencyLabel)}</button>` : ''}
     </div>
 
     <div class="legend">
@@ -3412,6 +3416,99 @@ async function exportBeadsMarkdown(provider: BeadsTreeDataProvider, treeView: vs
   }
 }
 
+async function bulkUpdateStatus(
+  provider: BeadsTreeDataProvider,
+  treeView: vscode.TreeView<TreeItemType>
+): Promise<void> {
+  const bulkConfig = getBulkActionsConfig();
+
+  if (!bulkConfig.enabled) {
+    const message = bulkConfig.validationError
+      ? t('Bulk actions are disabled: {0}', bulkConfig.validationError)
+      : t('Enable "beads.bulkActions.enabled" to run bulk status updates.');
+    void vscode.window.showWarningMessage(message);
+    return;
+  }
+
+  const selection = treeView.selection.filter((item): item is BeadTreeItem => item instanceof BeadTreeItem);
+  const { ids, error } = buildBulkSelection(selection.map((item) => item.bead), bulkConfig.maxSelection);
+
+  if (error) {
+    if (ids.length === 0) {
+      void vscode.window.showWarningMessage(t('Select one or more beads to update.'));
+    } else {
+      void vscode.window.showWarningMessage(
+        t('Select at most {0} beads for bulk update (selected {1}).', bulkConfig.maxSelection, ids.length)
+      );
+    }
+    return;
+  }
+
+  const statusLabels = getStatusLabels();
+  const statusPick = await vscode.window.showQuickPick(
+    [
+      { label: statusLabels.open, value: 'open' },
+      { label: statusLabels.in_progress, value: 'in_progress' },
+      { label: statusLabels.blocked, value: 'blocked' },
+      { label: statusLabels.closed, value: 'closed' },
+    ],
+    {
+      placeHolder: t('Set status for {0} bead(s)', ids.length),
+    }
+  );
+
+  if (!statusPick) {
+    return;
+  }
+
+  const config = vscode.workspace.getConfiguration('beads');
+  const projectRoot = resolveProjectRoot(config);
+
+  if (!projectRoot) {
+    void vscode.window.showErrorMessage(PROJECT_ROOT_ERROR);
+    return;
+  }
+
+  const progressTitle = t('Updating status to "{0}" for {1} bead(s)...', statusPick.label, ids.length);
+
+  await vscode.window.withProgress(
+    { location: vscode.ProgressLocation.Notification, title: progressTitle },
+    async (progress) => {
+      const result = await executeBulkStatusUpdate(
+        ids,
+        statusPick.value,
+        async (id) => {
+          await runBdCommand(['update', id, '--status', statusPick.value], projectRoot);
+        },
+        (completed, total) => {
+          progress.report({ message: t('{0}/{1} updated', completed, total) });
+        }
+      );
+
+      await provider.refresh();
+
+      if (result.failures.length === 0) {
+        void vscode.window.showInformationMessage(
+          t('Updated {0} bead(s) to {1}', result.successes.length, statusPick.label)
+        );
+        return;
+      }
+
+      const failureList = result.failures.map((failure) => `${failure.id}: ${failure.error}`).join('; ');
+
+      if (result.successes.length === 0) {
+        void vscode.window.showErrorMessage(
+          t('Failed to update status for {0} bead(s): {1}', result.failures.length, failureList)
+        );
+      } else {
+        void vscode.window.showWarningMessage(
+          t('Updated {0} bead(s); failed for {1}: {2}', result.successes.length, result.failures.length, failureList)
+        );
+      }
+    }
+  );
+}
+
 export function activate(context: vscode.ExtensionContext): void {
   const provider = new BeadsTreeDataProvider(context);
   const treeView = vscode.window.createTreeView('beadsExplorer', {
@@ -3490,6 +3587,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('beads.removeDependency', (item?: BeadItemData) => removeDependencyCommand(provider, undefined, { contextId: item?.id })),
     vscode.commands.registerCommand('beads.visualizeDependencies', () => visualizeDependencies(provider)),
     vscode.commands.registerCommand('beads.exportMarkdown', () => exportBeadsMarkdown(provider, treeView)),
+    vscode.commands.registerCommand('beads.bulkUpdateStatus', () => bulkUpdateStatus(provider, treeView)),
     
     // Activity Feed commands
     vscode.commands.registerCommand('beads.refreshActivityFeed', () => activityFeedProvider.refresh()),

@@ -73,7 +73,7 @@ describe('Multi-root bd command resolution', () => {
         getConfiguration: (_section: string, workspaceFolder?: any) => ({
           get: (key: string, fallback: any) => {
             if (key === 'commandPath') {
-              return workspaceFolder?.name === 'two' ? '/custom/bd-two' : '/custom/bd-one';
+              return workspaceFolder?.name === 'two' ? '/bin/ls' : '/bin/echo';
             }
             if (key === 'enableWorktreeGuard') {
               return false;
@@ -109,6 +109,7 @@ describe('Multi-root bd command resolution', () => {
       return restoreLoad(request, parent, isMain);
     };
 
+    delete require.cache[require.resolve('../utils/cli')];
     delete require.cache[require.resolve('../extension')];
     runBdCommand = require('../extension').runBdCommand;
   });
@@ -120,10 +121,15 @@ describe('Multi-root bd command resolution', () => {
 
   it('uses workspace-specific command path and cwd', async () => {
     execCalls.length = 0;
-    await runBdCommand(['list'], '/workspace/two', { workspaceFolder: workspaceFolders[1] });
+    const execOverride = async ({ commandPath, args, cwd }: any) => {
+      execCalls.push({ command: commandPath, args, options: { cwd } });
+      return { stdout: '', stderr: '' };
+    };
+
+    await runBdCommand(['list'], '/workspace/two', { workspaceFolder: workspaceFolders[1], execOverride });
 
     const lastCall = execCalls[execCalls.length - 1];
-    assert.strictEqual(lastCall.command, '/custom/bd-two');
+    assert.strictEqual(lastCall.command, '/bin/ls');
     assert.strictEqual(lastCall.options?.cwd, '/workspace/two');
   });
 
