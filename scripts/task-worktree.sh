@@ -20,10 +20,86 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
+# Default timeouts (can be tuned via env)
+LOCK_TIMEOUT_SECONDS="${LOCK_TIMEOUT_SECONDS:-15}"
+HEARTBEAT_INTERVAL_SECONDS="${HEARTBEAT_INTERVAL_SECONDS:-10}"
+HEARTBEAT_STALE_SECONDS="${HEARTBEAT_STALE_SECONDS:-300}"
+
 log_info() { echo -e "${GREEN}[INFO]${NC} $1"; }
 log_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
 log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 log_step() { echo -e "${BLUE}[STEP]${NC} $1"; }
+
+# Resolve the shared beads directory (defaults to main repo .beads)
+get_beads_dir() {
+  local main_repo=$(get_main_repo)
+  echo "${BEADS_DIR:-${main_repo}/.beads}"
+}
+
+# Ensure BEADS_DIR and daemon settings are consistent across worktrees
+export_beads_env() {
+  local beads_dir="$1"
+  export BEADS_DIR="$beads_dir"
+  export BEADS_NO_DAEMON=1
+}
+
+# Enable WAL mode on the shared beads SQLite DB to reduce lock contention
+enable_wal_mode() {
+  local beads_dir="$1"
+  local db_path="$beads_dir/beads.db"
+  if [[ ! -f "$db_path" ]]; then
+    return 0
+  fi
+  if command -v sqlite3 >/dev/null 2>&1; then
+    sqlite3 "$db_path" "PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;" >/dev/null 2>&1 || \
+      log_warn "Could not enable WAL on $db_path"
+  else
+    log_warn "sqlite3 not found; skipping WAL enablement"
+  fi
+}
+
+# Execute a command while holding an exclusive flock lock
+with_lock() {
+  local lock_file="$1"; shift
+  mkdir -p "$(dirname "$lock_file")"
+  exec {__lock_fd}>"$lock_file"
+  if ! flock -w "$LOCK_TIMEOUT_SECONDS" "$__lock_fd"; then
+    log_error "Timeout acquiring lock: $lock_file"
+    return 1
+  fi
+  set +e
+  "$@"
+  local rc=$?
+  set -e
+  flock -u "$__lock_fd"
+  return $rc
+}
+
+# Heartbeat helpers to detect crashed agents
+start_heartbeat() {
+  local worker="$1"; local task_id="$2"; local hb_dir="$3"
+  local hb_file="$hb_dir/${worker}-${task_id}.hb"
+  local pid_file="$hb_dir/${worker}-${task_id}.pid"
+  mkdir -p "$hb_dir"
+  stop_heartbeat "$worker" "$task_id" "$hb_dir" true
+  nohup bash -c "while true; do date +%s > '$hb_file'; sleep $HEARTBEAT_INTERVAL_SECONDS; done" >/dev/null 2>&1 &
+  echo $! > "$pid_file"
+}
+
+stop_heartbeat() {
+  local worker="$1"; local task_id="$2"; local hb_dir="$3"; local quiet="$4"
+  local pid_file="$hb_dir/${worker}-${task_id}.pid"
+  local hb_file="$hb_dir/${worker}-${task_id}.hb"
+  if [[ -f "$pid_file" ]]; then
+    local pid=$(cat "$pid_file" 2>/dev/null || true)
+    if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
+      kill "$pid" 2>/dev/null || true
+      [[ "$quiet" == "true" ]] || log_info "Stopped heartbeat for $task_id"
+    fi
+    rm -f "$pid_file"
+  fi
+  rm -f "$hb_file"
+}
 
 # Add random jitter to prevent thundering herd
 add_jitter() {
@@ -116,6 +192,11 @@ case "$COMMAND" in
 
     BRANCH="${WORKER}/${TASK_ID}"
     MAIN_REPO=$(get_main_repo)
+    BEADS_DIR_PATH=$(get_beads_dir)
+    LOCK_DIR="${BEADS_DIR_PATH}/locks"
+    HEARTBEAT_DIR="${BEADS_DIR_PATH}/heartbeats"
+    export_beads_env "$BEADS_DIR_PATH"
+    enable_wal_mode "$BEADS_DIR_PATH"
     WORKTREE_PATH=$(get_worktree_path "$WORKER" "$TASK_ID")
     
     log_info "Starting task $TASK_ID for worker $WORKER"
@@ -170,10 +251,24 @@ case "$COMMAND" in
       
       cd "$WORKTREE_PATH"
     fi
+
+    # Link the shared beads database into the worktree for local bd commands
+    if [[ ! -e .beads ]]; then
+      ln -s "$BEADS_DIR_PATH" .beads
+    fi
     
+    # Helper used inside locks for claim validation/update
+    claim_task() {
+      local task_id="$1"; local worker="$2"
+      if ! verify_task_claimable "$task_id" "$worker"; then
+        return 99
+      fi
+      npx bd update "$task_id" --status in_progress --assignee "$worker" --actor "$worker"
+    }
+
     # Re-verify task is still claimable (double-check after worktree setup)
     log_step "Re-verifying task claim (double-check)..."
-    if ! verify_task_claimable "$TASK_ID" "$WORKER"; then
+    if ! with_lock "${LOCK_DIR}/claim.lock" verify_task_claimable "$TASK_ID" "$WORKER"; then
       log_error "Task was claimed by another agent while setting up worktree!"
       log_step "Cleaning up worktree..."
       cd "$MAIN_REPO"
@@ -192,11 +287,20 @@ case "$COMMAND" in
       npm install --cache "$NPM_CACHE_DIR"
     fi
     
-    # Update task status in bd - this is the official claim
+    # Update task status in bd - this is the official claim (atomic with lock)
     log_step "Claiming task (marking as in_progress)..."
-    if ! npx bd update "$TASK_ID" --status in_progress --assignee "$WORKER" --actor "$WORKER" 2>/dev/null; then
-      log_warn "Could not update task status in bd (may already be claimed)"
+    if ! with_lock "${LOCK_DIR}/claim.lock" claim_task "$TASK_ID" "$WORKER"; then
+      rc=$?
+      if [[ $rc -eq 99 ]]; then
+        log_warn "Claim rejected: task already in progress elsewhere"
+      else
+        log_warn "Could not update task status in bd (lock busy or bd error)"
+      fi
+      exit 1
     fi
+
+    # Start a lightweight heartbeat so stale agents can be detected
+    start_heartbeat "$WORKER" "$TASK_ID" "$HEARTBEAT_DIR"
     
     log_info "✅ Worktree ready for $TASK_ID"
     log_info "Working directory: $(pwd)"
@@ -226,6 +330,11 @@ case "$COMMAND" in
 
     BRANCH="${WORKER}/${TASK_ID}"
     MAIN_REPO=$(get_main_repo)
+    BEADS_DIR_PATH=$(get_beads_dir)
+    LOCK_DIR="${BEADS_DIR_PATH}/locks"
+    HEARTBEAT_DIR="${BEADS_DIR_PATH}/heartbeats"
+    export_beads_env "$BEADS_DIR_PATH"
+    enable_wal_mode "$BEADS_DIR_PATH"
     WORKTREE_PATH=$(get_worktree_path "$WORKER" "$TASK_ID")
     
     log_info "Finishing task $TASK_ID for worker $WORKER"
@@ -239,6 +348,9 @@ case "$COMMAND" in
     
     # Work in the worktree
     cd "$WORKTREE_PATH"
+
+    # Stop heartbeat for this task if running
+    stop_heartbeat "$WORKER" "$TASK_ID" "$HEARTBEAT_DIR" true
     
     CURRENT_BRANCH=$(git branch --show-current)
     if [[ "$CURRENT_BRANCH" != "$BRANCH" ]]; then
@@ -283,65 +395,78 @@ case "$COMMAND" in
     # Push the branch to remote
     log_step "Pushing branch to remote..."
     git push -f origin "$BRANCH"
-    
-    # Now work from main repo to do the merge
+
+    # Serialize merge to main with a merge queue lock to avoid thundering herd
     cd "$MAIN_REPO"
-    
-    # Make sure main worktree is clean
-    if [[ -n $(git status --porcelain) ]]; then
-      log_error "Main repo has uncommitted changes. Please commit or stash them first."
-      git status --short
-      exit 1
-    fi
-    
-    # Checkout main
-    git checkout main
-    git pull origin main
-    
-    # Merge with retry logic and exponential backoff with jitter
-    MAX_RETRIES=5
-    RETRY=0
-    BASE_DELAY=1000  # 1 second base delay
-    
-    while [[ $RETRY -lt $MAX_RETRIES ]]; do
-      log_step "Merging $BRANCH into main (attempt $((RETRY+1))/$MAX_RETRIES)..."
+
+    merge_into_main() {
+      # Make sure main worktree is clean
+      if [[ -n $(git status --porcelain) ]]; then
+        log_error "Main repo has uncommitted changes. Please commit or stash them first."
+        git status --short
+        return 1
+      fi
+
+      git checkout main
+      git pull origin main
+
+      # Pre-merge conflict detection: warn if both branches touch same files
+      local ours_files=$(git diff --name-only origin/main.."$BRANCH" || true)
+      local main_files=$(git diff --name-only HEAD..origin/main || true)
+      local overlap=$(comm -12 <(echo "$ours_files" | sort -u) <(echo "$main_files" | sort -u))
+      if [[ -n "$overlap" ]]; then
+        log_warn "Potential conflicts with main in files:\n$overlap"
+      fi
+
+      MAX_RETRIES=5
+      RETRY=0
+      BASE_DELAY=1000  # 1 second base delay
       
-      if git merge "origin/$BRANCH" --no-ff -m "Merge $TASK_ID
+      while [[ $RETRY -lt $MAX_RETRIES ]]; do
+        log_step "Merging $BRANCH into main (attempt $((RETRY+1))/$MAX_RETRIES)..."
+        
+        if git merge "origin/$BRANCH" --no-ff -m "Merge $TASK_ID
 
 Worked-by: $WORKER
 Branch: $BRANCH"; then
-        # Try to push
-        if git push origin main; then
-          log_info "✅ Successfully merged and pushed!"
-          break
-        else
-          log_warn "Push failed, pulling and retrying..."
-          git reset --hard HEAD~1  # Undo merge
-          git pull --rebase origin main
-          RETRY=$((RETRY+1))
-          
-          # Exponential backoff with jitter to prevent thundering herd
-          # Delay = base * 2^retry + random jitter
-          if [[ $RETRY -lt $MAX_RETRIES ]]; then
-            DELAY=$(( BASE_DELAY * (2 ** RETRY) ))
-            log_info "Waiting with backoff before retry (${DELAY}ms + jitter)..."
-            sleep "$(echo "scale=3; $DELAY/1000" | bc)"
-            add_jitter $DELAY  # Add random jitter up to delay amount
+          if git push origin main; then
+            log_info "✅ Successfully merged and pushed!"
+            break
+          else
+            log_warn "Push failed, pulling and retrying..."
+            git reset --hard HEAD~1  # Undo merge
+            git pull --rebase origin main
+            RETRY=$((RETRY+1))
+            
+            # Exponential backoff with jitter to prevent thundering herd
+            # Delay = base * 2^retry + random jitter
+            if [[ $RETRY -lt $MAX_RETRIES ]]; then
+              DELAY=$(( BASE_DELAY * (2 ** RETRY) ))
+              log_info "Waiting with backoff before retry (${DELAY}ms + jitter)..."
+              sleep "$(echo "scale=3; $DELAY/1000" | bc)"
+              add_jitter $DELAY  # Add random jitter up to delay amount
+            fi
           fi
+        else
+          log_error "Merge failed! This shouldn't happen after rebase."
+          git merge --abort || true
+          return 1
         fi
-      else
-        log_error "Merge failed! This shouldn't happen after rebase."
-        git merge --abort || true
-        exit 1
+      done
+
+      if [[ $RETRY -eq $MAX_RETRIES ]]; then
+        log_error "Failed to push after $MAX_RETRIES attempts. Manual intervention needed."
+        log_error "Your changes are still on branch $BRANCH"
+        log_error "To retry manually:"
+        log_error "  cd $MAIN_REPO && git checkout main && git pull"
+        log_error "  git merge origin/$BRANCH --no-ff && git push origin main"
+        return 1
       fi
-    done
-    
-    if [[ $RETRY -eq $MAX_RETRIES ]]; then
-      log_error "Failed to push after $MAX_RETRIES attempts. Manual intervention needed."
-      log_error "Your changes are still on branch $BRANCH"
-      log_error "To retry manually:"
-      log_error "  cd $MAIN_REPO && git checkout main && git pull"
-      log_error "  git merge origin/$BRANCH --no-ff && git push origin main"
+
+      return 0
+    }
+
+    if ! with_lock "${LOCK_DIR}/merge.lock" merge_into_main; then
       exit 1
     fi
     
@@ -370,6 +495,9 @@ Branch: $BRANCH"; then
 
   status)
     MAIN_REPO=$(get_main_repo)
+    BEADS_DIR_PATH=$(get_beads_dir)
+    HEARTBEAT_DIR="${BEADS_DIR_PATH}/heartbeats"
+    export_beads_env "$BEADS_DIR_PATH"
     cd "$MAIN_REPO"
     
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -384,6 +512,26 @@ Branch: $BRANCH"; then
     echo ""
     echo "In-progress tasks:"
     npx bd list --status in_progress 2>/dev/null || echo "(none)"
+
+    if [[ -d "$HEARTBEAT_DIR" ]]; then
+      echo ""
+      echo "Heartbeat status (age in seconds):"
+      now_ts=$(date +%s)
+      found=false
+      for hb in "$HEARTBEAT_DIR"/*.hb; do
+        [[ -e "$hb" ]] || continue
+        found=true
+        ts=$(cat "$hb" 2>/dev/null || echo 0)
+        age=$((now_ts - ts))
+        label=$(basename "$hb" .hb)
+        if [[ $age -gt $HEARTBEAT_STALE_SECONDS ]]; then
+          echo "  $label: ${age}s (STALE)"
+        else
+          echo "  $label: ${age}s"
+        fi
+      done
+      [[ "$found" == false ]] && echo "  (no heartbeats)"
+    fi
     ;;
 
   list)
@@ -472,6 +620,8 @@ Branch: $BRANCH"; then
     fi
     
     MAIN_REPO=$(get_main_repo)
+    BEADS_DIR_PATH=$(get_beads_dir)
+    HEARTBEAT_DIR="${BEADS_DIR_PATH}/heartbeats"
     WORKTREES_BASE="${MAIN_REPO}/../worktrees/${WORKER}"
     
     cd "$MAIN_REPO"
@@ -512,6 +662,12 @@ Branch: $BRANCH"; then
       # Delete remote branches
       git branch -r | grep "origin/$WORKER/" | sed 's/origin\///' | xargs -I {} git push origin --delete {} 2>/dev/null || true
       
+      # Remove heartbeat artifacts for this worker
+      if [[ -d "$HEARTBEAT_DIR" ]]; then
+        rm -f "$HEARTBEAT_DIR"/${WORKER}-*.hb 2>/dev/null || true
+        rm -f "$HEARTBEAT_DIR"/${WORKER}-*.pid 2>/dev/null || true
+      fi
+
       # Prune worktree list
       git worktree prune
       
@@ -541,6 +697,9 @@ Branch: $BRANCH"; then
     echo "  • Atomic task claiming - prevents two agents grabbing same task"
     echo "  • Double-check claim after worktree setup"
     echo "  • Exponential backoff with jitter on merge retries"
+    echo "  • Merge queue lock to serialize pushes to main"
+    echo "  • SQLite WAL + busy timeout on shared beads DB"
+    echo "  • Heartbeats for crash/stall detection"
     echo "  • Isolated npm cache per worker"
     echo "  • Orphaned worktree detection and cleanup"
     echo ""
