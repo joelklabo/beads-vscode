@@ -37,7 +37,7 @@ Agent 2:   /path/to/worktrees/agent-2/task-xyz  (isolated)
 
 ```bash
 ./scripts/task-worktree.sh start <worker> <task-id>   # Create worktree, mark in_progress
-./scripts/task-worktree.sh verify                      # Check you're in a worktree (not main repo)
+./scripts/task-worktree.sh verify <task-id>            # Check you're in the CORRECT worktree
 ./scripts/task-worktree.sh finish <worker> <task-id>  # Merge to main, clean up worktree
 ./scripts/task-worktree.sh status                      # Show all worktrees
 ./scripts/task-worktree.sh cleanup <worker>            # Remove all worktrees for a worker
@@ -91,12 +91,12 @@ cd /path/to/worktrees/<your-name>/<task-id>
 
 **You MUST change to that directory before doing any work!**
 
-### 4. VERIFY YOU'RE IN THE WORKTREE (Safety check)
+### 4. VERIFY YOU'RE IN THE CORRECT WORKTREE (Safety check)
 ```bash
-./scripts/task-worktree.sh verify
+./scripts/task-worktree.sh verify <task-id>
 ```
 
-This confirms you're in an isolated worktree, not the main repo. **Never skip this step.**
+This confirms you're in the correct isolated worktree for the task you're working on. **Never skip this step.**
 
 ### 5. UNDERSTAND THE TASK
 ```bash

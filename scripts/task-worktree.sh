@@ -394,7 +394,9 @@ Branch: $BRANCH"; then
 
   verify)
     # Verify the agent is in a worktree, not the main repo
-    # This should be called before any work is done
+    # Usage: verify [task-id] - optionally verify you're in the CORRECT worktree
+    EXPECTED_TASK="$WORKER"  # $2 is task-id for verify command
+    
     MAIN_REPO=$(get_main_repo)
     CURRENT_DIR=$(pwd)
     CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || echo "")
@@ -405,6 +407,9 @@ Branch: $BRANCH"; then
     echo "Current directory: $CURRENT_DIR"
     echo "Main repo:         $MAIN_REPO"
     echo "Current branch:    $CURRENT_BRANCH"
+    if [[ -n "$EXPECTED_TASK" ]]; then
+      echo "Expected task:     $EXPECTED_TASK"
+    fi
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     
     # Check if in main repo
@@ -432,6 +437,21 @@ Branch: $BRANCH"; then
       EXPECTED_BRANCH="${WORKER}/${TASK}"
       if [[ "$CURRENT_BRANCH" != "$EXPECTED_BRANCH" ]]; then
         log_warn "Branch mismatch: expected '$EXPECTED_BRANCH', got '$CURRENT_BRANCH'"
+      fi
+      
+      # If a specific task was requested, verify we're in that worktree
+      if [[ -n "$EXPECTED_TASK" && "$TASK" != "$EXPECTED_TASK" ]]; then
+        log_error "❌ WRONG WORKTREE!"
+        log_error ""
+        log_error "You're in worktree for:  $TASK"
+        log_error "But you should be in:    $EXPECTED_TASK"
+        log_error ""
+        log_error "To switch to the correct worktree:"
+        log_error "  cd $(get_worktree_path "$WORKER" "$EXPECTED_TASK")"
+        log_error ""
+        log_error "Or if you haven't started that task yet:"
+        log_error "  ./scripts/task-worktree.sh start $WORKER $EXPECTED_TASK"
+        exit 1
       fi
     else
       log_warn "⚠️  Directory doesn't match expected worktree pattern"
@@ -512,7 +532,7 @@ Branch: $BRANCH"; then
     echo "Commands:"
     echo "  start <worker> <task-id>   Create worktree and start working on task"
     echo "  finish <worker> <task-id>  Merge worktree back to main and clean up"
-    echo "  verify                     Check you're in a worktree (not main repo)"
+    echo "  verify [task-id]           Check you're in a worktree (optionally, the right one)"
     echo "  status                     Show all worktrees and current state"
     echo "  list                       List all active worktrees"
     echo "  cleanup <worker>           Remove all worktrees/branches for a worker"
@@ -526,7 +546,8 @@ Branch: $BRANCH"; then
     echo ""
     echo "Examples:"
     echo "  $0 start agent-1 beads-vscode-abc"
-    echo "  $0 verify                            # Run before making changes"
+    echo "  $0 verify                            # Check you're in a worktree"
+    echo "  $0 verify beads-vscode-abc           # Check you're in the RIGHT worktree"
     echo "  $0 finish agent-1 beads-vscode-abc"
     echo "  $0 status"
     echo "  $0 cleanup agent-1"
