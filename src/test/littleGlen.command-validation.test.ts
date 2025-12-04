@@ -35,6 +35,19 @@ describe('Little Glen command validation', () => {
     assert.strictEqual(titleResult, undefined);
   });
 
+  it('accepts removeDependency with valid ids', () => {
+    const msg = validateLittleGlenMessage({ command: 'removeDependency', sourceId: 'A-1', targetId: 'B-2' }, ['removeDependency']);
+    assert.ok(msg);
+    assert.strictEqual(msg!.command, 'removeDependency');
+    assert.strictEqual((msg as any).sourceId, 'A-1');
+    assert.strictEqual((msg as any).targetId, 'B-2');
+  });
+
+  it('rejects removeDependency with invalid id', () => {
+    const msg = validateLittleGlenMessage({ command: 'removeDependency', sourceId: 'bad id', targetId: 'OK' }, ['removeDependency']);
+    assert.strictEqual(msg, undefined);
+  });
+
   it('validates bead id helper', () => {
     assert.ok(isValidBeadId('ABC_123-xyz'));
     assert.ok(!isValidBeadId(''));
