@@ -62,19 +62,38 @@ enable_wal_mode() {
 with_lock() {
   local lock_file="$1"; shift
   mkdir -p "$(dirname "$lock_file")"
-  local lock_fd=200
-  eval "exec ${lock_fd}>\"$lock_file\""
-  if ! flock -w "$LOCK_TIMEOUT_SECONDS" "$lock_fd"; then
-    log_error "Timeout acquiring lock: $lock_file"
-    return 1
+  if command -v flock >/dev/null 2>&1; then
+    local lock_fd=200
+    eval "exec ${lock_fd}>\"$lock_file\""
+    if ! flock -w "$LOCK_TIMEOUT_SECONDS" "$lock_fd"; then
+      log_error "Timeout acquiring lock: $lock_file"
+      return 1
+    fi
+    set +e
+    "$@"
+    local rc=$?
+    set -e
+    flock -u "$lock_fd"
+    eval "exec ${lock_fd}>&-"
+    return $rc
+  else
+    # Portable fallback using mkdir-based lock (best-effort when flock isn't installed)
+    local start_ts=$SECONDS
+    local fallback_lock="${lock_file}.dlock"
+    while ! mkdir "$fallback_lock" 2>/dev/null; do
+      if (( SECONDS - start_ts >= LOCK_TIMEOUT_SECONDS )); then
+        log_error "Timeout acquiring lock (fallback): $lock_file"
+        return 1
+      fi
+      sleep 0.2
+    done
+    set +e
+    "$@"
+    local rc=$?
+    set -e
+    rmdir "$fallback_lock" 2>/dev/null || true
+    return $rc
   fi
-  set +e
-  "$@"
-  local rc=$?
-  set -e
-  flock -u "$lock_fd"
-  eval "exec ${lock_fd}>&-"
-  return $rc
 }
 
 # Heartbeat helpers to detect crashed agents
