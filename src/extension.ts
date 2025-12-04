@@ -128,6 +128,24 @@ class EpicTreeItem extends vscode.TreeItem {
   public readonly epic: BeadItemData | null;
   public readonly children: BeadItemData[];
   
+  private setEpicIcon(status: string | undefined, isCollapsed: boolean): void {
+    const statusColors: Record<string, string> = {
+      'open': 'charts.blue',
+      'in_progress': 'charts.yellow',
+      'blocked': 'errorForeground',
+      'closed': 'testing.iconPassed',
+    };
+    const iconColor = statusColors[status || 'open'] || 'charts.blue';
+    const iconName = isCollapsed ? 'folder-library' : 'folder-opened';
+    this.iconPath = new vscode.ThemeIcon(iconName, new vscode.ThemeColor(iconColor));
+  }
+  
+  updateIcon(isCollapsed: boolean): void {
+    if (this.epic) {
+      this.setEpicIcon(this.epic.status, isCollapsed);
+    }
+  }
+  
   constructor(epic: BeadItemData | null, children: BeadItemData[], isCollapsed: boolean = false) {
     // Label is just the epic title (like a folder name), or 'Ungrouped' for orphans
     const label = epic ? epic.title : 'Ungrouped';
@@ -141,15 +159,8 @@ class EpicTreeItem extends vscode.TreeItem {
       // ID shown in description like other items (folder-style: "id · X items")
       this.description = `${epic.id} · ${children.length} item${children.length !== 1 ? 's' : ''}`;
       
-      // Use epic's status color with rocket icon (big initiative/goal)
-      const statusColors: Record<string, string> = {
-        'open': 'charts.blue',
-        'in_progress': 'charts.yellow',
-        'blocked': 'errorForeground',
-        'closed': 'testing.iconPassed',
-      };
-      const iconColor = statusColors[epic.status || 'open'] || 'charts.blue';
-      this.iconPath = new vscode.ThemeIcon('rocket', new vscode.ThemeColor(iconColor));
+      // Use folder-style icons with status tint, changing based on collapse state
+      this.setEpicIcon(epic.status, isCollapsed);
       
       // Make it clickable to open epic detail view (like double-clicking a folder)
       this.command = {
@@ -859,6 +870,41 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     }
     this.saveCollapsedSections();
     this.onDidChangeTreeDataEmitter.fire();
+  }
+
+  private getCollapseKey(element: TreeItemType): string | undefined {
+    if (element instanceof StatusSectionItem) {
+      return element.status;
+    }
+    if (element instanceof WarningSectionItem) {
+      return 'stale';
+    }
+    if (element instanceof EpicTreeItem) {
+      return element.epic ? `epic-${element.epic.id}` : 'ungrouped';
+    }
+    return undefined;
+  }
+
+  handleCollapseChange(element: TreeItemType, isCollapsed: boolean): void {
+    const key = this.getCollapseKey(element);
+    if (!key) {
+      return;
+    }
+
+    if (isCollapsed) {
+      this.collapsedSections.add(key);
+    } else {
+      this.collapsedSections.delete(key);
+    }
+    this.saveCollapsedSections();
+
+    // Update epic icons to reflect expanded/collapsed state immediately
+    if (element instanceof EpicTreeItem) {
+      element.updateIcon(isCollapsed);
+      element.collapsibleState = isCollapsed ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.Expanded;
+    }
+
+    this.onDidChangeTreeDataEmitter.fire(element);
   }
 
   toggleSortMode(): void {
@@ -3147,6 +3193,14 @@ export function activate(context: vscode.ExtensionContext): void {
   // Set tree view reference for badge updates
   provider.setTreeView(treeView);
 
+  // Track expand/collapse to update icons and persist state
+  const expandListener = treeView.onDidExpandElement(event => {
+    provider.handleCollapseChange(event.element, false);
+  });
+  const collapseListener = treeView.onDidCollapseElement(event => {
+    provider.handleCollapseChange(event.element, true);
+  });
+
   // Create and register status bar item for stale count
   const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
   provider.setStatusBarItem(statusBarItem);
@@ -3163,6 +3217,8 @@ export function activate(context: vscode.ExtensionContext): void {
 
   context.subscriptions.push(
     treeView,
+    expandListener,
+    collapseListener,
     activityFeedView,
     vscode.commands.registerCommand('beads.refresh', () => provider.refresh()),
     vscode.commands.registerCommand('beads.search', () => provider.search()),
