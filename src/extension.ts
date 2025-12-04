@@ -123,8 +123,53 @@ class WarningSectionItem extends vscode.TreeItem {
   }
 }
 
+// Epic section item for grouping tasks under their parent epic
+class EpicSectionItem extends vscode.TreeItem {
+  public readonly epic: BeadItemData | null;
+  public readonly children: BeadItemData[];
+  
+  constructor(epic: BeadItemData | null, children: BeadItemData[], isCollapsed: boolean = false) {
+    // Use epic title or 'Ungrouped' for items without parent
+    const label = epic ? `${epic.id} ${epic.title}` : '📋 Ungrouped';
+    super(label, isCollapsed ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.Expanded);
+    
+    this.epic = epic;
+    this.children = children;
+    this.contextValue = 'epicSection';
+    
+    // Show child count as description
+    this.description = `${children.length} item${children.length !== 1 ? 's' : ''}`;
+    
+    if (epic) {
+      // Use epic's status color with symbol-package icon
+      const statusColors: Record<string, string> = {
+        'open': 'charts.blue',
+        'in_progress': 'charts.yellow',
+        'blocked': 'errorForeground',
+        'closed': 'testing.iconPassed',
+      };
+      const iconColor = statusColors[epic.status || 'open'] || 'charts.blue';
+      this.iconPath = new vscode.ThemeIcon('symbol-package', new vscode.ThemeColor(iconColor));
+      
+      // Rich tooltip with epic details
+      const tooltip = new vscode.MarkdownString();
+      tooltip.isTrusted = true;
+      const statusDisplay = (epic.status || 'open').split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+      tooltip.appendMarkdown(`### ${epic.id}\n\n`);
+      tooltip.appendMarkdown(`**${epic.title}**\n\n`);
+      tooltip.appendMarkdown(`Status: ${statusDisplay}\n\n`);
+      tooltip.appendMarkdown(`Children: ${children.length} item${children.length !== 1 ? 's' : ''}`);
+      this.tooltip = tooltip;
+    } else {
+      // Ungrouped section styling
+      this.iconPath = new vscode.ThemeIcon('list-unordered', new vscode.ThemeColor('charts.blue'));
+      this.tooltip = `Items without a parent epic: ${children.length}`;
+    }
+  }
+}
+
 // Union type for tree items
-type TreeItemType = StatusSectionItem | WarningSectionItem | BeadTreeItem;
+type TreeItemType = StatusSectionItem | WarningSectionItem | EpicSectionItem | BeadTreeItem;
 
 class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vscode.TreeDragAndDropController<TreeItemType> {
   private readonly onDidChangeTreeDataEmitter = new vscode.EventEmitter<TreeItemType | undefined | null | void>();
@@ -149,8 +194,8 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   // Manual sort order: Map<issueId, sortIndex>
   private manualSortOrder: Map<string, number> = new Map();
 
-  // Sort mode: 'id' (natural ID sort) or 'status' (group by status)
-  private sortMode: 'id' | 'status' = 'id';
+  // Sort mode: 'id' (natural ID sort), 'status' (group by status), or 'epic' (group by parent epic)
+  private sortMode: 'id' | 'status' | 'epic' = 'id';
   
   // Collapsed state for status sections
   private collapsedSections: Set<string> = new Set();
@@ -202,6 +247,11 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
       return element.beads.map((item) => this.createTreeItem(item));
     }
     
+    // If element is an EpicSectionItem, return its children (BeadTreeItems)
+    if (element instanceof EpicSectionItem) {
+      return element.children.map((item) => this.createTreeItem(item));
+    }
+    
     // If element is a BeadTreeItem, it has no children
     if (element instanceof BeadTreeItem) {
       return [];
@@ -217,6 +267,11 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     // If in status mode, return status sections
     if (this.sortMode === 'status') {
       return this.createStatusSections(filteredItems);
+    }
+    
+    // If in epic mode, return epic sections
+    if (this.sortMode === 'epic') {
+      return this.createEpicSections(filteredItems);
     }
     
     // Otherwise return flat list sorted by manual order or natural ID
@@ -272,6 +327,83 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
         sections.push(new StatusSectionItem(status, grouped[status], isCollapsed));
       }
     });
+    
+    return sections;
+  }
+  
+  private createEpicSections(items: BeadItemData[]): (EpicSectionItem | WarningSectionItem)[] {
+    // Get stale threshold from configuration (in minutes, convert to hours for isStale)
+    const config = vscode.workspace.getConfiguration('beads');
+    const thresholdMinutes = config.get<number>('staleThresholdMinutes', 10);
+    const thresholdHours = thresholdMinutes / 60;
+    
+    // Find stale items
+    const staleItems = items.filter(item => isStale(item, thresholdHours));
+    
+    // Build map of epics and their children
+    const epicMap = new Map<string, BeadItemData>(); // epicId -> epic item
+    const childrenMap = new Map<string, BeadItemData[]>(); // parentId -> children
+    const ungrouped: BeadItemData[] = [];
+    
+    // First pass: identify all epics
+    items.forEach(item => {
+      if (item.issueType === 'epic') {
+        epicMap.set(item.id, item);
+        // Initialize children array for this epic
+        if (!childrenMap.has(item.id)) {
+          childrenMap.set(item.id, []);
+        }
+      }
+    });
+    
+    // Second pass: group non-epic items by their parent
+    items.forEach(item => {
+      // Skip epics themselves - they'll be section headers
+      if (item.issueType === 'epic') {
+        return;
+      }
+      
+      if (item.parentId && epicMap.has(item.parentId)) {
+        // Item has a parent epic that exists
+        const children = childrenMap.get(item.parentId) || [];
+        children.push(item);
+        childrenMap.set(item.parentId, children);
+      } else {
+        // No parent or parent doesn't exist - goes to ungrouped
+        ungrouped.push(item);
+      }
+    });
+    
+    // Sort children within each group by natural ID
+    childrenMap.forEach(children => {
+      children.sort(naturalSort);
+    });
+    ungrouped.sort(naturalSort);
+    
+    // Create section items
+    const sections: (EpicSectionItem | WarningSectionItem)[] = [];
+    
+    // Add warning section at the top if there are stale items
+    if (staleItems.length > 0) {
+      const isCollapsed = this.collapsedSections.has('stale');
+      sections.push(new WarningSectionItem(staleItems, thresholdMinutes, isCollapsed));
+    }
+    
+    // Add epic sections (sorted by epic ID)
+    const sortedEpics = Array.from(epicMap.values()).sort(naturalSort);
+    sortedEpics.forEach(epic => {
+      const children = childrenMap.get(epic.id) || [];
+      if (children.length > 0) {
+        const isCollapsed = this.collapsedSections.has(`epic-${epic.id}`);
+        sections.push(new EpicSectionItem(epic, children, isCollapsed));
+      }
+    });
+    
+    // Add ungrouped section at the end if there are ungrouped items
+    if (ungrouped.length > 0) {
+      const isCollapsed = this.collapsedSections.has('ungrouped');
+      sections.push(new EpicSectionItem(null, ungrouped, isCollapsed));
+    }
     
     return sections;
   }
@@ -681,14 +813,22 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   }
 
   toggleSortMode(): void {
-    this.sortMode = this.sortMode === 'id' ? 'status' : 'id';
+    // Cycle through: id -> status -> epic -> id
+    if (this.sortMode === 'id') {
+      this.sortMode = 'status';
+    } else if (this.sortMode === 'status') {
+      this.sortMode = 'epic';
+    } else {
+      this.sortMode = 'id';
+    }
     this.saveSortMode();
     this.onDidChangeTreeDataEmitter.fire();
-    const modeDisplay = this.sortMode === 'id' ? 'ID (natural)' : 'Status';
+    const modeDisplay = this.sortMode === 'id' ? 'ID (natural)' : 
+                        this.sortMode === 'status' ? 'Status' : 'Epic';
     void vscode.window.showInformationMessage(`Sort mode: ${modeDisplay}`);
   }
 
-  getSortMode(): 'id' | 'status' {
+  getSortMode(): 'id' | 'status' | 'epic' {
     return this.sortMode;
   }
 

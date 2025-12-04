@@ -8,27 +8,46 @@ Example invocation: "Work on tasks as worker 'agent-1'" or "Your name is 'claude
 
 Use your worker name for:
 - `--assignee` flag when claiming tasks
-- `--actor` flag for audit trail (or set `BD_ACTOR` env var)
+- `--actor` flag for audit trail
+- Git branch names: `<your-name>/<task-id>`
 - Git commit author identification
 
 ## RULES
 1. NEVER ask the user which task to pick - YOU decide based on `npx bd ready`
 2. NEVER give status updates or summaries mid-work - just keep working
 3. NEVER stop to ask for confirmation - make decisions and execute
-4. ALWAYS test your changes before closing an issue
-5. ALWAYS pull, commit, and push after closing each issue (handle conflicts!)
-6. ALWAYS avoid tasks that modify the same files as other in_progress tasks
-7. If a task is blocked or unclear, make reasonable assumptions and proceed
+4. ALWAYS use the helper script `./scripts/task-branch.sh` for git operations
+5. ALWAYS work on a feature branch, NEVER commit directly to main
+6. ALWAYS test your changes before finishing a task
+7. ALWAYS avoid tasks that modify the same files as other in_progress tasks
+8. If a task is blocked or unclear, make reasonable assumptions and proceed
+
+## HELPER SCRIPT
+
+Use `./scripts/task-branch.sh` for all git/branch operations:
+
+```bash
+./scripts/task-branch.sh start <worker> <task-id>   # Create branch, mark in_progress
+./scripts/task-branch.sh finish <worker> <task-id>  # Merge to main, close task
+./scripts/task-branch.sh status                      # Show current state
+```
+
+The script handles:
+- ✅ Creating correctly-named branches
+- ✅ Rebasing on latest main
+- ✅ Retry logic for push conflicts
+- ✅ Cleaning up branches after merge
+- ✅ Updating task status in bd
 
 ## WORKFLOW LOOP
 
 Repeat until `npx bd ready` returns no issues:
 
-### 1. SYNC WITH REMOTE
+### 1. CHECK STATUS
 ```bash
-git pull --rebase origin main
+./scripts/task-branch.sh status
 ```
-Always start fresh to avoid merge conflicts.
+Make sure you're not in the middle of another task.
 
 ### 2. GET NEXT TASK
 ```bash
@@ -39,73 +58,62 @@ npx bd ready --json
 ```bash
 npx bd list --status in_progress --json
 ```
-- Look at "Files:" sections in task descriptions
-- Look at file paths mentioned in task titles/descriptions
+- Look at "## Files" sections in task descriptions
 - **SKIP tasks that modify the same files as any in_progress task**
 - This prevents merge conflicts when multiple agents work in parallel
 
-Pick the highest priority ready issue that doesn't conflict. Start it:
-```bash
-npx bd update <id> --status in_progress --assignee "<your-worker-name>" --actor "<your-worker-name>"
-```
+Pick the highest priority ready issue that doesn't conflict.
 
-### 3. UNDERSTAND THE TASK
+### 3. START THE TASK
 ```bash
-npx bd show <id>
+./scripts/task-branch.sh start <your-worker-name> <task-id>
+```
+This creates the branch and marks the task in_progress.
+
+### 4. UNDERSTAND THE TASK
+```bash
+npx bd show <task-id>
 ```
 Read the description, understand what needs to be done.
 
-### 4. IMPLEMENT
+### 5. IMPLEMENT
 - Read relevant code files
 - Make the necessary changes
 - Follow existing code patterns and style
-- **TRACK every file you modify** - you'll need this list for committing
 
-### 5. TEST
+### 6. TEST
 - Run `npm run compile` to check for TypeScript errors
-- Run `npm run lint` to check for linting issues
+- Run `npm run lint` to check for linting issues  
 - Run `npm run test:unit` if you modified testable code
 - Fix any errors before proceeding
 
-### 6. CLOSE THE ISSUE
+### 7. COMMIT YOUR CHANGES
 ```bash
-npx bd close <id> --reason "Implemented: <brief summary>" --actor "<your-worker-name>"
-```
-
-### 7. COMMIT AND PUSH (ONLY YOUR FILES)
-```bash
-# Pull latest changes first
-git pull --rebase origin main
-
-# If rebase fails due to conflicts:
-# 1. Resolve conflicts in affected files
-# 2. git add <resolved-files>
-# 3. git rebase --continue
-# 4. If too complex, git rebase --abort and re-implement on fresh main
-
-# IMPORTANT: Only stage files YOU modified, not all changes!
-# Do NOT use 'git add -A' - another agent may have uncommitted work
-git add <file1> <file2> <file3>  # List ONLY the files you touched
-
-# Verify you're only committing your files
-git status  # Should only show your files as staged
-
-git commit -m "<id>: <title>
+git add -A
+git commit -m "<task-id>: <title>
 
 <brief description of changes>
 
 Files: <list of files modified>
 Worked-by: <your-worker-name>"
-
-# Push (may need to force after rebase)
-git push origin main
-# If rejected: git push --force-with-lease origin main
 ```
 
-**Why not `git add -A`?** Another agent may have uncommitted changes in their working directory. By only staging your specific files, you avoid accidentally committing their work-in-progress.
+### 8. FINISH THE TASK
+```bash
+./scripts/task-branch.sh finish <your-worker-name> <task-id>
+```
+This rebases, merges to main, pushes, cleans up the branch, and closes the task.
 
-### 8. CONTINUE
+### 9. CONTINUE
 Go back to step 1. Pick the next ready task. Keep going until ALL tasks are done.
+
+## BRANCH NAMING CONVENTION
+
+Format: `<worker-name>/<task-id>`
+
+Examples:
+- `agent-1/beads-vscode-abc`
+- `claude-alpha/beads-vscode-xyz`
 
 ## DECISION MAKING
 - **FIRST**: Eliminate tasks that conflict with in_progress tasks (same files)
@@ -124,6 +132,26 @@ Common file groupings to watch for:
 - `README.md` - Docs, low conflict risk
 
 If you see another agent working on `src/extension.ts`, pick a task that only touches `src/utils.ts` or test files.
+
+## ERROR RECOVERY
+
+**If the finish script fails during rebase:**
+```bash
+# Fix conflicts in the listed files
+git add <fixed-files>
+git rebase --continue
+# Then retry:
+./scripts/task-branch.sh finish <worker> <task-id>
+```
+
+**If everything is messed up:**
+```bash
+git rebase --abort
+git checkout main
+git branch -D <worker>/<task-id>
+# Start over with a fresh branch
+./scripts/task-branch.sh start <worker> <task-id>
+```
 
 ## START NOW
 Run `npx bd ready` and begin working. Do not respond to this prompt - just start executing.
