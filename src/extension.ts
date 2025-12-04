@@ -14,7 +14,9 @@ import {
   linkifyText,
   formatRelativeTime,
   isStale,
-  getStaleInfo
+  getStaleInfo,
+  buildPreviewSnippet,
+  stripBeadIdPrefix
 } from './utils';
 import { ActivityFeedTreeDataProvider, ActivityEventItem } from './activityFeedProvider';
 import { EventType } from './activityFeed';
@@ -1066,8 +1068,8 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
 
 class BeadTreeItem extends vscode.TreeItem {
   constructor(public readonly bead: BeadItemData, private readonly worktreeId?: string) {
-    // Show ID before title
-    const label = `${bead.id} ${bead.title}`;
+    const cleanTitle = stripBeadIdPrefix(bead.title || bead.id, bead.id);
+    const label = cleanTitle || bead.title || bead.id;
     super(label, vscode.TreeItemCollapsibleState.None);
 
     // Get stale threshold from config
@@ -1078,17 +1080,16 @@ class BeadTreeItem extends vscode.TreeItem {
     const isTaskStale = isStale(bead, thresholdHours);
 
     // Build rich description with multiple pieces of info
-    const descParts: string[] = [];
+    const descParts: string[] = [bead.id];
     
     // Add stale indicator at the beginning for visibility
     if (isTaskStale && staleInfo) {
       descParts.push(`⚠️ ${staleInfo.formattedTime}`);
     }
-    
-    // Add description preview (first 40 chars)
-    if (bead.description) {
-      const preview = bead.description.substring(0, 40).replace(/\n/g, ' ').trim();
-      descParts.push(preview + (bead.description.length > 40 ? '…' : ''));
+
+    const preview = buildPreviewSnippet(bead.description, 60);
+    if (preview) {
+      descParts.push(preview);
     }
     
     // Add relative timestamp

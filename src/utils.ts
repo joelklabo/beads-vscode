@@ -234,6 +234,53 @@ export function createTooltip(bead: BeadItemData): string {
   return parts.join('\n');
 }
 
+/**
+ * Remove redundant bead ID prefixes from titles (e.g., "ABC-1 Title" → "Title").
+ */
+export function stripBeadIdPrefix(title: string, id: string): string {
+  const normalizedTitle = title?.trim?.() ?? '';
+  if (!normalizedTitle) {
+    return normalizedTitle;
+  }
+
+  const escapedId = escapeRegex(id);
+  const patterns = [
+    new RegExp(`^\\[?${escapedId}\\]?[\\s:\\-–—]+`, 'i'),
+    new RegExp(`^${escapedId}$`, 'i')
+  ];
+
+  for (const pattern of patterns) {
+    if (pattern.test(normalizedTitle)) {
+      const cleaned = normalizedTitle.replace(pattern, '').trim();
+      if (cleaned.length > 0) {
+        return cleaned;
+      }
+    }
+  }
+
+  return normalizedTitle;
+}
+
+/**
+ * Build a single-line preview snippet from multi-line descriptions.
+ */
+export function buildPreviewSnippet(text: string | undefined, maxLength: number = 60): string | undefined {
+  if (!text) {
+    return undefined;
+  }
+
+  const normalized = text.replace(/\s+/g, ' ').trim();
+  if (!normalized) {
+    return undefined;
+  }
+
+  if (normalized.length <= maxLength) {
+    return normalized;
+  }
+
+  return `${normalized.slice(0, maxLength - 1)}…`;
+}
+
 export function formatRelativeTime(dateString: string | undefined): string {
   if (!dateString) {
     return '';
