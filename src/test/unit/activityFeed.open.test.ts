@@ -49,11 +49,16 @@ function createVscodeStub() {
     }
   }
 
+  const t = (message: string, ...args: any[]) =>
+    message.replace(/\{(\d+)\}/g, (_match, index) => String(args[Number(index)] ?? `{${index}}`));
+
   const warnings: string[] = [];
   const errors: string[] = [];
   const info: string[] = [];
 
   const vscodeStub = {
+    l10n: { t },
+    env: { language: 'en', openExternal: () => undefined },
     TreeItem,
     ThemeIcon,
     ThemeColor,

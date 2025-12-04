@@ -30,7 +30,12 @@ function createVscodeStub() {
     }
   }
 
+  const t = (message: string, ...args: any[]) =>
+    message.replace(/\{(\d+)\}/g, (_match, index) => String(args[Number(index)] ?? `{${index}}`));
+
   return {
+    l10n: { t },
+    env: { language: 'en', openExternal: () => undefined },
     TreeItem,
     ThemeIcon,
     ThemeColor,

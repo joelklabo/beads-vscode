@@ -9,7 +9,6 @@ import {
   escapeHtml,
   linkifyText,
   isStale,
-  warnIfDependencyEditingUnsupported as warnIfDependencyEditingUnsupportedCli,
 } from './utils';
 import { ActivityFeedTreeDataProvider, ActivityEventItem } from './activityFeedProvider';
 import { EventType } from './activityFeed';
@@ -28,18 +27,16 @@ import {
   naturalSort,
   saveBeadsDocument,
 } from './providers/beads/store';
-import { isCliVersionAtLeast, warnIfDependencyEditingUnsupported as warnIfDependencyEditingUnsupportedCli } from './utils';
 
 const execFileAsync = promisify(execFile);
+const t = vscode.l10n.t;
+const PROJECT_ROOT_ERROR = t('Unable to resolve project root. Set "beads.projectRoot" or open a workspace folder.');
 
 function createNonce(): string {
   return Math.random().toString(36).slice(2, 15) + Math.random().toString(36).slice(2, 15);
 }
 
 let guardWarningShown = false;
-let dependencyVersionWarned = false;
-
-const MIN_DEPENDENCY_CLI = '0.29.0';
 
 async function runWorktreeGuard(projectRoot: string): Promise<void> {
   const config = vscode.workspace.getConfiguration('beads');
@@ -47,7 +44,7 @@ async function runWorktreeGuard(projectRoot: string): Promise<void> {
   if (!guardEnabled) {
     if (!guardWarningShown) {
       guardWarningShown = true;
-      void vscode.window.showWarningMessage('Worktree guard disabled; operations may be unsafe.');
+      void vscode.window.showWarningMessage(t('Worktree guard disabled; operations may be unsafe.'));
     }
     return;
   }
@@ -62,160 +59,6 @@ async function runWorktreeGuard(projectRoot: string): Promise<void> {
   await execFileAsync(guardPath, { cwd: projectRoot });
 }
 
-async function warnIfDependencyEditingUnsupported(workspaceFolder?: vscode.WorkspaceFolder): Promise<void> {
-  const config = vscode.workspace.getConfiguration('beads', workspaceFolder);
-  if (!config.get<boolean>('enableDependencyEditing', false) || dependencyVersionWarned) {
-    return;
-  }
-
-  const commandPathSetting = config.get<string>('commandPath', 'bd');
-  try {
-    const commandPath = await findBdCommand(commandPathSetting);
-    await warnIfDependencyEditingUnsupportedCli(commandPath, MIN_DEPENDENCY_CLI, workspaceFolder?.uri.fsPath, (message) => {
-      dependencyVersionWarned = true;
-      void vscode.window.showWarningMessage(message);
-    });
-  } catch (error) {
-    dependencyVersionWarned = true;
-    void vscode.window.showWarningMessage(
-      'Could not determine bd version; dependency editing may be unsupported. Ensure bd is installed and on your PATH.'
-    );
-  }
-}
-
-async function warnIfDependencyEditingUnsupported(workspaceFolder?: vscode.WorkspaceFolder): Promise<void> {
-  const config = vscode.workspace.getConfiguration('beads', workspaceFolder);
-  if (!config.get<boolean>('enableDependencyEditing', false) || dependencyVersionWarned) {
-    return;
-  }
-
-  const commandPathSetting = config.get<string>('commandPath', 'bd');
-  try {
-    const commandPath = await findBdCommand(commandPathSetting);
-    await warnIfDependencyEditingUnsupportedCli(commandPath, MIN_DEPENDENCY_CLI, workspaceFolder?.uri.fsPath, (message) => {
-      dependencyVersionWarned = true;
-      void vscode.window.showWarningMessage(message);
-    });
-  } catch (error) {
-    dependencyVersionWarned = true;
-    void vscode.window.showWarningMessage(
-      'Could not determine bd version; dependency editing may be unsupported. Ensure bd is installed and on your PATH.'
-    );
-  }
-}
-
-async function warnIfDependencyEditingUnsupported(workspaceFolder?: vscode.WorkspaceFolder): Promise<void> {
-  const config = vscode.workspace.getConfiguration('beads', workspaceFolder);
-  if (!config.get<boolean>('enableDependencyEditing', false) || dependencyVersionWarned) {
-    return;
-  }
-
-  const commandPathSetting = config.get<string>('commandPath', 'bd');
-  try {
-    const commandPath = await findBdCommand(commandPathSetting);
-    const { stdout } = await execFileAsync(commandPath, ['--version'], {
-      cwd: workspaceFolder?.uri.fsPath,
-    });
-    const version = stdout.toString().trim().split(/\s+/).pop() ?? stdout.toString().trim();
-
-    if (!isCliVersionAtLeast(version, MIN_DEPENDENCY_CLI)) {
-      dependencyVersionWarned = true;
-      void vscode.window.showWarningMessage(
-        `Dependency editing requires bd >= ${MIN_DEPENDENCY_CLI} (found ${version || 'unknown'}). Update with npm i -g @beads/bd.`
-      );
-    }
-  } catch (error) {
-    dependencyVersionWarned = true;
-    void vscode.window.showWarningMessage(
-      'Could not determine bd version; dependency editing may be unsupported. Ensure bd is installed and on your PATH.'
-    );
-  }
-}
-
-async function warnIfDependencyEditingUnsupported(workspaceFolder?: vscode.WorkspaceFolder): Promise<void> {
-  const config = vscode.workspace.getConfiguration('beads', workspaceFolder);
-  if (!config.get<boolean>('enableDependencyEditing', false) || dependencyVersionWarned) {
-    return;
-  }
-
-  const commandPathSetting = config.get<string>('commandPath', 'bd');
-  try {
-    const commandPath = await findBdCommand(commandPathSetting);
-    const { stdout } = await execFileAsync(commandPath, ['--version'], {
-      cwd: workspaceFolder?.uri.fsPath,
-    });
-    const version = stdout.toString().trim().split(/\s+/).pop() ?? stdout.toString().trim();
-
-    if (!isCliVersionAtLeast(version, MIN_DEPENDENCY_CLI)) {
-      dependencyVersionWarned = true;
-      void vscode.window.showWarningMessage(
-        `Dependency editing requires bd >= ${MIN_DEPENDENCY_CLI} (found ${version || 'unknown'}). Update with npm i -g @beads/bd.`
-      );
-    }
-  } catch (error) {
-    dependencyVersionWarned = true;
-    void vscode.window.showWarningMessage(
-      'Could not determine bd version; dependency editing may be unsupported. Ensure bd is installed and on your PATH.'
-    );
-  }
-}
-
-async function warnIfDependencyEditingUnsupported(workspaceFolder?: vscode.WorkspaceFolder): Promise<void> {
-  const config = vscode.workspace.getConfiguration('beads', workspaceFolder);
-  if (!config.get<boolean>('enableDependencyEditing', false) || dependencyVersionWarned) {
-    return;
-  }
-
-  const commandPathSetting = config.get<string>('commandPath', 'bd');
-  try {
-    const commandPath = await findBdCommand(commandPathSetting);
-    const { stdout } = await execFileAsync(commandPath, ['--version'], {
-      cwd: workspaceFolder?.uri.fsPath,
-    });
-    const version = stdout.toString().trim().split(/\s+/).pop() ?? stdout.toString().trim();
-
-    if (!isCliVersionAtLeast(version, MIN_DEPENDENCY_CLI)) {
-      dependencyVersionWarned = true;
-      void vscode.window.showWarningMessage(
-        `Dependency editing requires bd >= ${MIN_DEPENDENCY_CLI} (found ${version || 'unknown'}). Update with npm i -g @beads/bd.`
-      );
-    }
-  } catch (error) {
-    dependencyVersionWarned = true;
-    void vscode.window.showWarningMessage(
-      'Could not determine bd version; dependency editing may be unsupported. Ensure bd is installed and on your PATH.'
-    );
-  }
-}
-
-async function warnIfDependencyEditingUnsupported(workspaceFolder?: vscode.WorkspaceFolder): Promise<void> {
-  const config = vscode.workspace.getConfiguration('beads', workspaceFolder);
-  if (!config.get<boolean>('enableDependencyEditing', false) || dependencyVersionWarned) {
-    return;
-  }
-
-  const commandPathSetting = config.get<string>('commandPath', 'bd');
-  try {
-    const commandPath = await findBdCommand(commandPathSetting);
-    const { stdout } = await execFileAsync(commandPath, ['--version'], {
-      cwd: workspaceFolder?.uri.fsPath,
-    });
-    const version = stdout.toString().trim().split(/\s+/).pop() ?? stdout.toString().trim();
-
-    if (!isCliVersionAtLeast(version, MIN_DEPENDENCY_CLI)) {
-      dependencyVersionWarned = true;
-      void vscode.window.showWarningMessage(
-        `Dependency editing requires bd >= ${MIN_DEPENDENCY_CLI} (found ${version || 'unknown'}). Update with npm i -g @beads/bd.`
-      );
-    }
-  } catch (error) {
-    dependencyVersionWarned = true;
-    void vscode.window.showWarningMessage(
-      'Could not determine bd version; dependency editing may be unsupported. Ensure bd is installed and on your PATH.'
-    );
-  }
-}
-
 interface BdCommandOptions {
   workspaceFolder?: vscode.WorkspaceFolder;
   requireGuard?: boolean;
@@ -226,7 +69,7 @@ async function runBdCommand(args: string[], projectRoot: string, options: BdComm
   const requireGuard = options.requireGuard !== false;
 
   if (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0 && !workspaceFolder) {
-    throw new Error(`Project root ${projectRoot} is not within an open workspace folder`);
+    throw new Error(t('Project root {0} is not within an open workspace folder', projectRoot));
   }
 
   if (requireGuard) {
@@ -241,6 +84,114 @@ async function runBdCommand(args: string[], projectRoot: string, options: BdComm
 }
 
 type TreeItemType = StatusSectionItem | WarningSectionItem | EpicTreeItem | UngroupedSectionItem | BeadTreeItem;
+
+type StatusLabelMap = {
+  open: string;
+  in_progress: string;
+  blocked: string;
+  closed: string;
+};
+
+interface BeadDetailStrings {
+  dependencyTreeTitle: string;
+  dependencyTreeUpstream: string;
+  dependencyTreeDownstream: string;
+  editLabel: string;
+  doneLabel: string;
+  descriptionLabel: string;
+  designLabel: string;
+  acceptanceLabel: string;
+  notesLabel: string;
+  detailsLabel: string;
+  assigneeLabel: string;
+  externalRefLabel: string;
+  createdLabel: string;
+  updatedLabel: string;
+  closedLabel: string;
+  labelsLabel: string;
+  noLabelsLabel: string;
+  markInReviewLabel: string;
+  removeInReviewLabel: string;
+  addLabelLabel: string;
+  dependsOnLabel: string;
+  blocksLabel: string;
+  labelPrompt: string;
+  statusLabels: StatusLabelMap;
+}
+
+interface DependencyTreeStrings {
+  title: string;
+  resetView: string;
+  autoLayout: string;
+  legendClosed: string;
+  legendInProgress: string;
+  legendOpen: string;
+  legendBlocked: string;
+  emptyTitle: string;
+  emptyDescription: string;
+  renderErrorTitle: string;
+}
+
+interface ActivityFeedStrings {
+  title: string;
+  emptyTitle: string;
+  emptyDescription: string;
+  eventsLabel: string;
+}
+
+const getStatusLabels = (): StatusLabelMap => ({
+  open: t('Open'),
+  in_progress: t('In Progress'),
+  blocked: t('Blocked'),
+  closed: t('Closed'),
+});
+
+const buildBeadDetailStrings = (statusLabels: StatusLabelMap): BeadDetailStrings => ({
+  dependencyTreeTitle: t('Dependency Tree'),
+  dependencyTreeUpstream: t('↑ Depends On (upstream)'),
+  dependencyTreeDownstream: t('↓ Blocked By This (downstream)'),
+  editLabel: t('Edit'),
+  doneLabel: t('Done'),
+  descriptionLabel: t('Description'),
+  designLabel: t('Design'),
+  acceptanceLabel: t('Acceptance Criteria'),
+  notesLabel: t('Notes'),
+  detailsLabel: t('Details'),
+  assigneeLabel: t('Assignee:'),
+  externalRefLabel: t('External Ref:'),
+  createdLabel: t('Created:'),
+  updatedLabel: t('Updated:'),
+  closedLabel: t('Closed:'),
+  labelsLabel: t('Labels'),
+  noLabelsLabel: t('No labels'),
+  markInReviewLabel: t('Mark as In Review'),
+  removeInReviewLabel: t('Remove In Review'),
+  addLabelLabel: t('Add Label'),
+  dependsOnLabel: t('Depends On'),
+  blocksLabel: t('Blocks'),
+  labelPrompt: t('Enter label name:'),
+  statusLabels,
+});
+
+const buildDependencyTreeStrings = (statusLabels: StatusLabelMap): DependencyTreeStrings => ({
+  title: t('Beads Dependency Tree'),
+  resetView: t('Reset View'),
+  autoLayout: t('Auto Layout'),
+  legendClosed: statusLabels.closed,
+  legendInProgress: statusLabels.in_progress,
+  legendOpen: statusLabels.open,
+  legendBlocked: statusLabels.blocked,
+  emptyTitle: t('No beads found'),
+  emptyDescription: t('The visualizer received 0 nodes. Check the Output panel for debug logs.'),
+  renderErrorTitle: t('Render Error'),
+});
+
+const buildActivityFeedStrings = (): ActivityFeedStrings => ({
+  title: t('Activity Feed'),
+  emptyTitle: t('No activity yet'),
+  emptyDescription: t('Events will appear here as you work with issues.'),
+  eventsLabel: t('events'),
+});
 
 class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vscode.TreeDragAndDropController<TreeItemType> {
   private readonly onDidChangeTreeDataEmitter = new vscode.EventEmitter<TreeItemType | undefined | null | void>();
@@ -559,7 +510,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     } catch (error) {
       console.error('Failed to refresh beads', error);
       console.error('[Provider DEBUG] Refresh error:', error);
-      void vscode.window.showErrorMessage(formatError('Unable to refresh beads list', error));
+      void vscode.window.showErrorMessage(formatError(t('Unable to refresh beads list'), error));
     } finally {
       this.refreshInProgress = false;
 
@@ -580,11 +531,14 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   }
 
   private refreshOpenPanels(): void {
+    const statusLabels = getStatusLabels();
+    const beadStrings = buildBeadDetailStrings(statusLabels);
+    const locale = vscode.env.language || 'en';
     this.openPanels.forEach((panel, beadId) => {
       const updatedItem = this.items.find((i: BeadItemData) => i.id === beadId);
       if (updatedItem) {
         const nonce = createNonce();
-        panel.webview.html = getBeadDetailHtml(updatedItem, this.items, panel.webview, nonce);
+        panel.webview.html = getBeadDetailHtml(updatedItem, this.items, panel.webview, nonce, beadStrings, locale);
       }
     });
   }
@@ -619,8 +573,8 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
 
   async search(): Promise<void> {
     const query = await vscode.window.showInputBox({
-      prompt: 'Search beads by ID, title, description, labels, status, etc.',
-      placeHolder: 'Enter search query',
+      prompt: t('Search beads by ID, title, description, labels, status, etc.'),
+      placeHolder: t('Enter search query'),
       value: this.searchQuery,
     });
 
@@ -633,24 +587,24 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
 
     if (this.searchQuery) {
       const count = this.filterItems(this.items).length;
-      void vscode.window.showInformationMessage(`Found ${count} bead(s) matching "${this.searchQuery}"`);
+      void vscode.window.showInformationMessage(t('Found {0} bead(s) matching "{1}"', count, this.searchQuery));
     }
   }
 
   clearSearch(): void {
     this.searchQuery = '';
     this.onDidChangeTreeDataEmitter.fire();
-    void vscode.window.showInformationMessage('Search cleared');
+    void vscode.window.showInformationMessage(t('Search cleared'));
   }
 
   async updateExternalReference(item: BeadItemData, newValue: string | undefined): Promise<void> {
     if (!this.document) {
-      void vscode.window.showErrorMessage('Beads data is not loaded yet. Try refreshing the explorer.');
+      void vscode.window.showErrorMessage(t('Beads data is not loaded yet. Try refreshing the explorer.'));
       return;
     }
 
     if (!item.raw || typeof item.raw !== 'object') {
-      void vscode.window.showErrorMessage('Unable to update this bead entry because its data is not editable.');
+      void vscode.window.showErrorMessage(t('Unable to update this bead entry because its data is not editable.'));
       return;
     }
 
@@ -668,7 +622,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
       await this.refresh();
     } catch (error) {
       console.error('Failed to persist beads document', error);
-      void vscode.window.showErrorMessage(formatError('Failed to save beads data file', error));
+      void vscode.window.showErrorMessage(formatError(t('Failed to save beads data file'), error));
     }
   }
 
@@ -677,17 +631,17 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     const projectRoot = resolveProjectRoot(config);
 
     if (!projectRoot) {
-      void vscode.window.showErrorMessage('Unable to resolve project root. Set "beads.projectRoot" or open a workspace folder.');
+      void vscode.window.showErrorMessage(PROJECT_ROOT_ERROR);
       return;
     }
 
     try {
       await runBdCommand(['update', item.id, '--status', newStatus], projectRoot);
       await this.refresh();
-      void vscode.window.showInformationMessage(`Updated status to: ${newStatus}`);
+      void vscode.window.showInformationMessage(t('Updated status to: {0}', newStatus));
     } catch (error) {
       console.error('Failed to update status', error);
-      void vscode.window.showErrorMessage(formatError('Failed to update status', error));
+      void vscode.window.showErrorMessage(formatError(t('Failed to update status'), error));
     }
   }
 
@@ -696,17 +650,17 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     const projectRoot = resolveProjectRoot(config);
 
     if (!projectRoot) {
-      void vscode.window.showErrorMessage('Unable to resolve project root. Set "beads.projectRoot" or open a workspace folder.');
+      void vscode.window.showErrorMessage(PROJECT_ROOT_ERROR);
       return;
     }
 
     try {
       await runBdCommand(['update', item.id, '--title', newTitle], projectRoot);
       await this.refresh();
-      void vscode.window.showInformationMessage(`Updated title to: ${newTitle}`);
+      void vscode.window.showInformationMessage(t('Updated title to: {0}', newTitle));
     } catch (error) {
       console.error('Failed to update title', error);
-      void vscode.window.showErrorMessage(formatError('Failed to update title', error));
+      void vscode.window.showErrorMessage(formatError(t('Failed to update title'), error));
     }
   }
 
@@ -715,17 +669,17 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     const projectRoot = resolveProjectRoot(config);
 
     if (!projectRoot) {
-      void vscode.window.showErrorMessage('Unable to resolve project root. Set "beads.projectRoot" or open a workspace folder.');
+      void vscode.window.showErrorMessage(PROJECT_ROOT_ERROR);
       return;
     }
 
     try {
       await runBdCommand(['label', 'add', item.id, label], projectRoot);
       await this.refresh();
-      void vscode.window.showInformationMessage(`Added label: ${label}`);
+      void vscode.window.showInformationMessage(t('Added label: {0}', label));
     } catch (error) {
       console.error('Failed to add label', error);
-      void vscode.window.showErrorMessage(formatError('Failed to add label', error));
+      void vscode.window.showErrorMessage(formatError(t('Failed to add label'), error));
     }
   }
 
@@ -734,17 +688,17 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     const projectRoot = resolveProjectRoot(config);
 
     if (!projectRoot) {
-      void vscode.window.showErrorMessage('Unable to resolve project root. Set "beads.projectRoot" or open a workspace folder.');
+      void vscode.window.showErrorMessage(PROJECT_ROOT_ERROR);
       return;
     }
 
     try {
       await runBdCommand(['label', 'remove', item.id, label], projectRoot);
       await this.refresh();
-      void vscode.window.showInformationMessage(`Removed label: ${label}`);
+      void vscode.window.showInformationMessage(t('Removed label: {0}', label));
     } catch (error) {
       console.error('Failed to remove label', error);
-      void vscode.window.showErrorMessage(formatError('Failed to remove label', error));
+      void vscode.window.showErrorMessage(formatError(t('Failed to remove label'), error));
     }
   }
 
@@ -754,7 +708,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
 
     treeItem.command = {
       command: 'beads.openBead',
-      title: 'Open Bead',
+      title: t('Open Bead'),
       arguments: [item],
     };
 
@@ -896,7 +850,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     this.manualSortOrder.clear();
     void this.context.workspaceState.update('beads.manualSortOrder', undefined);
     this.onDidChangeTreeDataEmitter.fire();
-    void vscode.window.showInformationMessage('Manual sort order cleared');
+    void vscode.window.showInformationMessage(t('Manual sort order cleared'));
   }
 
   private loadSortMode(): void {
@@ -1006,9 +960,9 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     }
     this.saveSortMode();
     this.onDidChangeTreeDataEmitter.fire();
-    const modeDisplay = this.sortMode === 'id' ? 'ID (natural)' : 
-                        this.sortMode === 'status' ? 'Status' : 'Epic';
-    void vscode.window.showInformationMessage(`Sort mode: ${modeDisplay}`);
+    const modeDisplay = this.sortMode === 'id' ? t('ID (natural)') : 
+                        this.sortMode === 'status' ? t('Status') : t('Epic');
+    void vscode.window.showInformationMessage(t('Sort mode: {0}', modeDisplay));
   }
 
   getSortMode(): 'id' | 'status' | 'epic' {
@@ -1201,7 +1155,9 @@ function getBeadDetailHtml(
   item: BeadItemData,
   allItems: BeadItemData[] | undefined,
   webview: vscode.Webview,
-  nonce: string
+  nonce: string,
+  strings: BeadDetailStrings,
+  locale: string
 ): string {
   const raw = item.raw as any;
   const description = raw?.description || '';
@@ -1210,9 +1166,9 @@ function getBeadDetailHtml(
   const notes = raw?.notes || '';
   const issueType = raw?.issue_type || '';
   const priority = raw?.priority || '';
-  const createdAt = raw?.created_at ? new Date(raw.created_at).toLocaleString() : '';
-  const updatedAt = raw?.updated_at ? new Date(raw.updated_at).toLocaleString() : '';
-  const closedAt = raw?.closed_at ? new Date(raw.closed_at).toLocaleString() : '';
+  const createdAt = raw?.created_at ? new Date(raw.created_at).toLocaleString(locale) : '';
+  const updatedAt = raw?.updated_at ? new Date(raw.updated_at).toLocaleString(locale) : '';
+  const closedAt = raw?.closed_at ? new Date(raw.closed_at).toLocaleString(locale) : '';
   const dependencies = raw?.dependencies || [];
   const assignee = raw?.assignee || '';
   const labels = raw?.labels || [];
@@ -1231,17 +1187,17 @@ function getBeadDetailHtml(
         <div class="dependency-tree-section">
             <div class="dependency-tree-header" id="treeHeader">
                 <span class="tree-toggle" id="treeToggle">▼</span>
-                <span class="section-title" style="margin: 0;">Dependency Tree</span>
+                <span class="section-title" style="margin: 0;">${escapeHtml(strings.dependencyTreeTitle)}</span>
             </div>
             <div class="dependency-tree-container" id="treeContainer">`;
       
       if (hasUpstream) {
-        dependencyTreeHtml += `<div class="tree-direction-label">↑ Depends On (upstream)</div>`;
+        dependencyTreeHtml += `<div class="tree-direction-label">${escapeHtml(strings.dependencyTreeUpstream)}</div>`;
         dependencyTreeHtml += renderTreeHtml(upstreamTree!, item.id, true, '');
       }
       
       if (hasDownstream) {
-        dependencyTreeHtml += `<div class="tree-direction-label">↓ Blocked By This (downstream)</div>`;
+        dependencyTreeHtml += `<div class="tree-direction-label">${escapeHtml(strings.dependencyTreeDownstream)}</div>`;
         dependencyTreeHtml += renderTreeHtml(downstreamTree!, item.id, true, '');
       }
       
@@ -1301,10 +1257,15 @@ function getBeadDetailHtml(
 
   const priorityLabel = ['', 'P1', 'P2', 'P3', 'P4'][priority] || '';
 
-  // Format status for display
-  const statusDisplay = item.status
-    ? item.status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
-    : '';
+  const getStatusLabel = (status?: string): string => {
+    if (!status) {
+      return '';
+    }
+    const key = status as keyof StatusLabelMap;
+    return strings.statusLabels[key] ?? status;
+  };
+
+  const statusDisplay = getStatusLabel(item.status) || strings.statusLabels.open;
 
   const csp = [
     "default-src 'none'",
@@ -1317,7 +1278,7 @@ function getBeadDetailHtml(
   ].join('; ');
 
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="${escapeHtml(locale)}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -1633,17 +1594,17 @@ function getBeadDetailHtml(
     <div class="header">
         <div class="header-top">
             <div class="issue-id">${item.id}</div>
-            <button class="edit-button" id="editButton">Edit</button>
+            <button class="edit-button" id="editButton">${escapeHtml(strings.editLabel)}</button>
         </div>
         <h1 class="title" id="issueTitle" contenteditable="false">${escapeHtml(item.title)}</h1>
         <div class="metadata">
             <div class="status-wrapper">
-                <span class="badge status-badge" id="statusBadge" data-status="${item.status || 'open'}">${statusDisplay || 'Open'}</span>
+                <span class="badge status-badge" id="statusBadge" data-status="${item.status || 'open'}">${escapeHtml(statusDisplay || strings.statusLabels.open)}</span>
                 <div class="status-dropdown" id="statusDropdown">
-                    <div class="status-option" data-status="open">Open</div>
-                    <div class="status-option" data-status="in_progress">In Progress</div>
-                    <div class="status-option" data-status="blocked">Blocked</div>
-                    <div class="status-option" data-status="closed">Closed</div>
+                    <div class="status-option" data-status="open">${escapeHtml(strings.statusLabels.open)}</div>
+                    <div class="status-option" data-status="in_progress">${escapeHtml(strings.statusLabels.in_progress)}</div>
+                    <div class="status-option" data-status="blocked">${escapeHtml(strings.statusLabels.blocked)}</div>
+                    <div class="status-option" data-status="closed">${escapeHtml(strings.statusLabels.closed)}</div>
                 </div>
             </div>
             ${issueType ? `<span class="badge type-badge">${issueType.toUpperCase()}</span>` : ''}
@@ -1653,63 +1614,63 @@ function getBeadDetailHtml(
 
     ${description ? `
     <div class="section">
-        <div class="section-title">Description</div>
+        <div class="section-title">${escapeHtml(strings.descriptionLabel)}</div>
         <div class="description">${linkifyText(description)}</div>
     </div>
     ` : ''}
 
     ${design ? `
     <div class="section">
-        <div class="section-title">Design</div>
+        <div class="section-title">${escapeHtml(strings.designLabel)}</div>
         <div class="description">${linkifyText(design)}</div>
     </div>
     ` : ''}
 
     ${acceptanceCriteria ? `
     <div class="section">
-        <div class="section-title">Acceptance Criteria</div>
+        <div class="section-title">${escapeHtml(strings.acceptanceLabel)}</div>
         <div class="description">${linkifyText(acceptanceCriteria)}</div>
     </div>
     ` : ''}
 
     ${notes ? `
     <div class="section">
-        <div class="section-title">Notes</div>
+        <div class="section-title">${escapeHtml(strings.notesLabel)}</div>
         <div class="description">${linkifyText(notes)}</div>
     </div>
     ` : ''}
 
     <div class="section">
-        <div class="section-title">Details</div>
-        ${assignee ? `<div class="meta-item"><span class="meta-label">Assignee:</span><span class="meta-value">${escapeHtml(assignee)}</span></div>` : ''}
-        ${item.externalReferenceId ? `<div class="meta-item"><span class="meta-label">External Ref:</span><span class="meta-value"><a href="${escapeHtml(item.externalReferenceId)}" class="external-link" target="_blank">${escapeHtml(item.externalReferenceDescription || item.externalReferenceId)}</a></span></div>` : ''}
-        ${createdAt ? `<div class="meta-item"><span class="meta-label">Created:</span><span class="meta-value">${createdAt}</span></div>` : ''}
-        ${updatedAt ? `<div class="meta-item"><span class="meta-label">Updated:</span><span class="meta-value">${updatedAt}</span></div>` : ''}
-        ${closedAt ? `<div class="meta-item"><span class="meta-label">Closed:</span><span class="meta-value">${closedAt}</span></div>` : ''}
+        <div class="section-title">${escapeHtml(strings.detailsLabel)}</div>
+        ${assignee ? `<div class="meta-item"><span class="meta-label">${escapeHtml(strings.assigneeLabel)}</span><span class="meta-value">${escapeHtml(assignee)}</span></div>` : ''}
+        ${item.externalReferenceId ? `<div class="meta-item"><span class="meta-label">${escapeHtml(strings.externalRefLabel)}</span><span class="meta-value"><a href="${escapeHtml(item.externalReferenceId)}" class="external-link" target="_blank">${escapeHtml(item.externalReferenceDescription || item.externalReferenceId)}</a></span></div>` : ''}
+        ${createdAt ? `<div class="meta-item"><span class="meta-label">${escapeHtml(strings.createdLabel)}</span><span class="meta-value">${createdAt}</span></div>` : ''}
+        ${updatedAt ? `<div class="meta-item"><span class="meta-label">${escapeHtml(strings.updatedLabel)}</span><span class="meta-value">${updatedAt}</span></div>` : ''}
+        ${closedAt ? `<div class="meta-item"><span class="meta-label">${escapeHtml(strings.closedLabel)}</span><span class="meta-value">${closedAt}</span></div>` : ''}
     </div>
 
     <div class="section">
-        <div class="section-title">Labels</div>
+        <div class="section-title">${escapeHtml(strings.labelsLabel)}</div>
         <div class="tags" id="labelsContainer">
-            ${labels && labels.length > 0 ? labels.map((label: string) => `<span class="tag" data-label="${escapeHtml(label)}">${escapeHtml(label)}<span class="tag-remove" style="display: none;">×</span></span>`).join('') : '<span class="empty">No labels</span>'}
+            ${labels && labels.length > 0 ? labels.map((label: string) => `<span class="tag" data-label="${escapeHtml(label)}">${escapeHtml(label)}<span class="tag-remove" style="display: none;">×</span></span>`).join('') : `<span class="empty">${escapeHtml(strings.noLabelsLabel)}</span>`}
         </div>
         <div style="margin-top: 12px; display: none;" id="labelActions">
             <button class="edit-button" id="addInReviewButton" style="margin-right: 8px;">
-                <span id="inReviewButtonText">Mark as In Review</span>
+                <span id="inReviewButtonText">${escapeHtml(strings.markInReviewLabel)}</span>
             </button>
-            <button class="edit-button" id="addLabelButton">Add Label</button>
+            <button class="edit-button" id="addLabelButton">${escapeHtml(strings.addLabelLabel)}</button>
         </div>
     </div>
 
     ${dependsOn.length > 0 ? `
     <div class="section">
-        <div class="section-title">Depends On</div>
+        <div class="section-title">${escapeHtml(strings.dependsOnLabel)}</div>
         ${dependsOn.map((dep: any) => `
             <div class="dependency-item" data-issue-id="${dep.id}">
                 <div class="dependency-type">${dep.type}</div>
                 <strong>${dep.id}</strong>
                 ${dep.title ? `<div style="margin-top: 4px;">${escapeHtml(dep.title)}</div>` : ''}
-                ${dep.status ? `<span class="badge status-badge" style="margin-top: 4px; display: inline-block;">${dep.status.split('_').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}</span>` : ''}
+                ${dep.status ? `<span class="badge status-badge" style="margin-top: 4px; display: inline-block;">${escapeHtml(getStatusLabel(dep.status))}</span>` : ''}
             </div>
         `).join('')}
     </div>
@@ -1717,13 +1678,13 @@ function getBeadDetailHtml(
 
     ${blocks.length > 0 ? `
     <div class="section">
-        <div class="section-title">Blocks</div>
+        <div class="section-title">${escapeHtml(strings.blocksLabel)}</div>
         ${blocks.map((dep: any) => `
             <div class="dependency-item" data-issue-id="${dep.id}">
                 <div class="dependency-type">${dep.type}</div>
                 <strong>${dep.id}</strong>
                 ${dep.title ? `<div style="margin-top: 4px;">${escapeHtml(dep.title)}</div>` : ''}
-                ${dep.status ? `<span class="badge status-badge" style="margin-top: 4px; display: inline-block;">${dep.status.split('_').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}</span>` : ''}
+                ${dep.status ? `<span class="badge status-badge" style="margin-top: 4px; display: inline-block;">${escapeHtml(getStatusLabel(dep.status))}</span>` : ''}
             </div>
         `).join('')}
     </div>
@@ -1745,6 +1706,15 @@ function getBeadDetailHtml(
         const addLabelButton = document.getElementById('addLabelButton');
         const inReviewButtonText = document.getElementById('inReviewButtonText');
         const labelsContainer = document.getElementById('labelsContainer');
+
+        const localized = ${JSON.stringify({
+          edit: strings.editLabel,
+          done: strings.doneLabel,
+          markInReview: strings.markInReviewLabel,
+          removeInReview: strings.removeInReviewLabel,
+          addLabel: strings.addLabelLabel,
+          promptLabel: strings.labelPrompt,
+        })};
 
         // Dependency tree toggle
         const treeHeader = document.getElementById('treeHeader');
@@ -1780,15 +1750,17 @@ function getBeadDetailHtml(
         const currentLabels = ${JSON.stringify(labels || [])};
         const hasInReview = currentLabels.includes('in-review');
 
+        inReviewButtonText.textContent = localized.markInReview;
+
         if (hasInReview) {
-            inReviewButtonText.textContent = 'Remove In Review';
+            inReviewButtonText.textContent = localized.removeInReview;
         }
 
         editButton.addEventListener('click', () => {
             isEditMode = !isEditMode;
 
             if (isEditMode) {
-                editButton.textContent = 'Done';
+                editButton.textContent = localized.done;
                 statusBadge.classList.add('editable');
                 labelActions.style.display = 'block';
                 issueTitle.contentEditable = 'true';
@@ -1804,7 +1776,7 @@ function getBeadDetailHtml(
                     }
                 });
             } else {
-                editButton.textContent = 'Edit';
+                editButton.textContent = localized.edit;
                 statusBadge.classList.remove('editable');
                 statusDropdown.classList.remove('show');
                 labelActions.style.display = 'none';
@@ -1868,12 +1840,19 @@ function getBeadDetailHtml(
             const hasInReview = currentLabels.includes('in-review');
 
             if (hasInReview) {
+                const index = currentLabels.indexOf('in-review');
+                if (index >= 0) {
+                    currentLabels.splice(index, 1);
+                }
+                inReviewButtonText.textContent = localized.markInReview;
                 vscode.postMessage({
                     command: 'removeLabel',
                     label: 'in-review',
                     issueId: '${item.id}'
                 });
             } else {
+                currentLabels.push('in-review');
+                inReviewButtonText.textContent = localized.removeInReview;
                 vscode.postMessage({
                     command: 'addLabel',
                     label: 'in-review',
@@ -1884,7 +1863,7 @@ function getBeadDetailHtml(
 
         // Handle custom label addition
         addLabelButton.addEventListener('click', () => {
-            const label = prompt('Enter label name:');
+            const label = prompt(localized.promptLabel);
             if (label && label.trim()) {
                 vscode.postMessage({
                     command: 'addLabel',
@@ -1942,7 +1921,7 @@ function getBeadDetailHtml(
 </html>`;
 }
 
-function getDependencyTreeHtml(items: BeadItemData[]): string {
+function getDependencyTreeHtml(items: BeadItemData[], strings: DependencyTreeStrings, locale: string): string {
   // DEBUG: Log input to HTML generator
   console.log('[getDependencyTreeHtml DEBUG] Received items count:', items?.length ?? 'undefined/null');
 
@@ -2010,11 +1989,11 @@ function getDependencyTreeHtml(items: BeadItemData[]): string {
   const edgesJson = JSON.stringify(edges);
 
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="${escapeHtml(locale)}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Beads Dependency Tree</title>
+    <title>${escapeHtml(strings.title)}</title>
     <style>
         body {
             font-family: var(--vscode-font-family);
@@ -2201,26 +2180,26 @@ function getDependencyTreeHtml(items: BeadItemData[]): string {
 </head>
 <body>
     <div class="controls">
-        <button class="control-button" onclick="resetZoom()">Reset View</button>
-        <button class="control-button" onclick="autoLayout()">Auto Layout</button>
+        <button class="control-button" onclick="resetZoom()">${escapeHtml(strings.resetView)}</button>
+        <button class="control-button" onclick="autoLayout()">${escapeHtml(strings.autoLayout)}</button>
     </div>
 
     <div class="legend">
         <div class="legend-item">
             <span class="status-indicator closed"></span>
-            <span>Closed</span>
+            <span>${escapeHtml(strings.legendClosed)}</span>
         </div>
         <div class="legend-item">
             <span class="status-indicator in_progress"></span>
-            <span>In Progress</span>
+            <span>${escapeHtml(strings.legendInProgress)}</span>
         </div>
         <div class="legend-item">
             <span class="status-indicator open"></span>
-            <span>Open</span>
+            <span>${escapeHtml(strings.legendOpen)}</span>
         </div>
         <div class="legend-item">
             <span class="status-indicator blocked"></span>
-            <span>Blocked</span>
+            <span>${escapeHtml(strings.legendBlocked)}</span>
         </div>
     </div>
 
@@ -2233,6 +2212,11 @@ function getDependencyTreeHtml(items: BeadItemData[]): string {
         const vscode = acquireVsCodeApi();
         const nodes = ${nodesJson};
         const edges = ${edgesJson};
+        const localized = ${JSON.stringify({
+          emptyTitle: strings.emptyTitle,
+          emptyDescription: strings.emptyDescription,
+          renderErrorTitle: strings.renderErrorTitle,
+        })};
 
         console.log('[Dependency Tree] Script started');
         console.log('[Dependency Tree] Loaded', nodes.length, 'nodes and', edges.length, 'edges');
@@ -2241,7 +2225,7 @@ function getDependencyTreeHtml(items: BeadItemData[]): string {
 
         // DEBUG: Show visible indicator if nodes exist
         if (nodes.length === 0) {
-            document.body.innerHTML = '<div style="padding: 40px; text-align: center; color: var(--vscode-errorForeground);"><h2>No beads found</h2><p>The visualizer received 0 nodes. Check the Output panel for debug logs.</p></div>';
+            document.body.innerHTML = '<div style="padding: 40px; text-align: center; color: var(--vscode-errorForeground);"><h2>' + localized.emptyTitle + '</h2><p>' + localized.emptyDescription + '</p></div>';
         }
 
         const nodeElements = new Map();
@@ -2579,7 +2563,7 @@ function getDependencyTreeHtml(items: BeadItemData[]): string {
             console.log('[Dependency Tree] Initial render completed');
         } catch (err) {
             console.error('[Dependency Tree] Render error:', err);
-            document.body.innerHTML = '<div style="padding: 40px; color: var(--vscode-errorForeground);"><h2>Render Error</h2><pre>' + err.message + '</pre></div>';
+            document.body.innerHTML = '<div style="padding: 40px; color: var(--vscode-errorForeground);"><h2>' + localized.renderErrorTitle + '</h2><pre>' + err.message + '</pre></div>';
         }
     </script>
 </body>
@@ -2601,7 +2585,10 @@ async function openBead(item: BeadItemData, provider: BeadsTreeDataProvider): Pr
 
   // Get all items from the provider to calculate reverse dependencies
   const allItems = provider['items'] as BeadItemData[];
-  panel.webview.html = getBeadDetailHtml(item, allItems, panel.webview, nonce);
+  const statusLabels = getStatusLabels();
+  const beadStrings = buildBeadDetailStrings(statusLabels);
+  const locale = vscode.env.language || 'en';
+  panel.webview.html = getBeadDetailHtml(item, allItems, panel.webview, nonce, beadStrings, locale);
 
   // Register this panel so it can be refreshed when data changes
   provider.registerPanel(item.id, panel);
@@ -2620,7 +2607,7 @@ async function openBead(item: BeadItemData, provider: BeadsTreeDataProvider): Pr
     const validated = validateLittleGlenMessage(message, allowedCommands);
     if (!validated) {
       console.warn('[Little Glen] Ignoring invalid panel message');
-      void vscode.window.showWarningMessage('Ignored invalid request from Little Glen panel.');
+      void vscode.window.showWarningMessage(t('Ignored invalid request from Little Glen panel.'));
       return;
     }
 
@@ -2642,7 +2629,7 @@ async function openBead(item: BeadItemData, provider: BeadsTreeDataProvider): Pr
         if (targetBead) {
           await openBead(targetBead, provider);
         } else {
-          void vscode.window.showWarningMessage(`Issue ${validated.beadId} not found`);
+          void vscode.window.showWarningMessage(t('Issue {0} not found', validated.beadId));
         }
         return;
       }
@@ -2667,7 +2654,7 @@ async function openBeadFromFeed(
 
   if (!target) {
     console.warn(`[ActivityFeed] Issue ${issueId} not found when opening from feed`);
-    void vscode.window.showWarningMessage(`Issue ${issueId} no longer exists or is not loaded.`);
+    void vscode.window.showWarningMessage(t('Issue {0} no longer exists or is not loaded.', issueId));
     return false;
   }
 
@@ -2676,15 +2663,15 @@ async function openBeadFromFeed(
     return true;
   } catch (error) {
     console.error(`[ActivityFeed] Failed to open issue ${issueId} from feed:`, error);
-    void vscode.window.showErrorMessage(formatError('Failed to open issue from activity feed', error));
+    void vscode.window.showErrorMessage(formatError(t('Failed to open issue from activity feed'), error));
     return false;
   }
 }
 
 async function createBead(): Promise<void> {
   const name = await vscode.window.showInputBox({
-    prompt: 'Enter a title for the new bead',
-    placeHolder: 'Implement feature X',
+    prompt: t('Enter a title for the new bead'),
+    placeHolder: t('Implement feature X'),
   });
 
   if (!name) {
@@ -2697,16 +2684,20 @@ async function createBead(): Promise<void> {
   try {
     await runBdCommand(['create', name], projectRoot!);
     void vscode.commands.executeCommand('beads.refresh');
-    void vscode.window.showInformationMessage(`Created bead: ${name}`);
+    void vscode.window.showInformationMessage(t('Created bead: {0}', name));
   } catch (error) {
-    void vscode.window.showErrorMessage(formatError('Failed to create bead', error));
+    void vscode.window.showErrorMessage(formatError(t('Failed to create bead'), error));
   }
 }
 
 async function visualizeDependencies(provider: BeadsTreeDataProvider): Promise<void> {
+  const statusLabels = getStatusLabels();
+  const dependencyStrings = buildDependencyTreeStrings(statusLabels);
+  const locale = vscode.env.language || 'en';
+
   const panel = vscode.window.createWebviewPanel(
     'beadDependencyTree',
-    'Beads Dependency Tree',
+    dependencyStrings.title,
     vscode.ViewColumn.One,
     {
       enableScripts: true,
@@ -2724,7 +2715,7 @@ async function visualizeDependencies(provider: BeadsTreeDataProvider): Promise<v
     console.log('[Visualizer DEBUG] First item raw data:', JSON.stringify(items[0]?.raw, null, 2));
   }
 
-  panel.webview.html = getDependencyTreeHtml(items);
+  panel.webview.html = getDependencyTreeHtml(items, dependencyStrings, locale);
 
   // Handle messages from the webview
   panel.webview.onDidReceiveMessage(async (message) => {
@@ -2739,13 +2730,13 @@ async function visualizeDependencies(provider: BeadsTreeDataProvider): Promise<v
       if (item) {
         await openBead(item, provider);
       } else {
-        void vscode.window.showWarningMessage(`Issue ${validated.beadId} not found`);
+        void vscode.window.showWarningMessage(t('Issue {0} not found', validated.beadId));
       }
     }
   });
 }
 
-function getActivityFeedPanelHtml(events: import('./activityFeed').EventData[]): string {
+function getActivityFeedPanelHtml(events: import('./activityFeed').EventData[], strings: ActivityFeedStrings, locale: string): string {
   const eventCards = events.map(event => {
     const iconMap: Record<string, string> = {
       'sparkle': '✨',
@@ -2774,7 +2765,8 @@ function getActivityFeedPanelHtml(events: import('./activityFeed').EventData[]):
     };
     const icon = iconMap[event.iconName] || '•';
     const color = colorMap[event.colorClass] || '#666';
-    const time = event.createdAt.toLocaleString();
+    const time = event.createdAt.toLocaleString(locale);
+    const actorLabel = escapeHtml(t('by {0}', event.actor));
     
     return `
       <div class="event-card" data-issue-id="${escapeHtml(event.issueId)}">
@@ -2782,11 +2774,11 @@ function getActivityFeedPanelHtml(events: import('./activityFeed').EventData[]):
         <div class="event-content">
           <div class="event-header">
             <span class="event-description">${escapeHtml(event.description)}</span>
-            <span class="event-time" title="${time}">${escapeHtml(event.createdAt.toLocaleTimeString())}</span>
+            <span class="event-time" title="${time}">${escapeHtml(event.createdAt.toLocaleTimeString(locale))}</span>
           </div>
           ${event.issueTitle ? `<div class="event-issue">${escapeHtml(event.issueTitle)}</div>` : ''}
           <div class="event-meta">
-            <span class="event-actor">by ${escapeHtml(event.actor)}</span>
+            <span class="event-actor">${actorLabel}</span>
             <span class="event-id">#${escapeHtml(event.issueId)}</span>
           </div>
         </div>
@@ -2795,11 +2787,11 @@ function getActivityFeedPanelHtml(events: import('./activityFeed').EventData[]):
   }).join('');
 
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="${escapeHtml(locale)}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Activity Feed</title>
+    <title>${escapeHtml(strings.title)}</title>
     <style>
         body {
             font-family: var(--vscode-font-family);
@@ -2944,8 +2936,8 @@ function getActivityFeedPanelHtml(events: import('./activityFeed').EventData[]):
 </head>
 <body>
     <div class="activity-header">
-        <h1 class="activity-title">Activity Feed</h1>
-        <span class="event-count">${events.length} events</span>
+        <h1 class="activity-title">${escapeHtml(strings.title)}</h1>
+        <span class="event-count">${escapeHtml(t('{0} {1}', events.length, strings.eventsLabel))}</span>
     </div>
     
     ${events.length > 0 ? `
@@ -2955,8 +2947,8 @@ function getActivityFeedPanelHtml(events: import('./activityFeed').EventData[]):
     ` : `
     <div class="empty-state">
         <div class="empty-state-icon">📋</div>
-        <h3>No activity yet</h3>
-        <p>Events will appear here as you work with issues.</p>
+        <h3>${escapeHtml(strings.emptyTitle)}</h3>
+        <p>${escapeHtml(strings.emptyDescription)}</p>
     </div>
     `}
     
@@ -2980,9 +2972,11 @@ function getActivityFeedPanelHtml(events: import('./activityFeed').EventData[]):
 }
 
 async function openActivityFeedPanel(activityFeedProvider: ActivityFeedTreeDataProvider, beadsProvider: BeadsTreeDataProvider): Promise<void> {
+  const activityStrings = buildActivityFeedStrings();
+  const locale = vscode.env.language || 'en';
   const panel = vscode.window.createWebviewPanel(
     'activityFeedPanel',
-    'Activity Feed',
+    activityStrings.title,
     vscode.ViewColumn.One,
     {
       enableScripts: true,
@@ -2997,8 +2991,7 @@ async function openActivityFeedPanel(activityFeedProvider: ActivityFeedTreeDataP
   const { fetchEvents } = await import('./activityFeed');
   const result = await fetchEvents(projectRoot, { limit: 100 });
 
-  // 
-  panel.webview.html = getActivityFeedPanelHtml(result.events);
+  panel.webview.html = getActivityFeedPanelHtml(result.events, activityStrings, locale);
 
   // Handle messages from the webview
   panel.webview.onDidReceiveMessage(async (message) => {
@@ -3015,7 +3008,7 @@ async function openActivityFeedPanel(activityFeedProvider: ActivityFeedTreeDataP
         await openBead(item, beadsProvider);
       } else {
         // If item not found in current view, just show a message
-        void vscode.window.showInformationMessage(`Opening issue ${validated.beadId}`);
+        void vscode.window.showInformationMessage(t('Opening issue {0}', validated.beadId));
       }
     }
   });
@@ -3085,55 +3078,55 @@ export function activate(context: vscode.ExtensionContext): void {
     // Activity Feed commands
     vscode.commands.registerCommand('beads.refreshActivityFeed', () => activityFeedProvider.refresh()),
     vscode.commands.registerCommand('beads.filterActivityFeed', async () => {
-      const options: vscode.QuickPickItem[] = [
-        { label: 'All Events', description: 'Show all event types' },
-        { label: 'Created', description: 'Show issue creation events' },
-        { label: 'Closed', description: 'Show issue closed events' },
-        { label: 'Status Changes', description: 'Show status change events' },
-        { label: 'Dependencies', description: 'Show dependency events' },
-        { label: 'Today', description: 'Show events from today' },
-        { label: 'This Week', description: 'Show events from this week' },
-        { label: 'This Month', description: 'Show events from this month' },
+      const options: Array<vscode.QuickPickItem & { value: string }> = [
+        { label: t('All Events'), description: t('Show all event types'), value: 'all' },
+        { label: t('Created'), description: t('Show issue creation events'), value: 'created' },
+        { label: t('Closed'), description: t('Show issue closed events'), value: 'closed' },
+        { label: t('Status Changes'), description: t('Show status change events'), value: 'status' },
+        { label: t('Dependencies'), description: t('Show dependency events'), value: 'dependencies' },
+        { label: t('Today'), description: t('Show events from today'), value: 'today' },
+        { label: t('This Week'), description: t('Show events from this week'), value: 'week' },
+        { label: t('This Month'), description: t('Show events from this month'), value: 'month' },
       ];
 
       const selection = await vscode.window.showQuickPick(options, {
-        placeHolder: 'Filter activity feed by...',
+        placeHolder: t('Filter activity feed by...'),
       });
 
       if (!selection) {
         return;
       }
 
-      switch (selection.label) {
-        case 'All Events':
+      switch (selection.value) {
+        case 'all':
           activityFeedProvider.clearFilters();
           break;
-        case 'Created':
+        case 'created':
           activityFeedProvider.setEventTypeFilter(['created'] as EventType[]);
           break;
-        case 'Closed':
+        case 'closed':
           activityFeedProvider.setEventTypeFilter(['closed'] as EventType[]);
           break;
-        case 'Status Changes':
+        case 'status':
           activityFeedProvider.setEventTypeFilter(['status_changed'] as EventType[]);
           break;
-        case 'Dependencies':
+        case 'dependencies':
           activityFeedProvider.setEventTypeFilter(['dependency_added', 'dependency_removed'] as EventType[]);
           break;
-        case 'Today':
+        case 'today':
           activityFeedProvider.setTimeRangeFilter('today');
           break;
-        case 'This Week':
+        case 'week':
           activityFeedProvider.setTimeRangeFilter('week');
           break;
-        case 'This Month':
+        case 'month':
           activityFeedProvider.setTimeRangeFilter('month');
           break;
       }
     }),
     vscode.commands.registerCommand('beads.clearActivityFeedFilter', () => {
       activityFeedProvider.clearFilters();
-      void vscode.window.showInformationMessage('Activity feed filter cleared');
+      void vscode.window.showInformationMessage(t('Activity feed filter cleared'));
     }),
     vscode.commands.registerCommand('beads.activityFeed.openEvent', (issueId?: string) => openActivityFeedEvent(issueId)),
     vscode.commands.registerCommand('beads.activityFeed.openSelected', () => openActivityFeedEvent()),
@@ -3154,9 +3147,9 @@ export function activate(context: vscode.ExtensionContext): void {
         : '';
 
       const newValue = await vscode.window.showInputBox({
-        prompt: 'Set the external reference for this bead (format: ID:description)',
+        prompt: t('Set the external reference for this bead (format: ID:description)'),
         value: currentValue,
-        placeHolder: 'Enter "ID:description" or leave empty to remove',
+        placeHolder: t('Enter "ID:description" or leave empty to remove'),
       });
 
       if (newValue === undefined) {
@@ -3170,14 +3163,14 @@ export function activate(context: vscode.ExtensionContext): void {
       const selection = treeView.selection;
 
       if (!selection || selection.length === 0) {
-        void vscode.window.showWarningMessage('No beads selected');
+        void vscode.window.showWarningMessage(t('No beads selected'));
         return;
       }
       
       // Filter for BeadTreeItems only (not StatusSectionItems)
       const beadItems = selection.filter((item): item is BeadTreeItem => item instanceof BeadTreeItem);
       if (beadItems.length === 0) {
-        void vscode.window.showWarningMessage('No beads selected (only status sections selected)');
+        void vscode.window.showWarningMessage(t('No beads selected (only status sections selected)'));
         return;
       }
 
@@ -3187,17 +3180,19 @@ export function activate(context: vscode.ExtensionContext): void {
         .join('\n');
 
       const message = beadItems.length === 1
-        ? `Are you sure you want to delete this bead?\n\n${beadsList}`
-        : `Are you sure you want to delete these ${beadItems.length} beads?\n\n${beadsList}`;
+        ? t('Are you sure you want to delete this bead?\n\n{0}', beadsList)
+        : t('Are you sure you want to delete these {0} beads?\n\n{1}', beadItems.length, beadsList);
+
+      const deleteLabel = t('Delete');
 
       // Show confirmation dialog
       const answer = await vscode.window.showWarningMessage(
         message,
         { modal: true },
-        'Delete'
+        deleteLabel
       );
 
-      if (answer !== 'Delete') {
+      if (answer !== deleteLabel) {
         return;
       }
 
@@ -3211,32 +3206,15 @@ export function activate(context: vscode.ExtensionContext): void {
           await runBdCommand(['delete', item.bead.id, '--force'], projectRoot!);
         }
 
-        await state.beadsProvider.refresh();
+        await provider.refresh();
 
         const successMessage = beadItems.length === 1
-          ? `Deleted bead: ${beadItems[0].bead.id}`
-          : `Deleted ${beadItems.length} beads`;
+          ? t('Deleted bead: {0}', beadItems[0].bead.id)
+          : t('Deleted {0} beads', beadItems.length);
         void vscode.window.showInformationMessage(successMessage);
       } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      void vscode.window.showErrorMessage(`Failed to delete beads: ${errorMessage}`);
-    }
-  }),
-  );
-
-  // If dependency editing is enabled, warn early when the bd CLI is too old
-  const workspaces = vscode.workspace.workspaceFolders ?? [];
-  workspaces.forEach((workspaceFolder) => {
-    void warnIfDependencyEditingUnsupported(workspaceFolder);
-  });
-
-  context.subscriptions.push(
-    vscode.workspace.onDidChangeConfiguration((event) => {
-      if (event.affectsConfiguration('beads.enableDependencyEditing')) {
-        const folders = vscode.workspace.workspaceFolders ?? [];
-        folders.forEach((workspaceFolder) => {
-          void warnIfDependencyEditingUnsupported(workspaceFolder);
-        });
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        void vscode.window.showErrorMessage(t('Failed to delete beads: {0}', errorMessage));
       }
     }),
   );

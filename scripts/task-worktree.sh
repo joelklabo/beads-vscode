@@ -909,7 +909,11 @@ case "$COMMAND" in
 
     log_step "Stopping heartbeat monitor..."
     stop_heartbeat "$HEARTBEAT_FILE" "$HEARTBEAT_PID_FILE"
-    
+
+    # Close the task before removing the worktree (requires guard)
+    log_step "Closing task..."
+    bd_cmd close "$TASK_ID" --reason "Implemented and merged" --actor "$WORKER" 2>/dev/null || true
+
     # Clean up worktree and branch
     log_step "Cleaning up worktree and branch..."
     git worktree remove "$WORKTREE_PATH" --force 2>/dev/null || rm -rf "$WORKTREE_PATH"
@@ -921,10 +925,6 @@ case "$COMMAND" in
     if [[ -d "$WORKER_DIR" ]] && [[ -z "$(ls -A "$WORKER_DIR" 2>/dev/null)" ]]; then
       rmdir "$WORKER_DIR" 2>/dev/null || true
     fi
-    
-    # Close the task
-    log_step "Closing task..."
-    bd_cmd close "$TASK_ID" --reason "Implemented and merged" --actor "$WORKER" 2>/dev/null || true
     
     log_info "✅ Task $TASK_ID complete!"
     log_info "Worktree and branch cleaned up."
