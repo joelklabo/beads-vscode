@@ -42,6 +42,10 @@ let dependencyVersionWarned = false;
 
 const MIN_DEPENDENCY_CLI = '0.29.0';
 
+const STATUS_SECTION_ORDER = ['in_progress', 'open', 'blocked', 'closed'];
+const UNKNOWN_STATUS_KEY = 'unknown';
+const DEFAULT_COLLAPSED_STATUS_KEYS = ['in_progress', 'open', 'blocked', 'closed'];
+
 async function runWorktreeGuard(projectRoot: string): Promise<void> {
   const config = vscode.workspace.getConfiguration('beads');
   const guardEnabled = config.get<boolean>('enableWorktreeGuard', true);
@@ -391,46 +395,48 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     // Find stale items
     const staleItems = items.filter(item => isStale(item, thresholdHours));
     
-    // Group items by status
-    const statusOrder = ['open', 'in_progress', 'blocked', 'closed'];
     const grouped: Record<string, BeadItemData[]> = {};
-    
-    // Initialize all status groups
-    statusOrder.forEach(status => {
+
+    // Initialize all status groups, including a trailing unknown bucket
+    [...STATUS_SECTION_ORDER, UNKNOWN_STATUS_KEY].forEach(status => {
       grouped[status] = [];
     });
-    
+
     // Sort items into groups
     items.forEach(item => {
       const status = item.status || 'open';
-      if (!grouped[status]) {
-        grouped[status] = [];
-      }
-      grouped[status].push(item);
+      const bucket = grouped[status] ? status : UNKNOWN_STATUS_KEY;
+      grouped[bucket].push(item);
     });
-    
+
     // Sort items within each group by natural ID
     Object.values(grouped).forEach(group => {
       group.sort(naturalSort);
     });
-    
+
     // Create section items
     const sections: (StatusSectionItem | WarningSectionItem)[] = [];
-    
+
     // Add warning section at the top if there are stale items
     if (staleItems.length > 0) {
       const isCollapsed = this.collapsedSections.has('stale');
       sections.push(new WarningSectionItem(staleItems, thresholdMinutes, isCollapsed));
     }
-    
+
     // Add status sections for non-empty groups
-    statusOrder.forEach(status => {
+    STATUS_SECTION_ORDER.forEach(status => {
       if (grouped[status].length > 0) {
         const isCollapsed = this.collapsedSections.has(status);
         sections.push(new StatusSectionItem(status, grouped[status], isCollapsed));
       }
     });
-    
+
+    const unknownGroup = grouped[UNKNOWN_STATUS_KEY];
+    if (unknownGroup.length > 0) {
+      const isCollapsed = this.collapsedSections.has(UNKNOWN_STATUS_KEY);
+      sections.push(new StatusSectionItem(UNKNOWN_STATUS_KEY, unknownGroup, isCollapsed));
+    }
+
     return sections;
   }
   
@@ -892,7 +898,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   
   private loadCollapsedSections(): void {
     const savedSections = this.context.workspaceState.get<string[]>('beads.collapsedSections');
-    if (savedSections) {
+    if (savedSections !== undefined) {
       this.collapsedSections = new Set(savedSections.filter(key => !key.startsWith('epic-')));
       // Migration: legacy epic keys stored in collapsedSections (epic-<id>)
       savedSections.forEach(key => {
@@ -901,6 +907,9 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
           this.collapsedEpics.set(epicId, true);
         }
       });
+    } else {
+      // Default: collapse non-warning status sections on first run
+      this.collapsedSections = new Set(DEFAULT_COLLAPSED_STATUS_KEYS);
     }
 
     const savedEpics = this.context.workspaceState.get<Record<string, boolean>>('beads.collapsedEpics');
@@ -1031,20 +1040,21 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   }
 
   private sortByStatus(items: BeadItemData[]): BeadItemData[] {
-    // Define status priority order: open first, then in_progress, blocked, closed last
-    const statusPriority: Record<string, number> = {
-      'open': 0,
-      'in_progress': 1,
-      'blocked': 2,
-      'closed': 3
-    };
+    const statusPriority: Record<string, number> = {};
+    STATUS_SECTION_ORDER.forEach((status, index) => {
+      statusPriority[status] = index;
+    });
+    const unknownPriority = STATUS_SECTION_ORDER.length;
 
     return [...items].sort((a, b) => {
       const statusA = a.status || 'open';
       const statusB = b.status || 'open';
 
-      const priorityA = statusPriority[statusA] ?? 4;
-      const priorityB = statusPriority[statusB] ?? 4;
+      const keyA = Object.prototype.hasOwnProperty.call(statusPriority, statusA) ? statusA : UNKNOWN_STATUS_KEY;
+      const keyB = Object.prototype.hasOwnProperty.call(statusPriority, statusB) ? statusB : UNKNOWN_STATUS_KEY;
+
+      const priorityA = statusPriority[keyA] ?? unknownPriority;
+      const priorityB = statusPriority[keyB] ?? unknownPriority;
 
       // First sort by status priority
       if (priorityA !== priorityB) {
