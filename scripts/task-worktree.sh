@@ -455,6 +455,39 @@ Branch: $BRANCH"; then
   fi
 }
 
+# Pre-merge conflict detection to fail fast before entering the merge queue
+check_merge_conflicts() {
+  local worktree="$1"
+  local target_branch="${2:-main}"
+
+  log_step "Checking for pre-merge conflicts against $target_branch..."
+
+  local original_dir
+  original_dir=$(pwd)
+  cd "$worktree"
+
+  git fetch origin "$target_branch" >/dev/null 2>&1
+
+  # Dry-run merge to detect conflicts without committing
+  if git merge --no-commit --no-ff "origin/$target_branch" >/dev/null 2>&1; then
+    git merge --abort >/dev/null 2>&1 || true
+    cd "$original_dir"
+    return 0
+  fi
+
+  local conflicts
+  conflicts=$(git diff --name-only --diff-filter=U)
+  git merge --abort >/dev/null 2>&1 || true
+  cd "$original_dir"
+
+  log_error "Conflicts detected when merging $BRANCH into $target_branch. Resolve before finishing."
+  if [[ -n "$conflicts" ]]; then
+    echo "Files with conflicts:"
+    echo "$conflicts" | sed 's/^/  - /'
+  fi
+  return 2
+}
+
 # Merge coordinator: serialize merges with fair locking and timeout
 merge_with_queue() {
   local lockfile="${MERGE_LOCK:-${BEADS_DIR}/merge.lock}"
@@ -724,7 +757,13 @@ case "$COMMAND" in
       exit 1
     fi
     log_info "Branch has $COMMITS_AHEAD commit(s) to merge"
-    
+
+    # Fast-fail if merge would conflict before entering the queue
+    if ! check_merge_conflicts "$WORKTREE_PATH" "main"; then
+      log_error "Resolve the conflicts (rebase onto origin/main) and rerun finish."
+      exit 1
+    fi
+
     # Serialize rebase + merge to avoid thundering herd
     log_step "Queueing for merge (lock: $MERGE_LOCK, timeout ${MERGE_QUEUE_TIMEOUT:-300}s)..."
     MERGE_QUEUE_TIMEOUT="${MERGE_QUEUE_TIMEOUT:-300}" merge_with_queue
