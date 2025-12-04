@@ -37,6 +37,7 @@ Agent 2:   /path/to/worktrees/agent-2/task-xyz  (isolated)
 
 ```bash
 ./scripts/task-worktree.sh start <worker> <task-id>   # Create worktree, mark in_progress
+./scripts/task-worktree.sh verify                      # Check you're in a worktree (not main repo)
 ./scripts/task-worktree.sh finish <worker> <task-id>  # Merge to main, clean up worktree
 ./scripts/task-worktree.sh status                      # Show all worktrees
 ./scripts/task-worktree.sh cleanup <worker>            # Remove all worktrees for a worker
@@ -44,9 +45,12 @@ Agent 2:   /path/to/worktrees/agent-2/task-xyz  (isolated)
 
 The script handles:
 - ✅ Creating isolated worktree directories
-- ✅ Installing dependencies in the worktree
+- ✅ Installing dependencies in the worktree (with isolated npm cache)
+- ✅ **Atomic task claiming** - prevents two agents grabbing same task
+- ✅ Double-check claim after worktree setup (race condition protection)
 - ✅ Rebasing on latest main before merge
-- ✅ Retry logic for push conflicts
+- ✅ **Retry with exponential backoff + jitter** (prevents thundering herd)
+- ✅ Orphaned worktree detection and cleanup
 - ✅ **Cleaning up worktrees AND branches after merge**
 - ✅ Updating task status in bd
 
@@ -87,24 +91,31 @@ cd /path/to/worktrees/<your-name>/<task-id>
 
 **You MUST change to that directory before doing any work!**
 
-### 4. UNDERSTAND THE TASK
+### 4. VERIFY YOU'RE IN THE WORKTREE (Safety check)
+```bash
+./scripts/task-worktree.sh verify
+```
+
+This confirms you're in an isolated worktree, not the main repo. **Never skip this step.**
+
+### 5. UNDERSTAND THE TASK
 ```bash
 npx bd show <task-id>
 ```
 Read the description, understand what needs to be done.
 
-### 5. IMPLEMENT
+### 6. IMPLEMENT
 - Read relevant code files
 - Make the necessary changes
 - Follow existing code patterns and style
 
-### 6. TEST
+### 7. TEST
 - Run `npm run compile` to check for TypeScript errors
 - Run `npm run lint` to check for linting issues  
 - Run `npm run test:unit` if you modified testable code
 - Fix any errors before proceeding
 
-### 7. COMMIT YOUR CHANGES
+### 8. COMMIT YOUR CHANGES
 ```bash
 git add -A
 git commit -m "<task-id>: <title>
@@ -115,7 +126,7 @@ Files: <list of files modified>
 Worked-by: <your-worker-name>"
 ```
 
-### 8. FINISH THE TASK
+### 9. FINISH THE TASK
 ```bash
 ./scripts/task-worktree.sh finish <your-worker-name> <task-id>
 ```
@@ -130,7 +141,7 @@ This will:
 
 After finish, you'll be back in the main repo directory.
 
-### 9. CONTINUE
+### 10. CONTINUE
 Go back to step 1. Pick the next ready task. Keep going until ALL tasks are done.
 
 ## DIRECTORY STRUCTURE

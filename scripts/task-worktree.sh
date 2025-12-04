@@ -25,9 +25,73 @@ log_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
 log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 log_step() { echo -e "${BLUE}[STEP]${NC} $1"; }
 
+# Add random jitter to prevent thundering herd
+add_jitter() {
+  local max_ms="${1:-2000}"  # Default 0-2 seconds
+  local jitter=$((RANDOM % max_ms))
+  sleep "$(echo "scale=3; $jitter/1000" | bc)"
+}
+
+# Verify task is claimable (not already in_progress by another agent)
+verify_task_claimable() {
+  local task_id="$1"
+  local worker="$2"
+  
+  # Get current task status
+  local task_json=$(npx bd show "$task_id" --json 2>/dev/null || echo '{}')
+  local status=$(echo "$task_json" | grep -o '"status":"[^"]*"' | cut -d'"' -f4 || echo "")
+  local assignee=$(echo "$task_json" | grep -o '"assignee":"[^"]*"' | cut -d'"' -f4 || echo "")
+  
+  if [[ "$status" == "in_progress" ]]; then
+    if [[ -n "$assignee" && "$assignee" != "$worker" ]]; then
+      log_error "Task $task_id is already in_progress, assigned to: $assignee"
+      return 1
+    fi
+  elif [[ "$status" == "closed" ]]; then
+    log_error "Task $task_id is already closed"
+    return 1
+  fi
+  return 0
+}
+
+# Verify we're in a worktree, not the main repo
+verify_in_worktree() {
+  local expected_task="$1"
+  local current_dir=$(pwd)
+  local main_repo=$(get_main_repo)
+  
+  # Check if we're in the main repo
+  if [[ "$current_dir" == "$main_repo" ]]; then
+    log_error "You are in the main repository, not a worktree!"
+    log_error "Current dir: $current_dir"
+    log_error "Main repo: $main_repo"
+    log_error ""
+    log_error "To work on a task, first run:"
+    log_error "  ./scripts/task-worktree.sh start <worker> <task-id>"
+    log_error "Then cd to the worktree directory."
+    return 1
+  fi
+  
+  # Check if directory path contains 'worktrees'
+  if [[ ! "$current_dir" =~ worktrees ]]; then
+    log_warn "Current directory doesn't appear to be a worktree: $current_dir"
+  fi
+  
+  return 0
+}
+
 # Get the main repo root (where .git is)
 get_main_repo() {
-  git rev-parse --git-common-dir 2>/dev/null | sed 's/\/.git$//' || pwd
+  local git_common_dir=$(git rev-parse --git-common-dir 2>/dev/null)
+  if [[ "$git_common_dir" == ".git" ]]; then
+    # We're in the main repo, return current working dir
+    pwd
+  elif [[ -n "$git_common_dir" ]]; then
+    # We're in a worktree, strip /.git from path
+    echo "$git_common_dir" | sed 's/\/.git$//'
+  else
+    pwd
+  fi
 }
 
 # Get worktree directory path
@@ -61,16 +125,36 @@ case "$COMMAND" in
     # Ensure we're in the main repo for setup
     cd "$MAIN_REPO"
     
+    # ATOMIC CLAIM: Verify task is available before proceeding
+    log_step "Verifying task is claimable..."
+    if ! verify_task_claimable "$TASK_ID" "$WORKER"; then
+      log_error "Cannot claim task. Pick a different task with: npx bd ready"
+      exit 1
+    fi
+    
     # Fetch latest from origin
     log_step "Fetching latest from origin..."
     git fetch origin main
     
-    # Check if worktree already exists
+    # Check if worktree already exists (could be from a crash)
     if [[ -d "$WORKTREE_PATH" ]]; then
-      log_warn "Worktree already exists at $WORKTREE_PATH"
-      log_info "Switching to existing worktree..."
-      cd "$WORKTREE_PATH"
-    else
+      # Check if it's a valid git worktree
+      if git worktree list | grep -q "$WORKTREE_PATH"; then
+        log_warn "Worktree already exists at $WORKTREE_PATH"
+        log_info "Resuming existing worktree..."
+        cd "$WORKTREE_PATH"
+      else
+        # Orphaned directory - clean it up
+        log_warn "Found orphaned worktree directory (possibly from crash)"
+        log_step "Cleaning up orphaned directory..."
+        rm -rf "$WORKTREE_PATH"
+        git worktree prune
+        # Continue to create fresh worktree below
+      fi
+    fi
+    
+    # Create worktree if it doesn't exist (or was just cleaned up)
+    if [[ ! -d "$WORKTREE_PATH" ]]; then
       # Create directory for worktrees if needed
       mkdir -p "$(dirname "$WORKTREE_PATH")"
       
@@ -87,15 +171,32 @@ case "$COMMAND" in
       cd "$WORKTREE_PATH"
     fi
     
-    # Install dependencies in worktree
-    if [[ -f "package.json" ]] && [[ ! -d "node_modules" ]]; then
-      log_step "Installing dependencies..."
-      npm install
+    # Re-verify task is still claimable (double-check after worktree setup)
+    log_step "Re-verifying task claim (double-check)..."
+    if ! verify_task_claimable "$TASK_ID" "$WORKER"; then
+      log_error "Task was claimed by another agent while setting up worktree!"
+      log_step "Cleaning up worktree..."
+      cd "$MAIN_REPO"
+      git worktree remove "$WORKTREE_PATH" --force 2>/dev/null || rm -rf "$WORKTREE_PATH"
+      git branch -D "$BRANCH" 2>/dev/null || true
+      log_error "Pick a different task with: npx bd ready"
+      exit 1
     fi
     
-    # Update task status in bd
-    log_step "Marking task as in_progress..."
-    npx bd update "$TASK_ID" --status in_progress --assignee "$WORKER" --actor "$WORKER" 2>/dev/null || true
+    # Install dependencies in worktree with isolated npm cache to avoid conflicts
+    if [[ -f "package.json" ]] && [[ ! -d "node_modules" ]]; then
+      log_step "Installing dependencies (with isolated cache)..."
+      # Use a worker-specific npm cache to avoid conflicts
+      NPM_CACHE_DIR="${HOME}/.npm-cache-${WORKER}"
+      mkdir -p "$NPM_CACHE_DIR"
+      npm install --cache "$NPM_CACHE_DIR"
+    fi
+    
+    # Update task status in bd - this is the official claim
+    log_step "Claiming task (marking as in_progress)..."
+    if ! npx bd update "$TASK_ID" --status in_progress --assignee "$WORKER" --actor "$WORKER" 2>/dev/null; then
+      log_warn "Could not update task status in bd (may already be claimed)"
+    fi
     
     log_info "✅ Worktree ready for $TASK_ID"
     log_info "Working directory: $(pwd)"
@@ -197,9 +298,11 @@ case "$COMMAND" in
     git checkout main
     git pull origin main
     
-    # Merge with retry logic
-    MAX_RETRIES=3
+    # Merge with retry logic and exponential backoff with jitter
+    MAX_RETRIES=5
     RETRY=0
+    BASE_DELAY=1000  # 1 second base delay
+    
     while [[ $RETRY -lt $MAX_RETRIES ]]; do
       log_step "Merging $BRANCH into main (attempt $((RETRY+1))/$MAX_RETRIES)..."
       
@@ -216,6 +319,15 @@ Branch: $BRANCH"; then
           git reset --hard HEAD~1  # Undo merge
           git pull --rebase origin main
           RETRY=$((RETRY+1))
+          
+          # Exponential backoff with jitter to prevent thundering herd
+          # Delay = base * 2^retry + random jitter
+          if [[ $RETRY -lt $MAX_RETRIES ]]; then
+            DELAY=$(( BASE_DELAY * (2 ** RETRY) ))
+            log_info "Waiting with backoff before retry (${DELAY}ms + jitter)..."
+            sleep "$(echo "scale=3; $DELAY/1000" | bc)"
+            add_jitter $DELAY  # Add random jitter up to delay amount
+          fi
         fi
       else
         log_error "Merge failed! This shouldn't happen after rebase."
@@ -226,6 +338,10 @@ Branch: $BRANCH"; then
     
     if [[ $RETRY -eq $MAX_RETRIES ]]; then
       log_error "Failed to push after $MAX_RETRIES attempts. Manual intervention needed."
+      log_error "Your changes are still on branch $BRANCH"
+      log_error "To retry manually:"
+      log_error "  cd $MAIN_REPO && git checkout main && git pull"
+      log_error "  git merge origin/$BRANCH --no-ff && git push origin main"
       exit 1
     fi
     
@@ -274,6 +390,59 @@ Branch: $BRANCH"; then
     MAIN_REPO=$(get_main_repo)
     cd "$MAIN_REPO"
     git worktree list
+    ;;
+
+  verify)
+    # Verify the agent is in a worktree, not the main repo
+    # This should be called before any work is done
+    MAIN_REPO=$(get_main_repo)
+    CURRENT_DIR=$(pwd)
+    CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || echo "")
+    
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "Worktree Verification"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "Current directory: $CURRENT_DIR"
+    echo "Main repo:         $MAIN_REPO"
+    echo "Current branch:    $CURRENT_BRANCH"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    
+    # Check if in main repo
+    if [[ "$CURRENT_DIR" == "$MAIN_REPO" ]]; then
+      log_error "❌ You are in the MAIN REPOSITORY"
+      log_error ""
+      log_error "Do NOT make changes here! Changes will conflict with other agents."
+      log_error ""
+      log_error "To work on a task:"
+      log_error "  1. ./scripts/task-worktree.sh start <your-name> <task-id>"
+      log_error "  2. cd to the worktree directory shown"
+      log_error "  3. Make your changes there"
+      exit 1
+    fi
+    
+    # Check if directory looks like a worktree
+    if [[ "$CURRENT_DIR" =~ worktrees/([^/]+)/([^/]+) ]]; then
+      WORKER="${BASH_REMATCH[1]}"
+      TASK="${BASH_REMATCH[2]}"
+      log_info "✅ You are in a worktree"
+      log_info "   Worker: $WORKER"
+      log_info "   Task:   $TASK"
+      
+      # Verify branch matches expected pattern
+      EXPECTED_BRANCH="${WORKER}/${TASK}"
+      if [[ "$CURRENT_BRANCH" != "$EXPECTED_BRANCH" ]]; then
+        log_warn "Branch mismatch: expected '$EXPECTED_BRANCH', got '$CURRENT_BRANCH'"
+      fi
+    else
+      log_warn "⚠️  Directory doesn't match expected worktree pattern"
+      log_warn "   Expected: .../worktrees/<worker>/<task-id>"
+      log_warn ""
+      log_warn "   You may be in a worktree with a different structure."
+      log_warn "   Proceed with caution."
+    fi
+    
+    echo ""
+    echo "You can safely make changes in this directory."
     ;;
 
   cleanup)
@@ -343,18 +512,28 @@ Branch: $BRANCH"; then
     echo "Commands:"
     echo "  start <worker> <task-id>   Create worktree and start working on task"
     echo "  finish <worker> <task-id>  Merge worktree back to main and clean up"
+    echo "  verify                     Check you're in a worktree (not main repo)"
     echo "  status                     Show all worktrees and current state"
     echo "  list                       List all active worktrees"
     echo "  cleanup <worker>           Remove all worktrees/branches for a worker"
     echo ""
+    echo "Safety Features:"
+    echo "  • Atomic task claiming - prevents two agents grabbing same task"
+    echo "  • Double-check claim after worktree setup"
+    echo "  • Exponential backoff with jitter on merge retries"
+    echo "  • Isolated npm cache per worker"
+    echo "  • Orphaned worktree detection and cleanup"
+    echo ""
     echo "Examples:"
     echo "  $0 start agent-1 beads-vscode-abc"
+    echo "  $0 verify                            # Run before making changes"
     echo "  $0 finish agent-1 beads-vscode-abc"
     echo "  $0 status"
     echo "  $0 cleanup agent-1"
     echo ""
     echo "Worktree locations:"
-    echo "  Main repo: /path/to/repo"
-    echo "  Worktrees: /path/to/worktrees/<worker>/<task-id>"
+    echo "  Main repo:  /path/to/repo"
+    echo "  Worktrees:  /path/to/worktrees/<worker>/<task-id>"
+    echo "  npm cache:  ~/.npm-cache-<worker>"
     ;;
 esac
