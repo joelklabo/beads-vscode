@@ -17,7 +17,7 @@ import {
   formatRelativeTimeDetailed,
 } from './activityFeed';
 import { currentWorktreeId } from './worktree';
-import { buildPreviewSnippet, formatError, stripBeadIdPrefix } from './utils';
+import { buildPreviewSnippet, sanitizeTooltipText, formatError, stripBeadIdPrefix } from './utils';
 
 /**
  * Time group section item for organizing events by time period
@@ -118,19 +118,27 @@ export class ActivityEventItem extends vscode.TreeItem {
 
   private buildTooltip(event: EventData, worktreeId: string | undefined, summary: string | undefined): vscode.MarkdownString {
     const md = new vscode.MarkdownString();
-    md.isTrusted = true;
+    md.isTrusted = false;
+    md.supportHtml = false;
 
-    md.appendMarkdown(`**${event.issueTitle || event.description || event.issueId}**\n\n`);
-    md.appendMarkdown(`📋 Issue: \`${event.issueId}\`\n\n`);
+    const safeTitle = sanitizeTooltipText(event.issueTitle || event.description || event.issueId);
+    const safeId = sanitizeTooltipText(event.issueId);
+    const safeSummary = summary ? sanitizeTooltipText(summary) : undefined;
+    const safeActor = sanitizeTooltipText(event.actor);
+    const safeTimestamp = sanitizeTooltipText(event.createdAt.toLocaleString());
+    const safeWorktree = worktreeId ? sanitizeTooltipText(worktreeId) : undefined;
 
-    if (summary) {
-      md.appendMarkdown(`${summary}\n\n`);
+    md.appendMarkdown(`**${safeTitle}**\n\n`);
+    md.appendMarkdown(`📋 Issue: \`${safeId}\`\n\n`);
+
+    if (safeSummary) {
+      md.appendMarkdown(`${safeSummary}\n\n`);
     }
 
-    md.appendMarkdown(`👤 Actor: ${event.actor}\n\n`);
-    md.appendMarkdown(`🕐 ${event.createdAt.toLocaleString()}\n`);
-    if (worktreeId) {
-      md.appendMarkdown(`\n🏷️ Worktree: ${worktreeId}\n`);
+    md.appendMarkdown(`👤 Actor: ${safeActor}\n\n`);
+    md.appendMarkdown(`🕐 ${safeTimestamp}\n`);
+    if (safeWorktree) {
+      md.appendMarkdown(`\n🏷️ Worktree: ${safeWorktree}\n`);
     }
 
     return md;

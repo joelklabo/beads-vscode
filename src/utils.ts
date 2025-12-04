@@ -216,6 +216,24 @@ export function linkifyText(text: string): string {
   return escaped.replace(urlRegex, '<a href="$1" class="external-link" target="_blank">$1</a>');
 }
 
+/** Escape markdown special characters for safe insertion into MarkdownString. */
+export function escapeMarkdownText(text: string): string {
+  if (!text) {
+    return '';
+  }
+  const htmlEscaped = escapeHtml(text);
+  return htmlEscaped.replace(/([\\`*_{}[\]()#+.!|-])/g, '\\$1');
+}
+
+/** Sanitize tooltip text for MarkdownString surfaces. */
+export function sanitizeTooltipText(text: string): string {
+  if (!text) {
+    return '';
+  }
+  const escaped = escapeMarkdownText(text);
+  return escaped.replace(/javascript:/gi, '');
+}
+
 export function createTooltip(bead: BeadItemData): string {
   const parts: string[] = [bead.title];
   if (bead.status) {

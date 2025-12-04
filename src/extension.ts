@@ -11,6 +11,7 @@ import {
   resolveDataFilePath,
   formatError,
   escapeHtml,
+  sanitizeTooltipText,
   linkifyText,
   formatRelativeTime,
   isStale,
@@ -1172,12 +1173,15 @@ class BeadTreeItem extends vscode.TreeItem {
   
   private buildRichTooltip(bead: BeadItemData, isTaskStale: boolean, staleInfo: { hoursInProgress: number; formattedTime: string } | undefined): vscode.MarkdownString {
     const md = new vscode.MarkdownString();
-    md.isTrusted = true;
-    md.supportHtml = true;
+    md.isTrusted = false;
+    md.supportHtml = false;
+
+    const safeId = sanitizeTooltipText(bead.id);
+    const safeTitle = sanitizeTooltipText(bead.title);
     
     // Title and ID
-    md.appendMarkdown(`### ${bead.id}\n\n`);
-    md.appendMarkdown(`**${bead.title}**\n\n`);
+    md.appendMarkdown(`### ${safeId}\n\n`);
+    md.appendMarkdown(`**${safeTitle}**\n\n`);
     
     // Status with colored indicator
     const statusEmoji: Record<string, string> = {
@@ -1217,12 +1221,12 @@ class BeadTreeItem extends vscode.TreeItem {
     // Description preview
     if (bead.description) {
       const preview = bead.description.substring(0, 200).replace(/\n/g, ' ').trim();
-      md.appendMarkdown(`📝 ${preview}${bead.description.length > 200 ? '…' : ''}\n\n`);
+      md.appendMarkdown(`📝 ${sanitizeTooltipText(preview)}${bead.description.length > 200 ? '…' : ''}\n\n`);
     }
     
     // Tags
     if (bead.tags && bead.tags.length > 0) {
-      md.appendMarkdown(`🏷️ ${bead.tags.join(', ')}\n\n`);
+      md.appendMarkdown(`🏷️ ${bead.tags.map(sanitizeTooltipText).join(', ')}\n\n`);
     }
     
     // Blocking dependencies
@@ -1239,18 +1243,18 @@ class BeadTreeItem extends vscode.TreeItem {
     // External reference
     if (bead.externalReferenceId) {
       const displayText = bead.externalReferenceDescription || bead.externalReferenceId;
-      md.appendMarkdown(`↗️ **External:** ${displayText}\n\n`);
+      md.appendMarkdown(`↗️ **External:** ${sanitizeTooltipText(displayText)}\n\n`);
     }
 
     if (this.worktreeId) {
-      md.appendMarkdown(`🏷️ Worktree: ${this.worktreeId}\n\n`);
+      md.appendMarkdown(`🏷️ Worktree: ${sanitizeTooltipText(this.worktreeId)}\n\n`);
     }
     
     // File path
     if (bead.filePath) {
-      md.appendMarkdown(`📁 ${bead.filePath}\n`);
+      md.appendMarkdown(`📁 ${sanitizeTooltipText(bead.filePath)}\n`);
     }
-    
+
     return md;
   }
 }
