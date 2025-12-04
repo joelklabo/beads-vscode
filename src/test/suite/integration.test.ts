@@ -4,6 +4,7 @@ import * as fs from 'fs/promises';
 import * as os from 'os';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
+import { normalizeBead, isStale, getStaleInfo, BeadItemData } from '../../utils';
 
 const execFileAsync = promisify(execFile);
 
@@ -165,6 +166,33 @@ suite('BD CLI Integration Test Suite', () => {
     assert.ok(stdout.length > 0, 'bd stats should return output');
     assert.ok(stdout.includes('total') || stdout.includes('Total'), 'Output should mention total');
   });
+
+  test('stale task detection should work correctly', async () => {
+    // Create an issue and set to in_progress
+    const { stdout: createOutput } = await execFileAsync(
+      bdCommand,
+      ['create', 'Stale test issue'],
+      { cwd: testWorkspace }
+    );
+    const issueIdMatch = createOutput.match(/Created issue: ([\w-]+)/);
+    assert.ok(issueIdMatch, 'Should extract issue ID from create output');
+    const issueId = issueIdMatch![1];
+
+    // Update status to in_progress
+    await execFileAsync(bdCommand, ['update', issueId, '--status', 'in_progress'], { cwd: testWorkspace });
+
+    // Verify status is in_progress
+    const { stdout: listOutput } = await execFileAsync(bdCommand, ['list', '--json'], { cwd: testWorkspace });
+    const issues = JSON.parse(listOutput);
+    const updatedIssue = issues.find((i: any) => i.id === issueId);
+    assert.ok(updatedIssue);
+    assert.strictEqual(updatedIssue.status, 'in_progress');
+    
+    // The issue should have updated_at timestamp which can be used for stale detection
+    // Note: Actual stale detection is handled by the extension using the isStale helper
+    // This test verifies the CLI data supports the feature
+    assert.ok(updatedIssue.updated_at, 'Issue should have updated_at timestamp for stale detection');
+  });
 });
 
 async function findBdCommand(): Promise<string> {
@@ -195,3 +223,184 @@ async function findBdCommand(): Promise<string> {
 
   throw new Error('bd command not found. Please install beads CLI');
 }
+
+suite('Stale Task Detection Integration Tests', () => {
+  let testWorkspace: string;
+  let bdCommand: string;
+
+  suiteSetup(async function() {
+    this.timeout(30000);
+    bdCommand = await findBdCommand();
+    testWorkspace = path.join(os.tmpdir(), `beads-stale-test-${Date.now()}`);
+    await fs.mkdir(testWorkspace, { recursive: true });
+    await execFileAsync(bdCommand, ['init', '--quiet'], { cwd: testWorkspace });
+  });
+
+  suiteTeardown(async () => {
+    if (testWorkspace) {
+      try {
+        await fs.rm(testWorkspace, { recursive: true, force: true });
+      } catch { /* ignore cleanup errors */ }
+    }
+  });
+
+  test('new in_progress task should not be stale', async () => {
+    // Create an issue and set to in_progress
+    const { stdout: createOutput } = await execFileAsync(
+      bdCommand,
+      ['create', 'Stale test 1'],
+      { cwd: testWorkspace }
+    );
+    const issueIdMatch = createOutput.match(/Created issue: ([\w-]+)/);
+    const issueId = issueIdMatch![1];
+
+    await execFileAsync(bdCommand, ['update', issueId, '--status', 'in_progress'], { cwd: testWorkspace });
+
+    // Get the issue data
+    const { stdout: listOutput } = await execFileAsync(bdCommand, ['list', '--json'], { cwd: testWorkspace });
+    const issues = JSON.parse(listOutput);
+    const issue = issues.find((i: any) => i.id === issueId);
+
+    // Normalize and check staleness
+    const bead = normalizeBead(issue, 0);
+    
+    // Just created, so should not be stale (threshold is 10 minutes default = 0.167 hours)
+    assert.strictEqual(isStale(bead, 0.167), false, 'Newly created in_progress task should not be stale');
+  });
+
+  test('normalizeBead should set inProgressSince for in_progress tasks', async () => {
+    // Create an issue and set to in_progress
+    const { stdout: createOutput } = await execFileAsync(
+      bdCommand,
+      ['create', 'Stale test 2'],
+      { cwd: testWorkspace }
+    );
+    const issueIdMatch = createOutput.match(/Created issue: ([\w-]+)/);
+    const issueId = issueIdMatch![1];
+
+    await execFileAsync(bdCommand, ['update', issueId, '--status', 'in_progress'], { cwd: testWorkspace });
+
+    const { stdout: listOutput } = await execFileAsync(bdCommand, ['list', '--json'], { cwd: testWorkspace });
+    const issues = JSON.parse(listOutput);
+    const issue = issues.find((i: any) => i.id === issueId);
+
+    const bead = normalizeBead(issue, 0);
+    
+    assert.strictEqual(bead.status, 'in_progress');
+    assert.ok(bead.inProgressSince, 'inProgressSince should be set for in_progress tasks');
+    assert.ok(bead.updatedAt, 'updatedAt should be set');
+    assert.strictEqual(bead.inProgressSince, bead.updatedAt, 'inProgressSince should equal updatedAt');
+  });
+
+  test('open task should not have inProgressSince', async () => {
+    const { stdout: createOutput } = await execFileAsync(
+      bdCommand,
+      ['create', 'Open task test'],
+      { cwd: testWorkspace }
+    );
+    const issueIdMatch = createOutput.match(/Created issue: ([\w-]+)/);
+    const issueId = issueIdMatch![1];
+
+    const { stdout: listOutput } = await execFileAsync(bdCommand, ['list', '--json'], { cwd: testWorkspace });
+    const issues = JSON.parse(listOutput);
+    const issue = issues.find((i: any) => i.id === issueId);
+
+    const bead = normalizeBead(issue, 0);
+    
+    assert.strictEqual(bead.status, 'open');
+    assert.strictEqual(bead.inProgressSince, undefined, 'Open tasks should not have inProgressSince');
+    assert.strictEqual(isStale(bead, 0.001), false, 'Open tasks should never be stale');
+  });
+
+  test('closed task should not have inProgressSince', async () => {
+    const { stdout: createOutput } = await execFileAsync(
+      bdCommand,
+      ['create', 'Closed task test'],
+      { cwd: testWorkspace }
+    );
+    const issueIdMatch = createOutput.match(/Created issue: ([\w-]+)/);
+    const issueId = issueIdMatch![1];
+
+    await execFileAsync(bdCommand, ['close', issueId], { cwd: testWorkspace });
+
+    const { stdout: listOutput } = await execFileAsync(bdCommand, ['list', '--json'], { cwd: testWorkspace });
+    const issues = JSON.parse(listOutput);
+    const issue = issues.find((i: any) => i.id === issueId);
+
+    const bead = normalizeBead(issue, 0);
+    
+    assert.strictEqual(bead.status, 'closed');
+    assert.strictEqual(bead.inProgressSince, undefined, 'Closed tasks should not have inProgressSince');
+    assert.strictEqual(isStale(bead, 0.001), false, 'Closed tasks should never be stale');
+  });
+
+  test('getStaleInfo should return valid info for in_progress tasks', async () => {
+    const { stdout: createOutput } = await execFileAsync(
+      bdCommand,
+      ['create', 'Stale info test'],
+      { cwd: testWorkspace }
+    );
+    const issueIdMatch = createOutput.match(/Created issue: ([\w-]+)/);
+    const issueId = issueIdMatch![1];
+
+    await execFileAsync(bdCommand, ['update', issueId, '--status', 'in_progress'], { cwd: testWorkspace });
+
+    const { stdout: listOutput } = await execFileAsync(bdCommand, ['list', '--json'], { cwd: testWorkspace });
+    const issues = JSON.parse(listOutput);
+    const issue = issues.find((i: any) => i.id === issueId);
+
+    const bead = normalizeBead(issue, 0);
+    const info = getStaleInfo(bead);
+    
+    assert.ok(info, 'getStaleInfo should return info for in_progress tasks');
+    assert.ok(typeof info.hoursInProgress === 'number', 'hoursInProgress should be a number');
+    assert.ok(info.hoursInProgress >= 0, 'hoursInProgress should be non-negative');
+    assert.ok(typeof info.formattedTime === 'string', 'formattedTime should be a string');
+    assert.ok(info.formattedTime.length > 0, 'formattedTime should not be empty');
+  });
+
+  test('simulated stale task detection with mock timestamp', () => {
+    // Create a mock bead with an old timestamp to simulate a stale task
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+    const mockBead: BeadItemData = {
+      id: 'mock-stale-task',
+      idKey: 'mock-stale-task',
+      title: 'Mock Stale Task',
+      status: 'in_progress',
+      inProgressSince: twoHoursAgo,
+      updatedAt: twoHoursAgo,
+      raw: {}
+    };
+
+    // With 1 hour threshold, should be stale
+    assert.strictEqual(isStale(mockBead, 1), true, 'Task in progress for 2 hours should be stale with 1 hour threshold');
+
+    // With 3 hour threshold, should not be stale
+    assert.strictEqual(isStale(mockBead, 3), false, 'Task in progress for 2 hours should not be stale with 3 hour threshold');
+
+    // getStaleInfo should show approximately 2 hours
+    const info = getStaleInfo(mockBead);
+    assert.ok(info, 'getStaleInfo should return info');
+    assert.ok(info.hoursInProgress >= 1.9 && info.hoursInProgress <= 2.1, 'Should report approximately 2 hours');
+    assert.strictEqual(info.formattedTime, '2h', 'Should format as 2h');
+  });
+
+  test('warning section logic: filtering stale items', () => {
+    const thirtyMinsAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+    
+    const items: BeadItemData[] = [
+      { id: 'task-1', idKey: 'task-1', title: 'Recent', status: 'in_progress', inProgressSince: thirtyMinsAgo, raw: {} },
+      { id: 'task-2', idKey: 'task-2', title: 'Stale', status: 'in_progress', inProgressSince: twoHoursAgo, raw: {} },
+      { id: 'task-3', idKey: 'task-3', title: 'Open', status: 'open', raw: {} },
+      { id: 'task-4', idKey: 'task-4', title: 'Closed', status: 'closed', raw: {} },
+    ];
+
+    // With 1 hour threshold (in hours)
+    const thresholdHours = 1;
+    const staleItems = items.filter(item => isStale(item, thresholdHours));
+    
+    assert.strictEqual(staleItems.length, 1, 'Should find 1 stale item');
+    assert.strictEqual(staleItems[0].id, 'task-2', 'Stale item should be task-2');
+  });
+});

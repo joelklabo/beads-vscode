@@ -144,6 +144,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   private refreshInProgress: boolean = false;
   private pendingRefresh: boolean = false;
   private debounceTimer: NodeJS.Timeout | undefined;
+  private staleRefreshTimer: NodeJS.Timeout | undefined;
 
   // Manual sort order: Map<issueId, sortIndex>
   private manualSortOrder: Map<string, number> = new Map();
@@ -161,6 +162,29 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     this.loadSortMode();
     // Load persisted collapsed sections
     this.loadCollapsedSections();
+    // Start periodic refresh for stale detection
+    this.startStaleRefreshTimer();
+  }
+  
+  private startStaleRefreshTimer(): void {
+    // Refresh every 30 seconds to update stale indicators
+    // This allows the UI to reflect stale status changes without manual refresh
+    const STALE_REFRESH_INTERVAL_MS = 30 * 1000;
+    
+    this.staleRefreshTimer = setInterval(() => {
+      // Only fire if we have items and are in status mode (where stale section is visible)
+      if (this.items.length > 0 && this.sortMode === 'status') {
+        this.onDidChangeTreeDataEmitter.fire();
+      }
+    }, STALE_REFRESH_INTERVAL_MS);
+  }
+  
+  dispose(): void {
+    if (this.staleRefreshTimer) {
+      clearInterval(this.staleRefreshTimer);
+      this.staleRefreshTimer = undefined;
+    }
+    this.disposeWatcher();
   }
 
   getTreeItem(element: TreeItemType): vscode.TreeItem {
@@ -2894,6 +2918,9 @@ export function activate(context: vscode.ExtensionContext): void {
     dragAndDropController: provider,
     canSelectMany: true,
   });
+
+  // Register provider disposal
+  context.subscriptions.push({ dispose: () => provider.dispose() });
 
   // Activity Feed Provider
   const activityFeedProvider = new ActivityFeedTreeDataProvider(context);
