@@ -9,3 +9,4 @@ export * from './sanitize';
 export * from './environment';
 export * from './cli';
 export * from './dependencies';
+export * from './markdown';
