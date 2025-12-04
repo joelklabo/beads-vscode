@@ -4,11 +4,15 @@ import * as fs from 'fs/promises';
 import * as os from 'os';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
+import * as vscode from 'vscode';
 import { normalizeBead, isStale, getStaleInfo, BeadItemData } from '../../utils';
+import { BeadsTreeDataProvider, EpicTreeItem, UngroupedSectionItem, BeadTreeItem } from '../../extension';
 
 const execFileAsync = promisify(execFile);
 
-suite('BD CLI Integration Test Suite', () => {
+suite('BD CLI Integration Test Suite', function() {
+  // CLI calls and bd setup take a bit longer inside VS Code's test host
+  this.timeout(60000);
   let testWorkspace: string;
   let bdCommand: string;
 
@@ -224,7 +228,81 @@ async function findBdCommand(): Promise<string> {
   throw new Error('bd command not found. Please install beads CLI');
 }
 
-suite('Stale Task Detection Integration Tests', () => {
+class TestMemento implements vscode.Memento {
+  private store = new Map<string, any>();
+
+  get<T>(key: string, defaultValue?: T): T | undefined {
+    return this.store.has(key) ? this.store.get(key) : defaultValue;
+  }
+
+  update(key: string, value: any): Thenable<void> {
+    if (value === undefined) {
+      this.store.delete(key);
+    } else {
+      this.store.set(key, value);
+    }
+    return Promise.resolve();
+  }
+
+  keys(): readonly string[] {
+    return Array.from(this.store.keys());
+  }
+}
+
+function createTestContext(basePath: string): vscode.ExtensionContext {
+  const memento = new TestMemento();
+  const secretsEmitter = new vscode.EventEmitter<vscode.SecretStorageChangeEvent>();
+  const secrets: vscode.SecretStorage = {
+    get: async (key: string) => memento.get(key),
+    store: async (key: string, value: string) => {
+      await memento.update(key, value);
+      secretsEmitter.fire({ key });
+    },
+    delete: async (key: string) => {
+      await memento.update(key, undefined);
+      secretsEmitter.fire({ key });
+    },
+    keys: async () => Array.from(memento.keys()),
+    onDidChange: secretsEmitter.event,
+  };
+
+  const envCollection: vscode.EnvironmentVariableCollection = {
+    persistent: true,
+    description: undefined,
+    get: () => undefined,
+    replace: () => undefined,
+    append: () => undefined,
+    prepend: () => undefined,
+    delete: () => undefined,
+    clear: () => undefined,
+    forEach: () => undefined,
+    [Symbol.iterator]: () => [][Symbol.iterator](),
+  };
+
+  const extension = vscode.extensions.getExtension('4UtopiaInc.beads-vscode') as vscode.Extension<any> | undefined;
+
+  return {
+    subscriptions: [],
+    workspaceState: memento,
+    globalState: Object.assign(memento, { setKeysForSync: (_keys: readonly string[]) => undefined }),
+    secrets,
+    extensionUri: vscode.Uri.file(basePath),
+    extensionPath: basePath,
+    environmentVariableCollection: envCollection,
+    storageUri: vscode.Uri.file(path.join(basePath, 'storage')),
+    globalStorageUri: vscode.Uri.file(path.join(basePath, 'global')),
+    logUri: vscode.Uri.file(path.join(basePath, 'log')),
+    storagePath: path.join(basePath, 'storage'),
+    globalStoragePath: path.join(basePath, 'global'),
+    logPath: path.join(basePath, 'log'),
+    extensionMode: vscode.ExtensionMode.Test,
+    asAbsolutePath: (rel: string) => path.join(basePath, rel),
+    extension: extension ?? ({ id: 'beads-vscode-test' } as unknown as vscode.Extension<any>),
+  } as unknown as vscode.ExtensionContext;
+}
+
+suite('Stale Task Detection Integration Tests', function() {
+  this.timeout(40000);
   let testWorkspace: string;
   let bdCommand: string;
 
@@ -402,5 +480,94 @@ suite('Stale Task Detection Integration Tests', () => {
     
     assert.strictEqual(staleItems.length, 1, 'Should find 1 stale item');
     assert.strictEqual(staleItems[0].id, 'task-2', 'Stale item should be task-2');
+  });
+});
+
+suite('Epic tree integration', () => {
+  const workspaceRoot = path.join(os.tmpdir(), `beads-epic-tree-${Date.now()}`);
+  const now = new Date().toISOString();
+  const sampleItems: BeadItemData[] = [
+    { id: 'epic-1', title: 'Epic Folder', issueType: 'epic', status: 'open', updatedAt: now },
+    { id: 'task-1', title: 'Child Task', issueType: 'task', status: 'open', parentId: 'epic-1', updatedAt: now },
+    { id: 'feature-2', title: 'Child Feature', issueType: 'feature', status: 'in_progress', parentId: 'epic-1', updatedAt: now },
+    { id: 'orphan-1', title: 'Orphan Task', issueType: 'task', status: 'open', updatedAt: now },
+  ];
+
+  let provider: BeadsTreeDataProvider | undefined;
+
+  suiteSetup(async () => {
+    await fs.mkdir(workspaceRoot, { recursive: true });
+  });
+
+  teardown(() => {
+    provider?.dispose();
+    provider = undefined;
+  });
+
+  suiteTeardown(async () => {
+    await fs.rm(workspaceRoot, { recursive: true, force: true });
+  });
+
+  function createEpicProvider() {
+    const context = createTestContext(workspaceRoot);
+    const p = new BeadsTreeDataProvider(context);
+    (p as any).items = sampleItems;
+    (p as any).sortMode = 'epic';
+    return { provider: p, context };
+  }
+
+  test('epic mode exposes epics as expandable nodes', async () => {
+    const setup = createEpicProvider();
+    provider = setup.provider;
+
+    const roots = await provider.getChildren();
+    const epicNode = roots.find(item => item instanceof EpicTreeItem) as EpicTreeItem | undefined;
+
+    assert.ok(epicNode, 'Epic node should be present in epic sort mode');
+    assert.strictEqual(epicNode.collapsibleState, vscode.TreeItemCollapsibleState.Expanded);
+    assert.strictEqual(epicNode.contextValue, 'epicItem');
+  });
+
+  test('epic children render under their parent epic', async () => {
+    const setup = createEpicProvider();
+    provider = setup.provider;
+
+    const roots = await provider.getChildren();
+    const epicNode = roots.find(item => item instanceof EpicTreeItem) as EpicTreeItem;
+    const childNodes = await provider.getChildren(epicNode) as BeadTreeItem[];
+
+    const childIds = childNodes.map(child => child.bead.id);
+    assert.deepStrictEqual(childIds, ['feature-2', 'task-1']);
+  });
+
+  test('collapse and expand updates state and persists', async () => {
+    const { provider: p, context } = createEpicProvider();
+    provider = p;
+
+    const roots = await provider.getChildren();
+    const epicNode = roots.find(item => item instanceof EpicTreeItem) as EpicTreeItem;
+
+    provider.handleCollapseChange(epicNode, true);
+    assert.strictEqual(epicNode.collapsibleState, vscode.TreeItemCollapsibleState.Collapsed);
+    const stored = context.workspaceState.get<Record<string, boolean>>('beads.collapsedEpics', {});
+    assert.deepStrictEqual(stored, { 'epic-1': true });
+
+    provider.handleCollapseChange(epicNode, false);
+    assert.strictEqual(epicNode.collapsibleState, vscode.TreeItemCollapsibleState.Expanded);
+    const storedAfterExpand = context.workspaceState.get<Record<string, boolean>>('beads.collapsedEpics', {});
+    assert.deepStrictEqual(storedAfterExpand, {});
+  });
+
+  test('ungrouped section collects items without epics', async () => {
+    const setup = createEpicProvider();
+    provider = setup.provider;
+
+    const roots = await provider.getChildren();
+    const ungrouped = roots.find(item => item instanceof UngroupedSectionItem) as UngroupedSectionItem | undefined;
+
+    assert.ok(ungrouped, 'Ungrouped section should be present');
+    const ungroupedChildren = await provider.getChildren(ungrouped) as BeadTreeItem[];
+    assert.deepStrictEqual(ungroupedChildren.map(child => child.bead.id), ['orphan-1']);
+    assert.strictEqual(ungrouped.description, '1 item');
   });
 });

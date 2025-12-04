@@ -5,11 +5,11 @@ suite('Extension Test Suite', () => {
   vscode.window.showInformationMessage('Start all tests.');
 
   test('Extension should be present', () => {
-    assert.ok(vscode.extensions.getExtension('beads.beads-vscode'));
+    assert.ok(vscode.extensions.getExtension('4UtopiaInc.beads-vscode'));
   });
 
   test('Extension should activate', async () => {
-    const ext = vscode.extensions.getExtension('beads.beads-vscode');
+    const ext = vscode.extensions.getExtension('4UtopiaInc.beads-vscode');
     await ext?.activate();
     assert.ok(ext?.isActive);
   });

@@ -8,7 +8,7 @@ export async function run(): Promise<void> {
     color: true
   });
 
-  const testsRoot = path.resolve(__dirname, '..');
+  const testsRoot = path.resolve(__dirname, '.');
 
   const files = await glob('**/**.test.js', { cwd: testsRoot });
 
