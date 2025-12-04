@@ -112,6 +112,12 @@
         "command": "beads.deleteBeads",
         "title": "%command.beads.deleteBeads%",
         "icon": "$(trash)"
+      },
+      {
+        "command": "beads.zork",
+        "title": "Beads: Zork Guide",
+        "category": "Beads",
+        "icon": "$(book)"
       }
     ],
     "viewsContainers": {
@@ -272,6 +278,11 @@
           "minimum": 5000,
           "maximum": 300000,
           "description": "Total elapsed time in milliseconds across retries before treating the bd CLI as offline (default: 30000)."
+        },
+        "beads.zork.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable the experimental Zork guide webview and walkthrough command."
         }
       }
     },
@@ -377,6 +388,28 @@
         "command": "beads.activityFeed.openSelected",
         "key": "space",
         "when": "focusedView == activityFeed && listHasSelectionOrFocus && !inputFocus"
+      }
+    ],
+    "walkthroughs": [
+      {
+        "id": "beads.zorkWalkthrough",
+        "title": "Beads Zork Guide",
+        "description": "Interactive, script-driven walkthroughs for Beads workflows.",
+        "when": "beads.zork.enabled",
+        "steps": [
+          {
+            "id": "beads.zork.start",
+            "title": "Open the Zork Guide",
+            "description": "Launch the interactive guide to practice common Beads flows.",
+            "completionEvents": [
+              "onCommand:beads.zork"
+            ],
+            "media": {
+              "image": "beads-visual.png",
+              "altText": "Beads UI"
+            }
+          }
+        ]
       }
     ]
   },

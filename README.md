@@ -62,6 +62,7 @@ The extension integrates with the Beads CLI (`bd`) and reads from the Beads data
 - `beads.commandPath`: Path to the Beads CLI executable. Defaults to `bd`.
 - `beads.projectRoot`: Optional override for the working directory used when invoking the CLI or resolving relative data file paths.
 - `beads.dataFile`: Path to the Beads data file. Defaults to `.beads/issues.jsonl` (supports both JSONL and JSON formats).
+- `beads.zork.enabled`: Enable the experimental Zork walkthrough/webview (defaults to `false`).
 - `beads.cli.timeoutMs`: Per-command timeout (ms) for bd invocations; defaults to `15000`.
 - `beads.cli.retryCount`: Number of retry attempts after a timeout; defaults to `1` (set `0` to disable).
 - `beads.cli.retryBackoffMs`: Delay in milliseconds before each retry; defaults to `500`.

@@ -68,6 +68,7 @@ export interface ZorkScript {
 
 export interface RunnerContext {
   vars: Record<string, string>;
+  currentStepId?: string;
 }
 
 export interface CommandResult {

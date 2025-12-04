@@ -9,7 +9,7 @@
   "command.beads.visualizeDependencies": "Beads: Visualize Dependencies",
   "command.beads.sendFeedback": "Beads: Send Feedback",
   "command.beads.clearSortOrder": "Beads: Clear Manual Sort Order",
-  "command.beads.toggleSortMode": "Beads: Cycle Sort Mode (ID → Status → Epic)",
+  "command.beads.toggleSortMode": "Beads: Cycle Sort Mode (ID \u2192 Status \u2192 Epic)",
   "command.beads.refreshActivityFeed": "Beads: Refresh Activity Feed",
   "command.beads.filterActivityFeed": "Beads: Filter Activity Feed",
   "command.beads.clearActivityFeedFilter": "Beads: Clear Activity Feed Filter",
@@ -37,5 +37,6 @@
   "webview.beadDetail.addDependency": "Add Dependency",
   "viewContainer.beads.title": "Beads",
   "view.beadsExplorer.name": "Issues",
-  "view.activityFeed.name": "Activity Feed"
+  "view.activityFeed.name": "Activity Feed",
+  "command.beads.zork": "Beads: Zork Guide"
 }

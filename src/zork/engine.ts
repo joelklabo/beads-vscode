@@ -35,6 +35,8 @@ export class ZorkEngine {
         throw new Error(`Step '${currentId}' not found`);
       }
 
+      ctx.currentStepId = step.id;
+
       if (++stepsRun > MAX_STEPS) {
         throw new Error('Aborted: exceeded maximum step count');
       }
