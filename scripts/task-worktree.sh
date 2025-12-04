@@ -62,8 +62,9 @@ enable_wal_mode() {
 with_lock() {
   local lock_file="$1"; shift
   mkdir -p "$(dirname "$lock_file")"
-  exec {__lock_fd}>"$lock_file"
-  if ! flock -w "$LOCK_TIMEOUT_SECONDS" "$__lock_fd"; then
+  local lock_fd=200
+  eval "exec ${lock_fd}>\"$lock_file\""
+  if ! flock -w "$LOCK_TIMEOUT_SECONDS" "$lock_fd"; then
     log_error "Timeout acquiring lock: $lock_file"
     return 1
   fi
@@ -71,7 +72,8 @@ with_lock() {
   "$@"
   local rc=$?
   set -e
-  flock -u "$__lock_fd"
+  flock -u "$lock_fd"
+  eval "exec ${lock_fd}>&-"
   return $rc
 }
 
