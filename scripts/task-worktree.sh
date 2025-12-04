@@ -539,6 +539,9 @@ perform_merge_sequence() {
     exit 1
   fi
 
+  # Temporarily unlock main for merge operations
+  protect_main_repo unlock "$MAIN_REPO"
+
   git checkout main
   git pull origin main
 
@@ -575,6 +578,7 @@ Branch: $BRANCH"; then
     else
       log_error "Merge failed! This shouldn't happen after rebase."
       git merge --abort || true
+      protect_main_repo lock "$MAIN_REPO"
       exit 1
     fi
   done
@@ -585,8 +589,12 @@ Branch: $BRANCH"; then
     log_error "To retry manually:"
     log_error "  cd $MAIN_REPO && git checkout main && git pull"
     log_error "  git merge origin/$BRANCH --no-ff && git push origin main"
+    protect_main_repo lock "$MAIN_REPO"
     exit 1
   fi
+
+  # Re-lock main after merge
+  protect_main_repo lock "$MAIN_REPO"
 }
 
 # Pre-merge conflict detection to fail fast before entering the merge queue
@@ -702,6 +710,22 @@ get_worktree_path() {
   echo "${main_repo}/../worktrees/${worker}/${task_id}"
 }
 
+# Protect main working tree from accidental edits
+protect_main_repo() {
+  local action="$1"        # lock|unlock
+  local target_repo="${2:-$(get_main_repo)}"
+  local script="${target_repo}/scripts/protect-main.sh"
+  if [[ ! -x "$script" ]]; then
+    return 0
+  fi
+
+  if [[ "$action" == "unlock" ]]; then
+    ALLOW_MAIN_WRITE=1 PROTECT_TARGET="$target_repo" "$script" unlock || true
+  else
+    PROTECT_TARGET="$target_repo" "$script" lock || true
+  fi
+}
+
 COMMAND="${1:-}"
 WORKER="${2:-}"
 TASK_ID="${3:-}"
@@ -747,6 +771,9 @@ case "$COMMAND" in
     
     # Ensure we're in the main repo for setup
     cd "$MAIN_REPO"
+
+    # Keep main tree read-only for safety
+    protect_main_repo lock "$MAIN_REPO"
 
     log_step "Sweeping stale tasks before claiming..."
     sweep_stale_heartbeats "$HEARTBEAT_STALE_DEFAULT"

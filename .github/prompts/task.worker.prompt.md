@@ -22,6 +22,8 @@ Use your worker name for:
 6. ALWAYS test your changes before finishing a task
 7. ALWAYS avoid tasks that modify the same files as other in_progress tasks
 8. If a task is blocked or unclear, make reasonable assumptions and proceed
+9. Main working tree is READ-ONLY. If you find yourself in `/beads-vscode` (not `/worktrees/...`), do not edit. The repo is locked by `scripts/protect-main.sh`; unlocking requires `ALLOW_MAIN_WRITE=1` and is reserved for the merge step in `task-worktree.sh finish`.
+10. Before any edit/test, run `./scripts/task-worktree.sh verify <task-id>` to confirm you’re inside your worktree.
 
 ## WORKTREE WORKFLOW
 
