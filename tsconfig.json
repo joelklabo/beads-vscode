@@ -6,6 +6,18 @@
     "lib": ["es2020"],
     "sourceMap": true,
     "rootDir": "src",
+    "baseUrl": "src",
+    "paths": {
+      "@commands/*": ["commands/*"],
+      "@providers/*": ["providers/*"],
+      "@services/*": ["services/*"],
+      "@utils": ["utils"],
+      "@utils/*": ["utils/*"],
+      "@worktree": ["worktree"],
+      "@worktree/*": ["worktree/*"],
+      "@ai/*": ["ai/*"],
+      "@models/*": ["models/*"]
+    },
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true
