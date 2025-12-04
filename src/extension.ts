@@ -1016,14 +1016,14 @@ class BeadTreeItem extends vscode.TreeItem {
     // Build rich tooltip with all details
     this.tooltip = this.buildRichTooltip(bead, isTaskStale, staleInfo);
 
-    // Icon mapping for issue types
+    // Icon mapping for issue types - creative, memorable icons
     const typeIcons: Record<string, string> = {
-      'epic': 'symbol-package',
-      'task': 'checklist',
-      'bug': 'bug',
-      'feature': 'lightbulb',
-      'chore': 'tools',
-      'spike': 'beaker',
+      'epic': 'rocket',        // Big initiative/goal
+      'task': 'tasklist',      // Work item checklist
+      'bug': 'bug',            // Problem (keep existing)
+      'feature': 'sparkle',    // New/shiny capability
+      'chore': 'wrench',       // Tool/maintenance
+      'spike': 'telescope',    // Research/exploration
     };
 
     // Determine icon color based on status
