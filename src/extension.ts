@@ -3,6 +3,7 @@ import { execFile } from 'child_process';
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { randomUUID } from 'crypto';
 import { promisify } from 'util';
 import { BeadItemData, normalizeBead, extractBeads, stripBeadIdPrefix } from './utils/beads';
 import { resolveDataFilePath } from './utils/fs';
@@ -10,12 +11,56 @@ import { formatError, escapeHtml, sanitizeTooltipText, linkifyText, formatRelati
 import { getStaleInfo, isStale } from './utils/stale';
 import { ActivityFeedTreeDataProvider, ActivityEventItem } from './activityFeedProvider';
 import { EventType } from './activityFeed';
-import { validateLittleGlenMessage, AllowedLittleGlenCommand } from './littleGlen/validation';
+import { validateLittleGlenMessage, AllowedLittleGlenCommand, isValidBeadId } from './littleGlen/validation';
 
 const execFileAsync = promisify(execFile);
 
 function createNonce(): string {
-  return Math.random().toString(36).slice(2, 15) + Math.random().toString(36).slice(2, 15);
+  return randomUUID().replace(/-/g, '');
+}
+
+function serializeForScript(value: unknown): string {
+  return JSON.stringify(value)
+    .replace(/</g, '\u003c')
+    .replace(/\u2028/g, '\u2028')
+    .replace(/\u2029/g, '\u2029');
+}
+
+function buildLittleGlenCsp(webview: vscode.Webview, nonce: string): string {
+  const cspSource = webview.cspSource;
+  return [
+    "default-src 'none';",
+    `img-src ${cspSource} https: data:;`,
+    `style-src 'nonce-${nonce}' 'unsafe-inline' ${cspSource};`,
+    `font-src ${cspSource} https: data:;`,
+    `script-src 'nonce-${nonce}';`,
+    "connect-src 'none';",
+    "frame-src 'none';",
+    "object-src 'none';",
+    "base-uri 'none';",
+    "form-action 'none';"
+  ].join(' ');
+}
+
+function sanitizeExternalHref(url: string | undefined): string {
+  if (!url) {
+    return '';
+  }
+
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol === 'https:' || parsed.protocol === 'http:') {
+      return url;
+    }
+  } catch {
+    // swallow
+  }
+
+  return '';
+}
+
+function sanitizeDependencyType(input: unknown): string {
+  return typeof input === 'string' && /^[a-zA-Z0-9_-]{1,32}$/.test(input) ? input : 'related';
 }
 
 async function findBdCommand(configPath: string): Promise<string> {
@@ -1536,6 +1581,8 @@ function getBeadDetailHtml(
   const dependencies = raw?.dependencies || [];
   const assignee = raw?.assignee || '';
   const labels = raw?.labels || [];
+  const externalReference = sanitizeExternalHref(item.externalReferenceId);
+  const externalReferenceLabel = item.externalReferenceDescription || item.externalReferenceId || '';
 
   // Build dependency trees for visualization
   let dependencyTreeHtml = '';
@@ -1576,13 +1623,17 @@ function getBeadDetailHtml(
   // Process outgoing dependencies from this issue
   dependencies.forEach((dep: any) => {
     const targetId = dep.depends_on_id || dep.id || dep.issue_id;
-    const depType = dep.dep_type || dep.type || 'related';
+    const beadId = typeof targetId === 'string' ? targetId : String(targetId ?? '');
+    if (!isValidBeadId(beadId)) {
+      return;
+    }
+    const depType = sanitizeDependencyType(dep.dep_type || dep.type);
 
     // Find the target issue to get its details
-    const targetIssue = allItems?.find((i: BeadItemData) => i.id === targetId);
+    const targetIssue = allItems?.find((i: BeadItemData) => i.id === beadId);
 
     dependsOn.push({
-      id: targetId,
+      id: beadId,
       title: targetIssue?.title || '',
       status: targetIssue?.status || '',
       type: depType,
@@ -1598,8 +1649,12 @@ function getBeadDetailHtml(
 
       otherDeps.forEach((dep: any) => {
         const targetId = dep.depends_on_id || dep.id || dep.issue_id;
-        if (targetId === item.id) {
-          const depType = dep.dep_type || dep.type || 'related';
+        const beadId = typeof targetId === 'string' ? targetId : String(targetId ?? '');
+        if (beadId === item.id && isValidBeadId(beadId)) {
+          if (!isValidBeadId(otherItem.id)) {
+            return;
+          }
+          const depType = sanitizeDependencyType(dep.dep_type || dep.type);
           blocks.push({
             id: otherItem.id,
             title: otherItem.title,
@@ -1625,24 +1680,15 @@ function getBeadDetailHtml(
   const statusDisplay = item.status
     ? item.status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
     : '';
-
-  const csp = [
-    "default-src 'none'",
-    `img-src ${webview.cspSource} https: data:`,
-    `style-src 'nonce-${nonce}' ${webview.cspSource}`,
-    `script-src 'nonce-${nonce}'`,
-    `font-src ${webview.cspSource}`,
-    "connect-src 'none'",
-    "frame-src 'none'"
-  ].join('; ');
+  const csp = buildLittleGlenCsp(webview, nonce);
 
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${item.id}</title>
     <meta http-equiv="Content-Security-Policy" content="${csp}">
+    <title>${item.id}</title>
     <style nonce="${nonce}">
         body {
             font-family: var(--vscode-font-family);
@@ -2002,7 +2048,7 @@ function getBeadDetailHtml(
     <div class="section">
         <div class="section-title">Details</div>
         ${assignee ? `<div class="meta-item"><span class="meta-label">Assignee:</span><span class="meta-value">${escapeHtml(assignee)}</span></div>` : ''}
-        ${item.externalReferenceId ? `<div class="meta-item"><span class="meta-label">External Ref:</span><span class="meta-value"><a href="${escapeHtml(item.externalReferenceId)}" class="external-link" target="_blank">${escapeHtml(item.externalReferenceDescription || item.externalReferenceId)}</a></span></div>` : ''}
+        ${externalReference ? `<div class="meta-item"><span class="meta-label">External Ref:</span><span class="meta-value"><a href="${escapeHtml(externalReference)}" class="external-link" target="_blank">${escapeHtml(externalReferenceLabel)}</a></span></div>` : ''}
         ${createdAt ? `<div class="meta-item"><span class="meta-label">Created:</span><span class="meta-value">${createdAt}</span></div>` : ''}
         ${updatedAt ? `<div class="meta-item"><span class="meta-label">Updated:</span><span class="meta-value">${updatedAt}</span></div>` : ''}
         ${closedAt ? `<div class="meta-item"><span class="meta-label">Closed:</span><span class="meta-value">${closedAt}</span></div>` : ''}
@@ -2026,7 +2072,7 @@ function getBeadDetailHtml(
         <div class="section-title">Depends On</div>
         ${dependsOn.map((dep: any) => `
             <div class="dependency-item" data-issue-id="${dep.id}">
-                <div class="dependency-type">${dep.type}</div>
+                <div class="dependency-type">${escapeHtml(dep.type)}</div>
                 <strong>${dep.id}</strong>
                 ${dep.title ? `<div style="margin-top: 4px;">${escapeHtml(dep.title)}</div>` : ''}
                 ${dep.status ? `<span class="badge status-badge" style="margin-top: 4px; display: inline-block;">${dep.status.split('_').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}</span>` : ''}
@@ -2040,7 +2086,7 @@ function getBeadDetailHtml(
         <div class="section-title">Blocks</div>
         ${blocks.map((dep: any) => `
             <div class="dependency-item" data-issue-id="${dep.id}">
-                <div class="dependency-type">${dep.type}</div>
+                <div class="dependency-type">${escapeHtml(dep.type)}</div>
                 <strong>${dep.id}</strong>
                 ${dep.title ? `<div style="margin-top: 4px;">${escapeHtml(dep.title)}</div>` : ''}
                 ${dep.status ? `<span class="badge status-badge" style="margin-top: 4px; display: inline-block;">${dep.status.split('_').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}</span>` : ''}
@@ -2097,7 +2143,7 @@ function getBeadDetailHtml(
         console.log('DEBUG: labelActions element:', labelActions);
         console.log('DEBUG: addInReviewButton element:', addInReviewButton);
 
-        const currentLabels = ${JSON.stringify(labels || [])};
+        const currentLabels = ${serializeForScript(labels || [])};
         const hasInReview = currentLabels.includes('in-review');
 
         if (hasInReview) {
@@ -2262,7 +2308,7 @@ function getBeadDetailHtml(
 </html>`;
 }
 
-function getDependencyTreeHtml(items: BeadItemData[]): string {
+function getDependencyTreeHtml(items: BeadItemData[], webview: vscode.Webview, nonce: string): string {
   // DEBUG: Log input to HTML generator
   console.log('[getDependencyTreeHtml DEBUG] Received items count:', items?.length ?? 'undefined/null');
 
@@ -2277,39 +2323,36 @@ function getDependencyTreeHtml(items: BeadItemData[]): string {
   }
 
   items.forEach((item, idx) => {
+    if (!isValidBeadId(item.id)) {
+      return;
+    }
     nodeMap.set(item.id, item);
     const raw = item.raw as any;
     const dependencies = raw?.dependencies || [];
 
     // DEBUG: Log dependency info for first few items
     if (idx < 3) {
-      console.log(`[getDependencyTreeHtml DEBUG] Item ${idx} (${item.id}):`, {
-        title: item.title,
-        status: item.status,
-        hasDependencies: dependencies.length > 0,
-        dependenciesCount: dependencies.length,
-        dependencies: dependencies
-      });
+      console.log(`[getDependencyTreeHtml DEBUG] Item ${idx} (${item.id}) deps:`, dependencies.length);
     }
 
     dependencies.forEach((dep: any) => {
-      const depType = dep.dep_type || dep.type || 'related';
+      const depType = sanitizeDependencyType(dep.dep_type || dep.type);
       const targetId = dep.id || dep.depends_on_id || dep.issue_id;
-      if (targetId) {
+      const toId = typeof targetId === 'string' ? targetId : String(targetId ?? '');
+      if (isValidBeadId(toId) && isValidBeadId(item.id)) {
         edges.push({
           from: item.id,
-          to: targetId,
+          to: toId,
           type: depType
         });
       }
     });
   });
 
-  // DEBUG: Log final graph data
+  // DEBUG: Log final graph data without payload contents
   console.log('[getDependencyTreeHtml DEBUG] Built graph:', {
     nodeCount: nodeMap.size,
-    edgeCount: edges.length,
-    edges: edges.slice(0, 5)
+    edgeCount: edges.length
   });
 
   // Serialize data for JavaScript, sorted by ID (descending order naturally)
@@ -2320,22 +2363,31 @@ function getDependencyTreeHtml(items: BeadItemData[]): string {
       const numB = parseInt(idB.match(/\d+/)?.[0] || '0', 10);
       return numA - numB;
     })
-    .map(([id, item]) => ({
-      id,
-      title: item.title,
-      status: item.status || 'open'
-    }));
+    .map(([id, item]) => {
+      const status = ['open', 'in_progress', 'blocked', 'closed'].includes(item.status ?? '')
+        ? item.status!
+        : 'open';
 
-  const nodesJson = JSON.stringify(sortedNodes);
-  const edgesJson = JSON.stringify(edges);
+      return {
+        id,
+        title: escapeHtml(item.title),
+        status
+      };
+    });
+
+  const nodesJson = serializeForScript(sortedNodes);
+  const edgesJson = serializeForScript(edges);
+
+  const csp = buildLittleGlenCsp(webview, nonce);
 
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="${csp}">
     <title>Beads Dependency Tree</title>
-    <style>
+    <style nonce="${nonce}">
         body {
             font-family: var(--vscode-font-family);
             font-size: var(--vscode-font-size);
@@ -2521,8 +2573,8 @@ function getDependencyTreeHtml(items: BeadItemData[]): string {
 </head>
 <body>
     <div class="controls">
-        <button class="control-button" onclick="resetZoom()">Reset View</button>
-        <button class="control-button" onclick="autoLayout()">Auto Layout</button>
+        <button class="control-button" id="resetViewButton">Reset View</button>
+        <button class="control-button" id="autoLayoutButton">Auto Layout</button>
     </div>
 
     <div class="legend">
@@ -2549,7 +2601,7 @@ function getDependencyTreeHtml(items: BeadItemData[]): string {
         <div id="canvas"></div>
     </div>
 
-    <script>
+    <script nonce="${nonce}">
         const vscode = acquireVsCodeApi();
         const nodes = ${nodesJson};
         const edges = ${edgesJson};
@@ -2577,6 +2629,8 @@ function getDependencyTreeHtml(items: BeadItemData[]): string {
         let dragOffset = {x: 0, y: 0};
         let isDragging = false;
         let mouseDownPos = null;
+        const resetViewButton = document.getElementById('resetViewButton');
+        const autoLayoutButton = document.getElementById('autoLayoutButton');
 
         // Simple tree layout algorithm
         function calculateLayout() {
@@ -2825,6 +2879,14 @@ function getDependencyTreeHtml(items: BeadItemData[]): string {
             render();
         }
 
+        if (resetViewButton) {
+            resetViewButton.addEventListener('click', resetZoom);
+        }
+
+        if (autoLayoutButton) {
+            autoLayoutButton.addEventListener('click', autoLayout);
+        }
+
         function redrawEdges() {
             const svg = document.getElementById('svg');
             const edgePaths = edges.map(edge =>
@@ -2908,6 +2970,7 @@ function getDependencyTreeHtml(items: BeadItemData[]): string {
 
 async function openBead(item: BeadItemData, provider: BeadsTreeDataProvider): Promise<void> {
   const nonce = createNonce();
+  const resourceRoots = provider['context']?.extensionUri ? [provider['context'].extensionUri] : [];
   const panel = vscode.window.createWebviewPanel(
     'beadDetail',
     item.id,
@@ -2915,7 +2978,7 @@ async function openBead(item: BeadItemData, provider: BeadsTreeDataProvider): Pr
     {
       enableScripts: true,
       retainContextWhenHidden: true,
-      localResourceRoots: [vscode.Uri.joinPath(vscode.workspace.workspaceFolders?.[0]?.uri ?? vscode.Uri.file(process.cwd())), provider['context']?.extensionUri ?? vscode.Uri.file(process.cwd())],
+      localResourceRoots: resourceRoots,
     }
   );
 
@@ -3031,6 +3094,7 @@ async function visualizeDependencies(provider: BeadsTreeDataProvider): Promise<v
     {
       enableScripts: true,
       retainContextWhenHidden: true,
+      localResourceRoots: [],
     }
   );
 
@@ -3039,12 +3103,10 @@ async function visualizeDependencies(provider: BeadsTreeDataProvider): Promise<v
 
   // DEBUG: Log the items being passed to the visualizer
   console.log('[Visualizer DEBUG] Number of items from provider:', items?.length ?? 'undefined');
-  console.log('[Visualizer DEBUG] Items array:', JSON.stringify(items?.slice(0, 3), null, 2)); // First 3 items
-  if (items && items.length > 0) {
-    console.log('[Visualizer DEBUG] First item raw data:', JSON.stringify(items[0]?.raw, null, 2));
-  }
+  console.log('[Visualizer DEBUG] Example IDs:', items?.slice(0, 3).map(item => item.id));
 
-  panel.webview.html = getDependencyTreeHtml(items);
+  const nonce = createNonce();
+  panel.webview.html = getDependencyTreeHtml(items, panel.webview, nonce);
 
   // Handle messages from the webview
   panel.webview.onDidReceiveMessage(async (message) => {
@@ -3065,7 +3127,12 @@ async function visualizeDependencies(provider: BeadsTreeDataProvider): Promise<v
   });
 }
 
-function getActivityFeedPanelHtml(events: import('./activityFeed').EventData[]): string {
+function getActivityFeedPanelHtml(
+  events: import('./activityFeed').EventData[],
+  webview: vscode.Webview,
+  nonce: string
+): string {
+  const csp = buildLittleGlenCsp(webview, nonce);
   const eventCards = events.map(event => {
     const iconMap: Record<string, string> = {
       'sparkle': '✨',
@@ -3119,8 +3186,9 @@ function getActivityFeedPanelHtml(events: import('./activityFeed').EventData[]):
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="${csp}">
     <title>Activity Feed</title>
-    <style>
+    <style nonce="${nonce}">
         body {
             font-family: var(--vscode-font-family);
             font-size: var(--vscode-font-size);
@@ -3280,9 +3348,9 @@ function getActivityFeedPanelHtml(events: import('./activityFeed').EventData[]):
     </div>
     `}
     
-    <script>
+    <script nonce="${nonce}">
         const vscode = acquireVsCodeApi();
-        
+
         document.querySelectorAll('.event-card').forEach(card => {
             card.addEventListener('click', () => {
                 const issueId = card.getAttribute('data-issue-id');
@@ -3307,6 +3375,7 @@ async function openActivityFeedPanel(activityFeedProvider: ActivityFeedTreeDataP
     {
       enableScripts: true,
       retainContextWhenHidden: true,
+      localResourceRoots: [],
     }
   );
 
@@ -3318,7 +3387,8 @@ async function openActivityFeedPanel(activityFeedProvider: ActivityFeedTreeDataP
   const result = await fetchEvents(projectRoot, { limit: 100 });
 
   // 
-  panel.webview.html = getActivityFeedPanelHtml(result.events);
+  const nonce = createNonce();
+  panel.webview.html = getActivityFeedPanelHtml(result.events, panel.webview, nonce);
 
   // Handle messages from the webview
   panel.webview.onDidReceiveMessage(async (message) => {
