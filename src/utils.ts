@@ -1,5 +1,6 @@
 import * as path from 'path';
 import sanitizeHtml, { Attributes, IOptions } from 'sanitize-html';
+import { Buffer } from 'buffer';
 
 export interface BeadItemData {
   id: string;
@@ -416,4 +417,126 @@ export function sanitizeMarkdown(markdown: string, options: MarkdownSanitizeOpti
   }
 
   return sanitizeHtml(markdown ?? '', mergedOptions);
+}
+
+/** Maximum log payload size (bytes) attached to feedback bodies. */
+export const DEFAULT_LOG_BYTES_LIMIT = 64 * 1024; // 64KB
+
+/** Maximum number of log lines collected by default. */
+export const DEFAULT_LOG_LINE_LIMIT = 400;
+
+export interface LogRedactionOptions {
+  /** Absolute workspace paths to redact from logs. */
+  workspacePaths?: string[];
+}
+
+/** Escape a string for safe use inside a RegExp constructor. */
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function redactWorkspacePaths(log: string, workspacePaths: string[]): string {
+  return workspacePaths.reduce((current, workspacePath) => {
+    if (!workspacePath) {
+      return current;
+    }
+
+    const normalized = path.resolve(workspacePath);
+    const variants = [normalized, normalized.replace(/\\/g, '/'), normalized.replace(/\//g, '\\')];
+
+    return variants.reduce((acc, candidate) => {
+      const pattern = new RegExp(escapeRegex(candidate), 'gi');
+      return acc.replace(pattern, '<workspace>');
+    }, current);
+  }, log);
+}
+
+/**
+ * Redact sensitive values from log text: tokens, emails, and absolute paths.
+ * Only performs in-memory replacement; does not write back to disk.
+ */
+export function redactLogContent(log: string, options: LogRedactionOptions = {}): string {
+  if (!log) {
+    return '';
+  }
+
+  let cleaned = log;
+
+  // Common token patterns (GitHub PATs, Slack tokens, JWTs, Bearer tokens)
+  const tokenPatterns: Array<{ regex: RegExp; replacement: string | ((substring: string, ...args: any[]) => string) }> = [
+    { regex: /(gh[pousr]_[A-Za-z0-9]{20,})/g, replacement: '<token>' },
+    { regex: /xox[baprs]-[A-Za-z0-9-]{10,}/g, replacement: '<token>' },
+    { regex: /bearer\s+[A-Za-z0-9._~+/-]{10,}/gi, replacement: 'Bearer <redacted>' },
+    { regex: /eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9._-]+\.[A-Za-z0-9._-]+/g, replacement: '<jwt>' },
+    {
+      regex: /((?:api[_-]?key|token|secret|password)\s*[=:]\s*)([A-Za-z0-9._-]{6,})/gi,
+      replacement: (_match, prefix: string) => `${prefix}<redacted>`
+    }
+  ];
+
+  for (const { regex, replacement } of tokenPatterns) {
+    cleaned = cleaned.replace(regex as RegExp, replacement as any);
+  }
+
+  // Emails
+  cleaned = cleaned.replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '<email>');
+
+  // Workspace-specific absolute paths
+  if (options.workspacePaths && options.workspacePaths.length > 0) {
+    cleaned = redactWorkspacePaths(cleaned, options.workspacePaths);
+  }
+
+  // Generic absolute paths (POSIX and Windows). Avoids matching URLs by requiring whitespace/line start before the path.
+  cleaned = cleaned.replace(/(^|[\s'"`])((?:[A-Za-z]:\\|\/)[^\s'"`]+(?:[\\/][^\s'"`]+)*)/g, (_match, prefix: string) => `${prefix}<path>`);
+
+  return cleaned;
+}
+
+export interface TailResult {
+  log: string;
+  lines: number;
+}
+
+/** Return the last N lines from a log string (or entire string if shorter). */
+export function tailLogLines(log: string, maxLines: number): TailResult {
+  if (maxLines <= 0) {
+    return { log: '', lines: 0 };
+  }
+
+  const segments = (log ?? '').split(/\r?\n/);
+  if (segments.length <= maxLines) {
+    return { log: segments.join('\n'), lines: segments.filter(Boolean).length };
+  }
+
+  const tail = segments.slice(-maxLines);
+  return { log: tail.join('\n'), lines: tail.filter(Boolean).length };
+}
+
+export interface LogLimitResult {
+  log: string;
+  truncated: boolean;
+  bytes: number;
+}
+
+/**
+ * Enforce a maximum payload size (in bytes) for logs by trimming from the head.
+ * Adds a truncation marker so users know data was clipped.
+ */
+export function limitLogPayload(log: string, maxBytes: number = DEFAULT_LOG_BYTES_LIMIT): LogLimitResult {
+  const marker = '[[truncated]]\n';
+  const markerBytes = Buffer.byteLength(marker, 'utf8');
+  const buffer = Buffer.from(log ?? '', 'utf8');
+
+  if (buffer.byteLength <= maxBytes) {
+    return { log, truncated: false, bytes: buffer.byteLength };
+  }
+
+  if (markerBytes >= maxBytes) {
+    const clipped = marker.slice(0, Math.max(0, maxBytes));
+    return { log: clipped, truncated: true, bytes: Buffer.byteLength(clipped, 'utf8') };
+  }
+
+  const slice = buffer.subarray(buffer.byteLength - (maxBytes - markerBytes));
+  const limited = `${marker}${slice.toString('utf8')}`;
+  return { log: limited, truncated: true, bytes: Buffer.byteLength(limited, 'utf8') };
 }
