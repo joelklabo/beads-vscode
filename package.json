@@ -118,39 +118,39 @@
     "menus": {
       "view/title": [
         {
-          "command": "beads.search",
+          "command": "beads.toggleSortMode",
           "when": "view == beadsExplorer",
           "group": "navigation@1"
         },
         {
-          "command": "beads.clearSearch",
+          "command": "beads.search",
           "when": "view == beadsExplorer",
           "group": "navigation@2"
         },
         {
-          "command": "beads.refresh",
+          "command": "beads.clearSearch",
           "when": "view == beadsExplorer",
           "group": "navigation@3"
         },
         {
-          "command": "beads.createBead",
+          "command": "beads.refresh",
           "when": "view == beadsExplorer",
           "group": "navigation@4"
         },
         {
-          "command": "beads.visualizeDependencies",
+          "command": "beads.createBead",
           "when": "view == beadsExplorer",
           "group": "navigation@5"
+        },
+        {
+          "command": "beads.visualizeDependencies",
+          "when": "view == beadsExplorer",
+          "group": "navigation@6"
         },
         {
           "command": "beads.clearSortOrder",
           "when": "view == beadsExplorer",
           "group": "1_sort@1"
-        },
-        {
-          "command": "beads.toggleSortMode",
-          "when": "view == beadsExplorer",
-          "group": "1_sort@2"
         }
       ],
       "view/item/context": [
