@@ -19,6 +19,7 @@ import {
 import { ActivityFeedTreeDataProvider } from './activityFeedProvider';
 import { EventType } from './activityFeed';
 import { currentWorktreeId } from './worktree';
+import { validateLittleGlenMessage, AllowedLittleGlenCommand } from './littleGlen/validation';
 
 const execFileAsync = promisify(execFile);
 
@@ -2881,46 +2882,50 @@ async function openBead(item: BeadItemData, provider: BeadsTreeDataProvider): Pr
   provider.registerPanel(item.id, panel);
 
   // Handle messages from the webview
-  panel.webview.onDidReceiveMessage(
-    async (message) => {
-      switch (message.command) {
-        case 'updateStatus': {
-          await provider.updateStatus(item, message.status);
-          break;
-        }
-        case 'updateTitle': {
-          await provider.updateTitle(item, message.title);
-          break;
-        }
-        case 'addLabel': {
-          await provider.addLabel(item, message.label);
-          break;
-        }
-        case 'removeLabel': {
-          await provider.removeLabel(item, message.label);
-          break;
-        }
-        case 'openBead': {
-          // Find the bead with the specified ID
-          const targetBead = allItems.find(i => i.id === message.beadId);
-          if (targetBead) {
-            await openBead(targetBead, provider);
-          } else {
-            void vscode.window.showWarningMessage(`Issue ${message.beadId} not found`);
-          }
-          break;
-        }
-        case 'openExternalUrl': {
-          // Open external URL in default browser
-          const url = message.url;
-          if (url) {
-            await vscode.env.openExternal(vscode.Uri.parse(url));
-          }
-          break;
-        }
-      }
+  const allowedCommands: AllowedLittleGlenCommand[] = [
+    'updateStatus',
+    'updateTitle',
+    'addLabel',
+    'removeLabel',
+    'openBead',
+    'openExternalUrl'
+  ];
+
+  panel.webview.onDidReceiveMessage(async (message) => {
+    const validated = validateLittleGlenMessage(message, allowedCommands);
+    if (!validated) {
+      console.warn('[Little Glen] Ignoring invalid panel message');
+      void vscode.window.showWarningMessage('Ignored invalid request from Little Glen panel.');
+      return;
     }
-  );
+
+    switch (validated.command) {
+      case 'updateStatus':
+        await provider.updateStatus(item, validated.status);
+        return;
+      case 'updateTitle':
+        await provider.updateTitle(item, validated.title);
+        return;
+      case 'addLabel':
+        await provider.addLabel(item, validated.label);
+        return;
+      case 'removeLabel':
+        await provider.removeLabel(item, validated.label);
+        return;
+      case 'openBead': {
+        const targetBead = allItems.find((i) => i.id === validated.beadId);
+        if (targetBead) {
+          await openBead(targetBead, provider);
+        } else {
+          void vscode.window.showWarningMessage(`Issue ${validated.beadId} not found`);
+        }
+        return;
+      }
+      case 'openExternalUrl':
+        await vscode.env.openExternal(vscode.Uri.parse(validated.url));
+        return;
+    }
+  });
 }
 
 async function createBead(): Promise<void> {
@@ -2969,19 +2974,22 @@ async function visualizeDependencies(provider: BeadsTreeDataProvider): Promise<v
   panel.webview.html = getDependencyTreeHtml(items);
 
   // Handle messages from the webview
-  panel.webview.onDidReceiveMessage(
-    async (message) => {
-      switch (message.command) {
-        case 'openBead': {
-          const item = items.find((i: BeadItemData) => i.id === message.beadId);
-          if (item) {
-            await openBead(item, provider);
-          }
-          break;
-        }
+  panel.webview.onDidReceiveMessage(async (message) => {
+    const allowed: AllowedLittleGlenCommand[] = ['openBead'];
+    const validated = validateLittleGlenMessage(message, allowed);
+    if (!validated) {
+      console.warn('[Little Glen] Ignoring invalid visualizeDependencies message');
+      return;
+    }
+    if (validated.command === 'openBead') {
+      const item = items.find((i: BeadItemData) => i.id === validated.beadId);
+      if (item) {
+        await openBead(item, provider);
+      } else {
+        void vscode.window.showWarningMessage(`Issue ${validated.beadId} not found`);
       }
     }
-  );
+  });
 }
 
 function getActivityFeedPanelHtml(events: import('./activityFeed').EventData[]): string {
@@ -3240,23 +3248,24 @@ async function openActivityFeedPanel(activityFeedProvider: ActivityFeedTreeDataP
   panel.webview.html = getActivityFeedPanelHtml(result.events);
 
   // Handle messages from the webview
-  panel.webview.onDidReceiveMessage(
-    async (message) => {
-      switch (message.command) {
-        case 'openBead': {
-          const items = beadsProvider['items'] as BeadItemData[];
-          const item = items.find((i: BeadItemData) => i.id === message.beadId);
-          if (item) {
-            await openBead(item, beadsProvider);
-          } else {
-            // If item not found in current view, just show a message
-            void vscode.window.showInformationMessage(`Opening issue ${message.beadId}`);
-          }
-          break;
-        }
+  panel.webview.onDidReceiveMessage(async (message) => {
+    const allowed: AllowedLittleGlenCommand[] = ['openBead'];
+    const validated = validateLittleGlenMessage(message, allowed);
+    if (!validated) {
+      console.warn('[Little Glen] Ignoring invalid activity feed message');
+      return;
+    }
+    if (validated.command === 'openBead') {
+      const items = beadsProvider['items'] as BeadItemData[];
+      const item = items.find((i: BeadItemData) => i.id === validated.beadId);
+      if (item) {
+        await openBead(item, beadsProvider);
+      } else {
+        // If item not found in current view, just show a message
+        void vscode.window.showInformationMessage(`Opening issue ${validated.beadId}`);
       }
     }
-  );
+  });
 }
 
 export function activate(context: vscode.ExtensionContext): void {
