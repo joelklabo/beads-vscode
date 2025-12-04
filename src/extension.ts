@@ -1069,6 +1069,26 @@ class BeadTreeItem extends vscode.TreeItem {
       md.appendMarkdown(`⚠️ **Stale:** In progress for ${staleInfo.formattedTime} (may need attention)\n\n`);
     }
     
+    // Issue type with emoji
+    if (bead.issueType) {
+      const typeEmoji: Record<string, string> = {
+        'epic': '🚀',
+        'task': '📋',
+        'bug': '🐛',
+        'feature': '✨',
+        'spike': '🔭',
+        'chore': '🔧',
+      };
+      const typeDisplay = bead.issueType.charAt(0).toUpperCase() + bead.issueType.slice(1);
+      md.appendMarkdown(`${typeEmoji[bead.issueType] || '📄'} **Type:** ${typeDisplay}`);
+      
+      // Add child count for epics
+      if (bead.issueType === 'epic' && bead.childCount !== undefined && bead.childCount > 0) {
+        md.appendMarkdown(` (${bead.childCount} child${bead.childCount !== 1 ? 'ren' : ''})`);
+      }
+      md.appendMarkdown(`\n\n`);
+    }
+    
     // Description preview
     if (bead.description) {
       const preview = bead.description.substring(0, 200).replace(/\n/g, ' ').trim();
