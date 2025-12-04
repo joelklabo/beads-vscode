@@ -164,3 +164,8 @@ Context (2025-12-04): VS Code 1.104 adds auto model selection and a custom OpenA
 - Navigation/keymaps: map core actions to shortcuts; ensure focus management for pty-based runs.
 - Testing: ink-testing-library for component unit tests; pseudo-tty smoke via `script` or `expect` for end-to-end.
 - Next steps: scaffold TUI worktree helper mirroring VS Code one; add status bar badge; wire guard into create/update/delete commands.
+
+## Modularization rollout (Dec 2025)
+- Run `npm run check:size` before PRs; fails if any src/** or tui/src/** file exceeds 320 lines.
+- Rebase existing branches after path alias/layout changes; resolve module path errors by updating imports.
+- If rollout causes churn: revert merge commit, disable check by removing script from CI, and communicate new file caps.
