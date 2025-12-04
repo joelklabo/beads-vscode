@@ -123,25 +123,25 @@ class WarningSectionItem extends vscode.TreeItem {
   }
 }
 
-// Epic section item for grouping tasks under their parent epic
-class EpicSectionItem extends vscode.TreeItem {
+// Epic tree item for grouping tasks under their parent epic (folder-style)
+class EpicTreeItem extends vscode.TreeItem {
   public readonly epic: BeadItemData | null;
   public readonly children: BeadItemData[];
   
   constructor(epic: BeadItemData | null, children: BeadItemData[], isCollapsed: boolean = false) {
-    // Use epic title or 'Ungrouped' for items without parent
-    const label = epic ? `${epic.id} ${epic.title}` : '📋 Ungrouped';
+    // Label is just the epic title (like a folder name), or 'Ungrouped' for orphans
+    const label = epic ? epic.title : 'Ungrouped';
     super(label, isCollapsed ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.Expanded);
     
     this.epic = epic;
     this.children = children;
-    this.contextValue = 'epicSection';
-    
-    // Show child count as description
-    this.description = `${children.length} item${children.length !== 1 ? 's' : ''}`;
+    this.contextValue = epic ? 'epicItem' : 'ungroupedSection';
     
     if (epic) {
-      // Use epic's status color with symbol-package icon
+      // ID shown in description like other items (folder-style: "id · X items")
+      this.description = `${epic.id} · ${children.length} item${children.length !== 1 ? 's' : ''}`;
+      
+      // Use epic's status color with rocket icon (big initiative/goal)
       const statusColors: Record<string, string> = {
         'open': 'charts.blue',
         'in_progress': 'charts.yellow',
@@ -149,27 +149,36 @@ class EpicSectionItem extends vscode.TreeItem {
         'closed': 'testing.iconPassed',
       };
       const iconColor = statusColors[epic.status || 'open'] || 'charts.blue';
-      this.iconPath = new vscode.ThemeIcon('symbol-package', new vscode.ThemeColor(iconColor));
+      this.iconPath = new vscode.ThemeIcon('rocket', new vscode.ThemeColor(iconColor));
+      
+      // Make it clickable to open epic detail view (like double-clicking a folder)
+      this.command = {
+        command: 'beads.openBead',
+        title: 'Open Epic',
+        arguments: [epic],
+      };
       
       // Rich tooltip with epic details
       const tooltip = new vscode.MarkdownString();
       tooltip.isTrusted = true;
       const statusDisplay = (epic.status || 'open').split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-      tooltip.appendMarkdown(`### ${epic.id}\n\n`);
+      tooltip.appendMarkdown(`### 🚀 ${epic.id}\n\n`);
       tooltip.appendMarkdown(`**${epic.title}**\n\n`);
       tooltip.appendMarkdown(`Status: ${statusDisplay}\n\n`);
-      tooltip.appendMarkdown(`Children: ${children.length} item${children.length !== 1 ? 's' : ''}`);
+      tooltip.appendMarkdown(`Children: ${children.length} item${children.length !== 1 ? 's' : ''}\n\n`);
+      tooltip.appendMarkdown(`*Click to open epic details*`);
       this.tooltip = tooltip;
     } else {
-      // Ungrouped section styling
-      this.iconPath = new vscode.ThemeIcon('list-unordered', new vscode.ThemeColor('charts.blue'));
+      // Ungrouped section styling (items without a parent epic)
+      this.description = `${children.length} item${children.length !== 1 ? 's' : ''}`;
+      this.iconPath = new vscode.ThemeIcon('inbox', new vscode.ThemeColor('charts.blue'));
       this.tooltip = `Items without a parent epic: ${children.length}`;
     }
   }
 }
 
 // Union type for tree items
-type TreeItemType = StatusSectionItem | WarningSectionItem | EpicSectionItem | BeadTreeItem;
+type TreeItemType = StatusSectionItem | WarningSectionItem | EpicTreeItem | BeadTreeItem;
 
 class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vscode.TreeDragAndDropController<TreeItemType> {
   private readonly onDidChangeTreeDataEmitter = new vscode.EventEmitter<TreeItemType | undefined | null | void>();
@@ -302,8 +311,8 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
       return element.beads.map((item) => this.createTreeItem(item));
     }
     
-    // If element is an EpicSectionItem, return its children (BeadTreeItems)
-    if (element instanceof EpicSectionItem) {
+    // If element is an EpicTreeItem, return its children (BeadTreeItems)
+    if (element instanceof EpicTreeItem) {
       return element.children.map((item) => this.createTreeItem(item));
     }
     
@@ -386,7 +395,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     return sections;
   }
   
-  private createEpicSections(items: BeadItemData[]): (EpicSectionItem | WarningSectionItem)[] {
+  private createEpicSections(items: BeadItemData[]): (EpicTreeItem | WarningSectionItem)[] {
     // Get stale threshold from configuration (in minutes, convert to hours for isStale)
     const config = vscode.workspace.getConfiguration('beads');
     const thresholdMinutes = config.get<number>('staleThresholdMinutes', 10);
@@ -436,7 +445,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     ungrouped.sort(naturalSort);
     
     // Create section items
-    const sections: (EpicSectionItem | WarningSectionItem)[] = [];
+    const sections: (EpicTreeItem | WarningSectionItem)[] = [];
     
     // Add warning section at the top if there are stale items
     if (staleItems.length > 0) {
@@ -450,7 +459,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
       const children = childrenMap.get(epic.id) || [];
       if (children.length > 0) {
         const isCollapsed = this.collapsedSections.has(`epic-${epic.id}`);
-        sections.push(new EpicSectionItem(epic, children, isCollapsed));
+        sections.push(new EpicTreeItem(epic, children, isCollapsed));
       }
     });
     // Update badge with stale count
@@ -460,7 +469,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     // Add ungrouped section at the end if there are ungrouped items
     if (ungrouped.length > 0) {
       const isCollapsed = this.collapsedSections.has('ungrouped');
-      sections.push(new EpicSectionItem(null, ungrouped, isCollapsed));
+      sections.push(new EpicTreeItem(null, ungrouped, isCollapsed));
     }
     
     return sections;
