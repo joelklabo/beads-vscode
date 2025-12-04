@@ -17,6 +17,7 @@
   "command.beads.activityFeed.openSelected": "Beads: Open Selected Activity Feed Item",
   "command.beads.openActivityFeedPanel": "Beads: Open Activity Feed Panel",
   "command.beads.deleteBeads": "Beads: Delete",
+  "command.beads.exportMarkdown": "Beads: Export to Markdown",
   "webview.dependencyTree.title": "Beads Dependency Tree",
   "webview.dependencyTree.resetView": "Reset View",
   "webview.dependencyTree.autoLayout": "Auto Layout",
