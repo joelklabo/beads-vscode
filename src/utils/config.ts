@@ -19,6 +19,13 @@ export interface FeedbackConfig {
   validationError?: string;
 }
 
+export interface CliExecutionConfig {
+  timeoutMs: number;
+  retryCount: number;
+  retryBackoffMs: number;
+  offlineThresholdMs: number;
+}
+
 const FEEDBACK_REPO_PATTERN = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
 
 const DEFAULT_FEEDBACK_LABELS: FeedbackLabelMap = Object.freeze({
@@ -44,8 +51,26 @@ function normalizeFeedbackLabels(raw: FeedbackLabelMap | undefined): FeedbackLab
   return merged;
 }
 
+function clampNumber(value: unknown, fallback: number, min: number, max: number): number {
+  if (typeof value !== 'number' || Number.isNaN(value)) {
+    return fallback;
+  }
+
+  return Math.min(Math.max(value, min), max);
+}
+
+function resolveConfig(
+  configOrWorkspace?: vscode.WorkspaceConfiguration | vscode.WorkspaceFolder
+): vscode.WorkspaceConfiguration {
+  if (configOrWorkspace && typeof (configOrWorkspace as vscode.WorkspaceConfiguration).get === 'function') {
+    return configOrWorkspace as vscode.WorkspaceConfiguration;
+  }
+
+  return vscode.workspace.getConfiguration('beads', configOrWorkspace as vscode.WorkspaceFolder | undefined);
+}
+
 export function getFeedbackConfig(workspaceFolder?: vscode.WorkspaceFolder): FeedbackConfig {
-  const config = vscode.workspace.getConfiguration('beads', workspaceFolder);
+  const config = resolveConfig(workspaceFolder);
   const repositoryRaw = (config.get<string>('feedback.repository', '') || '').trim();
   const repoValid = repositoryRaw.length === 0 ? false : FEEDBACK_REPO_PATTERN.test(repositoryRaw);
   const [owner, repo] = repoValid ? repositoryRaw.split('/', 2) : [undefined, undefined];
@@ -67,4 +92,22 @@ export function getFeedbackConfig(workspaceFolder?: vscode.WorkspaceFolder): Fee
     includeAnonymizedLogs,
     validationError: enabledFlag && !repoValid ? 'feedback.repository must use owner/repo format' : undefined
   };
+}
+
+export function getCliExecutionConfig(
+  configOrWorkspace?: vscode.WorkspaceConfiguration | vscode.WorkspaceFolder
+): CliExecutionConfig {
+  const config = resolveConfig(configOrWorkspace);
+
+  const timeoutMs = clampNumber(config.get<number>('cli.timeoutMs', 15000), 15000, 1000, 120000);
+  const retryCount = clampNumber(config.get<number>('cli.retryCount', 1), 1, 0, 5);
+  const retryBackoffMs = clampNumber(config.get<number>('cli.retryBackoffMs', 500), 500, 0, 30000);
+  const offlineThresholdMs = clampNumber(
+    config.get<number>('offlineDetection.thresholdMs', 30000),
+    30000,
+    5000,
+    300000
+  );
+
+  return { timeoutMs, retryCount, retryBackoffMs, offlineThresholdMs };
 }

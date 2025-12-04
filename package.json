@@ -206,7 +206,7 @@
           },
           "additionalProperties": {
             "type": "string",
-            "markdownDescription": "Extra feedback type → label mappings (string)."
+            "markdownDescription": "Extra feedback type \u2192 label mappings (string)."
           },
           "markdownDescription": "Map feedback types to GitHub labels. Leave a value empty to skip labeling for that type."
         },
@@ -224,6 +224,33 @@
           "type": "boolean",
           "default": false,
           "markdownDescription": "Enable experimental dependency editing UI (add/remove). Requires bd CLI support; shows warning when CLI version is too old."
+        },
+        "beads.cli.timeoutMs": {
+          "type": "number",
+          "default": 15000,
+          "minimum": 1000,
+          "description": "Maximum time in milliseconds to wait for bd CLI commands before aborting (default: 15000)."
+        },
+        "beads.cli.retryCount": {
+          "type": "number",
+          "default": 1,
+          "minimum": 0,
+          "maximum": 5,
+          "description": "How many times to retry a bd CLI command after a timeout (default: 1). Set to 0 to disable retries."
+        },
+        "beads.cli.retryBackoffMs": {
+          "type": "number",
+          "default": 500,
+          "minimum": 0,
+          "maximum": 30000,
+          "description": "Delay in milliseconds before each bd CLI retry attempt (default: 500)."
+        },
+        "beads.offlineDetection.thresholdMs": {
+          "type": "number",
+          "default": 30000,
+          "minimum": 5000,
+          "maximum": 300000,
+          "description": "Total elapsed time in milliseconds across retries before treating the bd CLI as offline (default: 30000)."
         }
       }
     },

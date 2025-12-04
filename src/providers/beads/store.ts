@@ -4,7 +4,14 @@ import { promises as fs } from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { promisify } from 'util';
-import { BeadItemData, normalizeBead, extractBeads, resolveDataFilePath } from '../../utils';
+import {
+  BeadItemData,
+  normalizeBead,
+  extractBeads,
+  resolveDataFilePath,
+  getCliExecutionConfig,
+  execCliWithPolicy,
+} from '../../utils';
 
 const execFileAsync = promisify(execFile);
 
@@ -70,13 +77,20 @@ export async function findBdCommand(configPath: string): Promise<string> {
   throw new Error('bd command not found. Please install beads CLI: https://github.com/steveyegge/beads');
 }
 
-export async function loadBeads(projectRoot: string, config: vscode.WorkspaceConfiguration): Promise<{ items: BeadItemData[]; document: BeadsDocument; }> {
+export async function loadBeads(
+  projectRoot: string,
+  config: vscode.WorkspaceConfiguration
+): Promise<{ items: BeadItemData[]; document: BeadsDocument }> {
   const configPath = config.get<string>('commandPath', 'bd');
 
   try {
     const commandPath = await findBdCommand(configPath);
-    const { stdout } = await execFileAsync(commandPath, ['export'], {
+    const policy = getCliExecutionConfig(config);
+    const { stdout } = await execCliWithPolicy({
+      commandPath,
+      args: ['export'],
       cwd: projectRoot,
+      policy,
       maxBuffer: 10 * 1024 * 1024,
     });
 
@@ -97,7 +111,10 @@ export async function loadBeads(projectRoot: string, config: vscode.WorkspaceCon
   }
 }
 
-export async function loadBeadsFromFile(projectRoot: string, config: vscode.WorkspaceConfiguration): Promise<{ items: BeadItemData[]; document: BeadsDocument; }> {
+export async function loadBeadsFromFile(
+  projectRoot: string,
+  config: vscode.WorkspaceConfiguration
+): Promise<{ items: BeadItemData[]; document: BeadsDocument }> {
   const dataFileConfig = config.get<string>('dataFile', '.beads/issues.jsonl');
   const resolvedDataFile = resolveDataFilePath(dataFileConfig, projectRoot);
 

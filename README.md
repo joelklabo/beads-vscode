@@ -62,6 +62,10 @@ The extension integrates with the Beads CLI (`bd`) and reads from the Beads data
 - `beads.commandPath`: Path to the Beads CLI executable. Defaults to `bd`.
 - `beads.projectRoot`: Optional override for the working directory used when invoking the CLI or resolving relative data file paths.
 - `beads.dataFile`: Path to the Beads data file. Defaults to `.beads/issues.jsonl` (supports both JSONL and JSON formats).
+- `beads.cli.timeoutMs`: Per-command timeout (ms) for bd invocations; defaults to `15000`.
+- `beads.cli.retryCount`: Number of retry attempts after a timeout; defaults to `1` (set `0` to disable).
+- `beads.cli.retryBackoffMs`: Delay in milliseconds before each retry; defaults to `500`.
+- `beads.offlineDetection.thresholdMs`: Total elapsed time across attempts before treating bd as offline; defaults to `30000`.
 - `beads.staleThresholdMinutes`: Number of minutes after which an in-progress task is highlighted as stale. Defaults to `10` minutes. Tasks in progress longer than this threshold will appear in a "⚠️ Stale Tasks" warning section at the top of the tree view, helping identify potentially stuck work or forgotten tasks.
 - `beads.feedback.enabled`: Opt-in flag for the feedback flow. When off (default) all feedback commands/UI stay hidden.
 - `beads.feedback.repository`: GitHub target in `owner/repo` form. Required when enabling feedback.

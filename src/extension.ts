@@ -10,6 +10,8 @@ import {
   linkifyText,
   isStale,
   validateDependencyAdd,
+  getCliExecutionConfig,
+  execCliWithPolicy,
   warnIfDependencyEditingUnsupported as warnIfDependencyEditingUnsupportedCli,
 } from './utils';
 import { ActivityFeedTreeDataProvider, ActivityEventItem } from './activityFeedProvider';
@@ -106,11 +108,17 @@ async function runBdCommand(args: string[], projectRoot: string, options: BdComm
     await runWorktreeGuard(projectRoot);
   }
 
-  const commandPathSetting = vscode.workspace
-    .getConfiguration('beads', workspaceFolder)
-    .get<string>('commandPath', 'bd');
+  const config = vscode.workspace.getConfiguration('beads', workspaceFolder);
+  const commandPathSetting = config.get<string>('commandPath', 'bd');
   const commandPath = await findBdCommand(commandPathSetting);
-  await execFileAsync(commandPath, args, { cwd: projectRoot });
+  const cliPolicy = getCliExecutionConfig(config);
+
+  await execCliWithPolicy({
+    commandPath,
+    args,
+    cwd: projectRoot,
+    policy: cliPolicy,
+  });
 }
 
 type TreeItemType = StatusSectionItem | WarningSectionItem | EpicTreeItem | UngroupedSectionItem | BeadTreeItem;
