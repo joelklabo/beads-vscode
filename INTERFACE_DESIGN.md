@@ -399,3 +399,37 @@ User collapse/expand choices persist and override defaults on subsequent loads. 
 - Empty closed epics are hidden; empty open epics show a single placeholder row.
 - Ungrouped items (no parentId) remain in an expanded "Ungrouped" section.
 - Manual sort order is unchanged after toggling collapse states or switching between status/epic modes.
+
+## Assignee Badges, Sort, and WIP Panel (beads-vscode-an0)
+
+### Assignee badges
+- Text source: prefer `assignee.displayName`; fallback to `assignee.id` then the email local-part. Preserve incoming case; do not force uppercasing.
+- Truncation: badge pill clamps to ~14 visible characters with ellipsis; the full name always appears in the tooltip to avoid information loss.
+- Color scheme: deterministic hash of the normalized assignee string to pick from a 12-color accessible palette (light/dark variants). Text color and a 1px border auto-adjust to keep ≥4.5:1 contrast; high-contrast themes force neutral border + foreground.
+- Unassigned state: shows neutral gray pill labeled "Unassigned" with a tooltip hinting “Unassigned — assign to yourself”. Unassigned items never receive hashed colors.
+- Tooltip copy: `Assignee: <full display name>`; if the item is stale, append “ · Stale” to match tree badges.
+
+### Assignee sort mode
+- Sort cycle order: manual → status → updated → assignee → (loops). The last chosen sort persists per view (status vs epic) in workspaceState; unknown keys fall back to manual.
+- Assignee comparator: case-insensitive compare on normalized displayName; secondary key = status priority, then updatedAt to keep stability. Accented characters use `localeCompare(..., 'base')` semantics.
+- Placement rules: Unassigned items sort after named assignees; within the unassigned bucket, order by status priority then updatedAt. Manual order is never mutated—toggling back to manual restores the user’s saved ordering.
+
+### WIP (In-Progress Spotlight) panel
+- Content: summary row (total in-progress count, blocked count, stale count, oldest age), a mini list of the top 5 oldest/stalest in-progress beads with status + assignee pill, and an assignee breakdown bar (top 5 assignees with counts + stale dots).
+- Quick links: “View all in-progress”, “Filter by assignee” (clicking a bar segment applies that assignee filter), “Clear filters”, and a standard “Refresh” action reused from the explorer toolbar.
+- Data source & performance: computed from the already-loaded bead list—no extra bd calls. Recomputed on tree refresh, filter changes, or bd watcher events; debounced to avoid UI churn. Heavy lists cap detail rendering to the top 50 items while summary counts use the full set.
+- Refresh/visibility: respects existing filters/search; the panel hides entirely when there are zero in-progress beads. Offline mode shows the last computed snapshot with a “stale data” hint.
+
+### Edge cases
+- Missing/blank assignee → uses the Unassigned pill and lands in the trailing assignee bucket; tooltips still render.
+- Filtered views → WIP counts and badge totals reflect the filtered dataset; “Clear filters” returns both the tree and WIP panel to the full set.
+- Large lists → detail rows truncate at 50 items to keep rendering fast; summary counts remain accurate.
+- Stale detection → stale in-progress items get the same Warning styling and are not duplicated between the main tree and WIP list.
+
+### Manual QA checklist
+- Badge text truncates but tooltip shows the full assignee; hashed color stays consistent across refreshes.
+- Unassigned beads show a neutral pill and tooltip hint; contrast is readable in dark/light/high-contrast themes.
+- Sort cycle advances manual → status → updated → assignee and persists after reload; switching back restores manual ordering.
+- Assignee sort treats names case-insensitively; unassigned beads appear last; ties are stable via status/updatedAt.
+- WIP panel appears only when in-progress items exist; counts match the filtered set; clicking an assignee bar filters the tree accordingly.
+- No extra bd CLI calls occur when opening or refreshing the WIP panel; UI updates after tree refresh events.
