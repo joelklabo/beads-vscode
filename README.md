@@ -132,6 +132,10 @@ See [TESTING.md](TESTING.md) for more information about the test infrastructure.
 
 For the hardened worktree-based multi-agent flow (atomic claims, merge queue, heartbeats, WAL), see [docs/MULTI_AGENT_ORCHESTRATION.md](docs/MULTI_AGENT_ORCHESTRATION.md).
 
+### Security
+
+Little Glen webviews/hovers are being hardened with strict CSP and HTML sanitization. See [docs/security/little-glen-csp.md](docs/security/little-glen-csp.md) and [docs/security/little-glen-sanitization.md](docs/security/little-glen-sanitization.md) for the current plan.
+
 ### Running the Extension
 
 Launch the extension using the **Run > Start Debugging** command in VS Code. This will open a new Extension Development Host window with the Beads explorer view.
