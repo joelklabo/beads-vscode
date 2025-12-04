@@ -357,3 +357,45 @@ Icons are colored based on issue status:
 - **Closed**: Green checkmark (`pass` icon with `testing.iconPassed`)
 
 Closed issues always show a checkmark (✓) regardless of type.
+
+## Status & Epic Grouping Defaults (beads-vscode-y1a)
+
+### Section order
+- Warning (stale/at-risk bucket sourced from status + stale info)
+- Blocked
+- In Progress
+- Open
+- Closed
+- Unknown (fallback for missing/invalid status; shown last only when present)
+
+Blocked beats other non-stale buckets; stale items always surface in Warning even if blocked.
+
+### Default collapse policy
+- Warning: expanded (must stay visible)
+- Blocked: expanded
+- In Progress: expanded
+- Open: expanded
+- Closed: collapsed by default
+- Unknown: expanded (small count) but hidden when empty
+
+User collapse/expand choices persist and override defaults on subsequent loads. Manual sort order is preserved regardless of collapse state changes.
+
+### Epic mode parity & empty epics
+- Epic view mirrors the above collapse defaults per epic section: active epics expanded; closed epics collapsed by default.
+- "Empty epic" = epic with zero visible children after filters/search. Empty closed epics are hidden; empty open epics render a single placeholder row (“No issues yet”) to allow drop targets and keep manual sort stable.
+- Items lacking `parentId` stay in an "Ungrouped" section (expanded). Missing parent IDs never create phantom empties.
+
+### Edge cases & error handling
+- Persisted collapse state from previous sessions is honored even if defaults change.
+- Items with missing or unrecognized status fall into Unknown at the end of the list and are never treated as Warning unless stale metadata is present.
+- If a blocked item is also stale, it appears only once in Warning (not duplicated in Blocked).
+- Closed-but-empty sections remain collapsed and are eligible for auto-hide when empty after filters.
+
+### Manual QA checklist
+- Sections render in the exact order: Warning → Blocked → In Progress → Open → Closed → Unknown (when present).
+- Closed sections start collapsed; expanding/collapsing any section persists across refresh and reload.
+- A stale blocked bead appears in Warning only; a blocked non-stale bead appears in Blocked.
+- Unknown-status beads appear at the end and remain visible after refresh.
+- Empty closed epics are hidden; empty open epics show a single placeholder row.
+- Ungrouped items (no parentId) remain in an expanded "Ungrouped" section.
+- Manual sort order is unchanged after toggling collapse states or switching between status/epic modes.
