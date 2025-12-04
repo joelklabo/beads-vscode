@@ -33,6 +33,7 @@ import {
 } from './providers/beads/store';
 import { resolveProjectRoot } from './utils/workspace';
 import { computeFeedbackEnablement } from './feedback/enablement';
+import { getBulkActionsConfig } from './utils/config';
 import { registerSendFeedbackCommand } from './commands/sendFeedback';
 
 const execFileAsync = promisify(execFile);
@@ -3181,12 +3182,19 @@ export function activate(context: vscode.ExtensionContext): void {
   provider.setStatusBarItem(statusBarItem);
   context.subscriptions.push(statusBarItem);
 
+  const applyBulkActionsContext = (): void => {
+    const bulkConfig = getBulkActionsConfig();
+    void vscode.commands.executeCommand('setContext', 'beads.bulkActionsEnabled', bulkConfig.enabled);
+    void vscode.commands.executeCommand('setContext', 'beads.bulkActionsMaxSelection', bulkConfig.maxSelection);
+  };
+
   const applyFeedbackContext = (): void => {
     const enablement = computeFeedbackEnablement();
     provider.setFeedbackEnabled(enablement.enabled);
     void vscode.commands.executeCommand('setContext', 'beads.feedbackEnabled', enablement.enabled);
   };
 
+  applyBulkActionsContext();
   applyFeedbackContext();
 
   // Register provider disposal
@@ -3386,12 +3394,19 @@ export function activate(context: vscode.ExtensionContext): void {
       });
     }
 
+    if (event.affectsConfiguration('beads.bulkActions')) {
+      applyBulkActionsContext();
+    }
+
     if (event.affectsConfiguration('beads.feedback') || event.affectsConfiguration('beads.projectRoot')) {
       applyFeedbackContext();
     }
   });
 
-  const workspaceWatcher = vscode.workspace.onDidChangeWorkspaceFolders(() => applyFeedbackContext());
+  const workspaceWatcher = vscode.workspace.onDidChangeWorkspaceFolders(() => {
+    applyFeedbackContext();
+    applyBulkActionsContext();
+  });
 
   context.subscriptions.push(configurationWatcher, workspaceWatcher);
 
