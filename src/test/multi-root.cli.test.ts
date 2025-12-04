@@ -61,7 +61,11 @@ describe('Multi-root bd command resolution', () => {
       }
     }
 
+    const t = (message: string, ...args: any[]) =>
+      message.replace(/\{(\d+)\}/g, (_match, index) => String(args[Number(index)] ?? `{${index}}`));
+
     const vscodeStub = {
+      l10n: { t },
       workspace: {
         workspaceFolders,
         getWorkspaceFolder: (uri: any) => workspaceFolders.find((wf) => uri.fsPath.startsWith(wf.uri.fsPath)),
