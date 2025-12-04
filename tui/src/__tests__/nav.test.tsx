@@ -1,10 +1,10 @@
 import React from 'react';
 import assert from 'assert';
-import { render } from 'ink-testing-library';
 import App from '../app';
 
 describe('TUI navigation shell', () => {
-  it('jumps to Activity via g a chord', () => {
+  it('jumps to Activity via g a chord', async () => {
+    const { render } = await import('ink-testing-library');
     const { stdin, lastFrame, unmount } = render(<App initialTab="dashboard" cwd="/tmp" />);
 
     stdin.write('g');
@@ -16,7 +16,8 @@ describe('TUI navigation shell', () => {
     unmount();
   });
 
-  it('cycles tabs with arrow keys', () => {
+  it('cycles tabs with arrow keys', async () => {
+    const { render } = await import('ink-testing-library');
     const { stdin, lastFrame, unmount } = render(<App initialTab="dashboard" cwd="/tmp" />);
 
     stdin.write('\u001B[C'); // right arrow -> Issues
@@ -32,13 +33,19 @@ describe('TUI navigation shell', () => {
   });
 
   it('toggles theme with t key', async () => {
+    const { render } = await import('ink-testing-library');
     const { stdin, lastFrame, unmount } = render(<App initialTab="dashboard" cwd="/tmp" />);
 
     stdin.write('t');
-
     await new Promise((resolve) => setTimeout(resolve, 0));
+
     const frame = lastFrame() ?? '';
-    assert.ok(frame.toLowerCase().includes('theme: dark') || frame.toLowerCase().includes('theme: auto') || frame.toLowerCase().includes('theme: light'), frame);
+    assert.ok(
+      frame.toLowerCase().includes('theme: dark') ||
+        frame.toLowerCase().includes('theme: auto') ||
+        frame.toLowerCase().includes('theme: light'),
+      frame
+    );
 
     unmount();
   });
