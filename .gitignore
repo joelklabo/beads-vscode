@@ -6,6 +6,7 @@ out
 .beads/
 # Explicitly ignore claim lock created at runtime
 .beads/claim.lock
+.beads/merge.lock
 DISTRIBUTION.md
 AGENTS.md
 .gitattributes

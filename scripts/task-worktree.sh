@@ -73,6 +73,7 @@ bd_cmd() {
 with_lock() {
   local lockfile="$1"; shift
   local timeout="${LOCK_TIMEOUT:-$LOCK_TIMEOUT_DEFAULT}"
+  local quiet="${LOCK_QUIET:-0}"
 
   mkdir -p "$(dirname "$lockfile")"
 
@@ -127,10 +128,10 @@ PY
     done
 
     if [[ "$acquired" != true ]]; then
-      log_error "Failed to acquire lock: $lockfile (timeout ${timeout}s)"
+      [[ "$quiet" != 1 ]] && log_error "Failed to acquire lock: $lockfile (timeout ${timeout}s)"
       wait "$lock_pid" 2>/dev/null || true
       rm -f "$ready_file"
-      exit 1
+      exit 95
     fi
 
     "$@"
@@ -149,8 +150,8 @@ PY
 
     while ! mkdir "$fallback_lock" 2>/dev/null; do
       if (( SECONDS - start_ts >= timeout )); then
-        log_error "Failed to acquire lock: $lockfile (timeout ${timeout}s)"
-        return 1
+        [[ "$quiet" != 1 ]] && log_error "Failed to acquire lock: $lockfile (timeout ${timeout}s)"
+        return 95
       fi
       sleep 0.2
     done
@@ -165,10 +166,10 @@ PY
   fi
 
   (
-    flock -w "$timeout" 200 || {
-      log_error "Failed to acquire lock: $lockfile (timeout ${timeout}s)"
-      exit 1
-    }
+    if ! flock -w "$timeout" 200; then
+      [[ "$quiet" != 1 ]] && log_error "Failed to acquire lock: $lockfile (timeout ${timeout}s)"
+      exit 95
+    fi
     "$@"
   ) 200>"$lockfile"
 }
@@ -263,9 +264,9 @@ sweep_stale_heartbeats() {
       local task_json
       task_json=$(bd_cmd show "$hb_task" --json 2>/dev/null || echo '{}')
       local current_status
-      current_status=$(echo "$task_json" | grep -o '"status":"[^\"]*"' | cut -d'"' -f4 || echo "")
+      current_status=$(echo "$task_json" | grep -oE '"status"[[:space:]]*:[[:space:]]*"[^\"]*"' | head -n1 | sed 's/.*:[[:space:]]*"\([^\"]*\)".*/\1/' || echo "")
       local current_assignee
-      current_assignee=$(echo "$task_json" | grep -o '"assignee":"[^\"]*"' | cut -d'"' -f4 || echo "")
+      current_assignee=$(echo "$task_json" | grep -oE '"assignee"[[:space:]]*:[[:space:]]*"[^\"]*"' | head -n1 | sed 's/.*:[[:space:]]*"\([^\"]*\)".*/\1/' || echo "")
 
       if [[ "$current_status" != "in_progress" ]]; then
         rm -f "$hb"
@@ -294,8 +295,8 @@ verify_task_claimable() {
   
   # Get current task status
   local task_json=$(bd_cmd show "$task_id" --json 2>/dev/null || echo '{}')
-  local status=$(echo "$task_json" | grep -o '"status":"[^"]*"' | cut -d'"' -f4 || echo "")
-  local assignee=$(echo "$task_json" | grep -o '"assignee":"[^"]*"' | cut -d'"' -f4 || echo "")
+  local status=$(echo "$task_json" | grep -oE '"status"[[:space:]]*:[[:space:]]*"[^"]*"' | head -n1 | sed 's/.*:[[:space:]]*"\([^"]*\)".*/\1/' || echo "")
+  local assignee=$(echo "$task_json" | grep -oE '"assignee"[[:space:]]*:[[:space:]]*"[^"]*"' | head -n1 | sed 's/.*:[[:space:]]*"\([^"]*\)".*/\1/' || echo "")
   
   if [[ "$status" == "in_progress" ]]; then
     if [[ -n "$assignee" && "$assignee" != "$worker" ]]; then
@@ -411,6 +412,38 @@ Branch: $BRANCH"; then
     log_error "  git merge origin/$BRANCH --no-ff && git push origin main"
     exit 1
   fi
+}
+
+# Merge coordinator: serialize merges with fair locking and timeout
+merge_with_queue() {
+  local lockfile="${MERGE_LOCK:-${BEADS_DIR}/merge.lock}"
+  local max_wait="${MERGE_QUEUE_TIMEOUT:-300}"
+  local wait_step="${MERGE_QUEUE_INTERVAL:-5}"
+  local waited=0
+
+  while true; do
+    # Try to acquire the merge lock with a short timeout to allow progress logging
+    if LOCK_TIMEOUT="$wait_step" LOCK_QUIET=1 with_lock "$lockfile" perform_merge_sequence; then
+      return 0
+    fi
+
+    local rc=$?
+    if [[ $rc -ne 95 ]]; then
+      # Non-lock failure (e.g., merge/rebase error) - propagate immediately
+      return $rc
+    fi
+
+    waited=$(( waited + wait_step ))
+    if (( waited >= max_wait )); then
+      log_error "Error: Merge queue timeout after ${waited}s while waiting for lock $lockfile"
+      log_error "Another agent may be stuck merging. Retry shortly or investigate the stuck process."
+      return 1
+    fi
+
+    log_info "Waiting for merge slot... (${waited}s)"
+    # Add small jitter to avoid thundering herd when multiple agents wake up together
+    sleep $(( wait_step + RANDOM % wait_step ))
+  done
 }
 
 # Verify we're in a worktree, not the main repo
@@ -557,8 +590,8 @@ case "$COMMAND" in
     # Confirm claim persisted and is assigned to this worker
     log_step "Validating claim ownership..."
     task_json=$(bd_cmd show "$TASK_ID" --json 2>/dev/null || echo '{}')
-    task_status=$(echo "$task_json" | grep -o '"status":"[^\"]*"' | cut -d'"' -f4 || echo "")
-    task_assignee=$(echo "$task_json" | grep -o '"assignee":"[^\"]*"' | cut -d'"' -f4 || echo "")
+    task_status=$(echo "$task_json" | grep -oE '"status"[[:space:]]*:[[:space:]]*"[^\"]*"' | head -n1 | sed 's/.*:[[:space:]]*"\([^\"]*\)".*/\1/' || echo "")
+    task_assignee=$(echo "$task_json" | grep -oE '"assignee"[[:space:]]*:[[:space:]]*"[^\"]*"' | head -n1 | sed 's/.*:[[:space:]]*"\([^\"]*\)".*/\1/' || echo "")
     if [[ "$task_status" != "in_progress" || "$task_assignee" != "$WORKER" ]]; then
       log_error "Task claim lost (status=$task_status, assignee=$task_assignee). Aborting."
       log_step "Cleaning up worktree..."
@@ -614,7 +647,7 @@ case "$COMMAND" in
     WORKTREE_PATH=$(get_worktree_path "$WORKER" "$TASK_ID")
     init_env
     detect_lock_backend
-    MERGE_LOCK="${LOCK_DIR}/merge-queue.lock"
+    MERGE_LOCK="${BEADS_DIR}/merge.lock"
     HEARTBEAT_FILE="${HEARTBEAT_DIR}/${WORKER}__${TASK_ID}.hb"
     HEARTBEAT_PID_FILE="${WORKTREE_PATH}/.heartbeat.pid"
     
@@ -652,8 +685,8 @@ case "$COMMAND" in
     log_info "Branch has $COMMITS_AHEAD commit(s) to merge"
     
     # Serialize rebase + merge to avoid thundering herd
-    log_step "Queueing for merge (lock: $MERGE_LOCK)..."
-    LOCK_TIMEOUT=300 with_lock "$MERGE_LOCK" perform_merge_sequence
+    log_step "Queueing for merge (lock: $MERGE_LOCK, timeout ${MERGE_QUEUE_TIMEOUT:-300}s)..."
+    MERGE_QUEUE_TIMEOUT="${MERGE_QUEUE_TIMEOUT:-300}" merge_with_queue
 
     log_step "Stopping heartbeat monitor..."
     stop_heartbeat "$HEARTBEAT_FILE" "$HEARTBEAT_PID_FILE"
