@@ -19,6 +19,12 @@ export interface FeedbackConfig {
   validationError?: string;
 }
 
+export interface BulkActionsConfig {
+  enabled: boolean;
+  maxSelection: number;
+  validationError?: string;
+}
+
 export interface CliExecutionConfig {
   timeoutMs: number;
   retryCount: number;
@@ -35,6 +41,10 @@ const DEFAULT_FEEDBACK_LABELS: FeedbackLabelMap = Object.freeze({
   other: 'feedback'
 });
 
+const DEFAULT_BULK_MAX_SELECTION = 50;
+const MIN_BULK_SELECTION = 1;
+const MAX_BULK_SELECTION = 200;
+
 function normalizeFeedbackLabels(raw: FeedbackLabelMap | undefined): FeedbackLabelMap {
   const merged: FeedbackLabelMap = { ...DEFAULT_FEEDBACK_LABELS };
 
@@ -49,6 +59,28 @@ function normalizeFeedbackLabels(raw: FeedbackLabelMap | undefined): FeedbackLab
   }
 
   return merged;
+}
+
+function normalizeBulkMaxSelection(raw: number | undefined): { maxSelection: number; validationError?: string } {
+  if (raw === undefined || raw === null) {
+    return { maxSelection: DEFAULT_BULK_MAX_SELECTION };
+  }
+
+  if (!Number.isFinite(raw) || !Number.isInteger(raw)) {
+    return {
+      maxSelection: DEFAULT_BULK_MAX_SELECTION,
+      validationError: 'bulkActions.maxSelection must be an integer between 1 and 200'
+    };
+  }
+
+  if (raw < MIN_BULK_SELECTION || raw > MAX_BULK_SELECTION) {
+    return {
+      maxSelection: DEFAULT_BULK_MAX_SELECTION,
+      validationError: 'bulkActions.maxSelection must be between 1 and 200'
+    };
+  }
+
+  return { maxSelection: raw };
 }
 
 function clampNumber(value: unknown, fallback: number, min: number, max: number): number {
@@ -91,6 +123,20 @@ export function getFeedbackConfig(workspaceFolder?: vscode.WorkspaceFolder): Fee
     useGitHubCli,
     includeAnonymizedLogs,
     validationError: enabledFlag && !repoValid ? 'feedback.repository must use owner/repo format' : undefined
+  };
+}
+
+export function getBulkActionsConfig(workspaceFolder?: vscode.WorkspaceFolder): BulkActionsConfig {
+  const config = resolveConfig(workspaceFolder);
+  const enabled = config.get<boolean>('bulkActions.enabled', false);
+  const { maxSelection, validationError } = normalizeBulkMaxSelection(
+    config.get<number>('bulkActions.maxSelection', DEFAULT_BULK_MAX_SELECTION)
+  );
+
+  return {
+    enabled: enabled && !validationError,
+    maxSelection,
+    validationError,
   };
 }
 

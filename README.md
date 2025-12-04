@@ -73,6 +73,8 @@ The extension integrates with the Beads CLI (`bd`) and reads from the Beads data
 - `beads.feedback.useGitHubCli`: Prefer the `gh` CLI for submissions when available. Defaults to `false`.
 - `beads.feedback.includeAnonymizedLogs`: Allow attaching sanitized logs/metadata when sending feedback (default: `true`).
 - `beads.enableDependencyEditing`: Experimental flag (default: `false`) to show dependency add/remove UI. Requires `bd` CLI version `>= 0.29.0`; the extension will warn if the CLI is too old.
+- `beads.bulkActions.enabled`: Experimental flag (default: `false`) to surface bulk status/label commands. When off, bulk commands and menus stay hidden.
+- `beads.bulkActions.maxSelection`: Maximum number of items allowed in a single bulk action (default: `50`, valid range `1-200`). Invalid values fall back to the default.
 
 ## How to Use
 

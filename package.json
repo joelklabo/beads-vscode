@@ -225,6 +225,18 @@
           "default": false,
           "markdownDescription": "Enable experimental dependency editing UI (add/remove). Requires bd CLI support; shows warning when CLI version is too old."
         },
+        "beads.bulkActions.enabled": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Enable experimental bulk status/label actions in the tree and activity feed. When disabled, bulk commands and menus are hidden."
+        },
+        "beads.bulkActions.maxSelection": {
+          "type": "integer",
+          "default": 50,
+          "minimum": 1,
+          "maximum": 200,
+          "markdownDescription": "Maximum number of items allowed in a bulk action selection. Values outside 1-200 are ignored and the default is used."
+        },
         "beads.cli.timeoutMs": {
           "type": "number",
           "default": 15000,
