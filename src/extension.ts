@@ -12,7 +12,7 @@ import {
   formatError,
   escapeHtml,
   linkifyText,
-  createTooltip
+  formatRelativeTime
 } from './utils';
 
 const execFileAsync = promisify(execFile);
@@ -565,22 +565,48 @@ class BeadTreeItem extends vscode.TreeItem {
     const label = `${bead.id} ${bead.title}`;
     super(label, vscode.TreeItemCollapsibleState.None);
 
-    const parts: string[] = [];
-    if (bead.tags && bead.tags.length > 0) {
-      parts.push(bead.tags.join(', '));
+    // Build rich description with multiple pieces of info
+    const descParts: string[] = [];
+    
+    // Add description preview (first 40 chars)
+    if (bead.description) {
+      const preview = bead.description.substring(0, 40).replace(/\n/g, ' ').trim();
+      descParts.push(preview + (bead.description.length > 40 ? '…' : ''));
     }
-    if (bead.externalReferenceId) {
-      if (bead.externalReferenceDescription) {
-        parts.push(`${bead.externalReferenceId} (${bead.externalReferenceDescription})`);
-      } else {
-        parts.push(bead.externalReferenceId);
+    
+    // Add relative timestamp
+    if (bead.updatedAt) {
+      const relTime = formatRelativeTime(bead.updatedAt);
+      if (relTime) {
+        descParts.push(relTime);
       }
     }
-    if (parts.length > 0) {
-      this.description = parts.join(' · ');
+    
+    // Add blocking dependency indicator
+    if (bead.blockingDepsCount && bead.blockingDepsCount > 0) {
+      descParts.push(`⏳ ${bead.blockingDepsCount} blocker${bead.blockingDepsCount > 1 ? 's' : ''}`);
+    }
+    
+    // Add tags if present (moved to the end)
+    if (bead.tags && bead.tags.length > 0) {
+      descParts.push(`[${bead.tags.join(', ')}]`);
+    }
+    
+    // Add external reference if present
+    if (bead.externalReferenceId) {
+      if (bead.externalReferenceDescription) {
+        descParts.push(`↗ ${bead.externalReferenceDescription}`);
+      } else {
+        descParts.push(`↗ ${bead.externalReferenceId}`);
+      }
+    }
+    
+    if (descParts.length > 0) {
+      this.description = descParts.join(' · ');
     }
 
-    this.tooltip = createTooltip(bead);
+    // Build rich tooltip with all details
+    this.tooltip = this.buildRichTooltip(bead);
 
     // Use different icons based on status
     if (bead.status === 'closed') {
@@ -592,6 +618,61 @@ class BeadTreeItem extends vscode.TreeItem {
     } else {
       this.iconPath = new vscode.ThemeIcon('symbol-event');
     }
+  }
+  
+  private buildRichTooltip(bead: BeadItemData): vscode.MarkdownString {
+    const md = new vscode.MarkdownString();
+    md.isTrusted = true;
+    md.supportHtml = true;
+    
+    // Title and ID
+    md.appendMarkdown(`### ${bead.id}\n\n`);
+    md.appendMarkdown(`**${bead.title}**\n\n`);
+    
+    // Status with colored indicator
+    const statusEmoji: Record<string, string> = {
+      'open': '🔵',
+      'in_progress': '🟡',
+      'blocked': '🔴',
+      'closed': '🟢'
+    };
+    const statusDisplay = (bead.status || 'open').split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+    md.appendMarkdown(`${statusEmoji[bead.status || 'open'] || '⚪'} **Status:** ${statusDisplay}\n\n`);
+    
+    // Description preview
+    if (bead.description) {
+      const preview = bead.description.substring(0, 200).replace(/\n/g, ' ').trim();
+      md.appendMarkdown(`📝 ${preview}${bead.description.length > 200 ? '…' : ''}\n\n`);
+    }
+    
+    // Tags
+    if (bead.tags && bead.tags.length > 0) {
+      md.appendMarkdown(`🏷️ ${bead.tags.join(', ')}\n\n`);
+    }
+    
+    // Blocking dependencies
+    if (bead.blockingDepsCount && bead.blockingDepsCount > 0) {
+      md.appendMarkdown(`⏳ **Waiting on ${bead.blockingDepsCount} blocker${bead.blockingDepsCount > 1 ? 's' : ''}**\n\n`);
+    }
+    
+    // Timestamps
+    if (bead.updatedAt) {
+      const relTime = formatRelativeTime(bead.updatedAt);
+      md.appendMarkdown(`🕐 Updated ${relTime}\n\n`);
+    }
+    
+    // External reference
+    if (bead.externalReferenceId) {
+      const displayText = bead.externalReferenceDescription || bead.externalReferenceId;
+      md.appendMarkdown(`↗️ **External:** ${displayText}\n\n`);
+    }
+    
+    // File path
+    if (bead.filePath) {
+      md.appendMarkdown(`📁 ${bead.filePath}\n`);
+    }
+    
+    return md;
   }
 }
 
