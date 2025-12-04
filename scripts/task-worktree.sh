@@ -65,8 +65,22 @@ init_env() {
   init_db
 }
 
+clean_stale_admin_dirs() {
+  local git_common
+  git_common=$(git -C "$MAIN_REPO" rev-parse --git-common-dir 2>/dev/null || echo "$MAIN_REPO/.git")
+
+  # Prune git-managed admin directories and drop empty bead admin dirs
+  git -C "$MAIN_REPO" worktree prune >/dev/null 2>&1 || true
+
+  for dir in "$git_common/worktrees" "$git_common/beads-worktrees"; do
+    [[ -d "$dir" ]] || continue
+    find "$dir" -mindepth 1 -maxdepth 1 -type d -empty -delete 2>/dev/null || true
+  done
+}
+
 bd_cmd() {
   init_env
+  clean_stale_admin_dirs
   # Guard against duplicate/invalid worktree state before bd mutations
   if [[ -x "${MAIN_REPO}/scripts/worktree-guard.sh" ]]; then
     QUIET=1 "${MAIN_REPO}/scripts/worktree-guard.sh" || {
