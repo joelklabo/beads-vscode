@@ -14,6 +14,8 @@ import {
   linkifyText,
   formatRelativeTime
 } from './utils';
+import { ActivityFeedTreeDataProvider } from './activityFeedProvider';
+import { EventType } from './activityFeed';
 
 const execFileAsync = promisify(execFile);
 
@@ -2551,8 +2553,16 @@ export function activate(context: vscode.ExtensionContext): void {
     dragAndDropController: provider,
     canSelectMany: true,
   });
+
+  // Activity Feed Provider
+  const activityFeedProvider = new ActivityFeedTreeDataProvider(context);
+  const activityFeedView = vscode.window.createTreeView('activityFeed', {
+    treeDataProvider: activityFeedProvider,
+  });
+
   context.subscriptions.push(
     treeView,
+    activityFeedView,
     vscode.commands.registerCommand('beads.refresh', () => provider.refresh()),
     vscode.commands.registerCommand('beads.search', () => provider.search()),
     vscode.commands.registerCommand('beads.clearSearch', () => provider.clearSearch()),
@@ -2561,6 +2571,61 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('beads.openBead', (item: BeadItemData) => openBead(item, provider)),
     vscode.commands.registerCommand('beads.createBead', () => createBead()),
     vscode.commands.registerCommand('beads.visualizeDependencies', () => visualizeDependencies(provider)),
+    
+    // Activity Feed commands
+    vscode.commands.registerCommand('beads.refreshActivityFeed', () => activityFeedProvider.refresh()),
+    vscode.commands.registerCommand('beads.filterActivityFeed', async () => {
+      const options: vscode.QuickPickItem[] = [
+        { label: 'All Events', description: 'Show all event types' },
+        { label: 'Created', description: 'Show issue creation events' },
+        { label: 'Closed', description: 'Show issue closed events' },
+        { label: 'Status Changes', description: 'Show status change events' },
+        { label: 'Dependencies', description: 'Show dependency events' },
+        { label: 'Today', description: 'Show events from today' },
+        { label: 'This Week', description: 'Show events from this week' },
+        { label: 'This Month', description: 'Show events from this month' },
+      ];
+
+      const selection = await vscode.window.showQuickPick(options, {
+        placeHolder: 'Filter activity feed by...',
+      });
+
+      if (!selection) {
+        return;
+      }
+
+      switch (selection.label) {
+        case 'All Events':
+          activityFeedProvider.clearFilters();
+          break;
+        case 'Created':
+          activityFeedProvider.setEventTypeFilter(['created'] as EventType[]);
+          break;
+        case 'Closed':
+          activityFeedProvider.setEventTypeFilter(['closed'] as EventType[]);
+          break;
+        case 'Status Changes':
+          activityFeedProvider.setEventTypeFilter(['status_changed'] as EventType[]);
+          break;
+        case 'Dependencies':
+          activityFeedProvider.setEventTypeFilter(['dependency_added', 'dependency_removed'] as EventType[]);
+          break;
+        case 'Today':
+          activityFeedProvider.setTimeRangeFilter('today');
+          break;
+        case 'This Week':
+          activityFeedProvider.setTimeRangeFilter('week');
+          break;
+        case 'This Month':
+          activityFeedProvider.setTimeRangeFilter('month');
+          break;
+      }
+    }),
+    vscode.commands.registerCommand('beads.clearActivityFeedFilter', () => {
+      activityFeedProvider.clearFilters();
+      void vscode.window.showInformationMessage('Activity feed filter cleared');
+    }),
+
     vscode.commands.registerCommand('beads.editExternalReference', async (item: BeadItemData) => {
       if (!item) {
         return;

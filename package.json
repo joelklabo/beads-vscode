@@ -72,6 +72,21 @@
         "icon": "$(arrow-swap)"
       },
       {
+        "command": "beads.refreshActivityFeed",
+        "title": "Beads: Refresh Activity Feed",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "beads.filterActivityFeed",
+        "title": "Beads: Filter Activity Feed",
+        "icon": "$(filter)"
+      },
+      {
+        "command": "beads.clearActivityFeedFilter",
+        "title": "Beads: Clear Activity Feed Filter",
+        "icon": "$(clear-all)"
+      },
+      {
         "command": "beads.deleteBeads",
         "title": "Beads: Delete",
         "icon": "$(trash)"
@@ -91,6 +106,10 @@
         {
           "id": "beadsExplorer",
           "name": "Issues"
+        },
+        {
+          "id": "activityFeed",
+          "name": "Activity Feed"
         }
       ]
     },
@@ -151,6 +170,21 @@
           "command": "beads.clearSortOrder",
           "when": "view == beadsExplorer",
           "group": "1_sort@1"
+        },
+        {
+          "command": "beads.filterActivityFeed",
+          "when": "view == activityFeed",
+          "group": "navigation@1"
+        },
+        {
+          "command": "beads.clearActivityFeedFilter",
+          "when": "view == activityFeed",
+          "group": "navigation@2"
+        },
+        {
+          "command": "beads.refreshActivityFeed",
+          "when": "view == activityFeed",
+          "group": "navigation@3"
         }
       ],
       "view/item/context": [
