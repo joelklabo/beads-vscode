@@ -142,6 +142,16 @@
           "default": 10,
           "minimum": 1,
           "description": "Number of minutes after which an in-progress task is highlighted as stale. Tasks in progress longer than this threshold will be visually flagged to help identify potentially stuck work."
+        },
+        "beads.enableWorktreeGuard": {
+          "type": "boolean",
+          "default": true,
+          "description": "Run worktree guard before mutating bd commands to prevent duplicate/unsafe worktrees"
+        },
+        "beads.autoApplyWorktreeLabel": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show current worktree label in Beads views and tooltips"
         }
       }
     },

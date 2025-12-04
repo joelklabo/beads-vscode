@@ -114,6 +114,14 @@ export const syncRegistry = (repoRoot: string, staleAfterMs = 5 * 60 * 1000) => 
   return fresh;
 };
 
+export const currentWorktreeId = (repoRoot: string): string | undefined => {
+  const match = repoRoot.match(/worktrees\/(.+?)\/(.+?)$/);
+  if (match) {
+    return `${match[1]}/${match[2]}`;
+  }
+  return undefined;
+};
+
 export type AuditIssue =
   | { type: 'missing_path'; path: string; id?: string }
   | { type: 'duplicate'; id: string; paths: string[] }
