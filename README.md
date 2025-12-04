@@ -9,6 +9,7 @@ This Visual Studio Code extension provides a simple explorer view for [Beads](ht
 - **Dedicated Activity Bar**: Beads has its own dedicated view in the VS Code activity bar for easy access.
 - **Tree View**: Explorer view that lists all beads for the current workspace with status-based icons.
 - **Live Data Sync**: Automatically watches the Beads database for changes and refreshes the view in real-time.
+- **Stale Task Warning**: Automatically detects and highlights in-progress tasks that have been stale for too long. A warning section at the top of the tree view shows tasks that exceed the configurable threshold, helping identify potentially stuck work or forgotten tasks.
 - **Search**: Search across beads by ID, title, description, labels, status, assignee, and more.
 - **Drag and Drop Sorting**: Manually reorder beads in the tree view with drag-and-drop support.
 - **Dependency Visualization**: Interactive dependency graph showing relationships between beads with draggable nodes.
@@ -56,6 +57,7 @@ The extension integrates with the Beads CLI (`bd`) and reads from the Beads data
 - `beads.commandPath`: Path to the Beads CLI executable. Defaults to `bd`.
 - `beads.projectRoot`: Optional override for the working directory used when invoking the CLI or resolving relative data file paths.
 - `beads.dataFile`: Path to the Beads data file. Defaults to `.beads/issues.jsonl` (supports both JSONL and JSON formats).
+- `beads.staleThresholdMinutes`: Number of minutes after which an in-progress task is highlighted as stale. Defaults to `10` minutes. Tasks in progress longer than this threshold will appear in a "⚠️ Stale Tasks" warning section at the top of the tree view, helping identify potentially stuck work or forgotten tasks.
 
 ## How to Use
 
@@ -74,6 +76,7 @@ The extension integrates with the Beads CLI (`bd`) and reads from the Beads data
 - 🟡 **Yellow clock**: In Progress
 - 🔴 **Red error**: Blocked
 - 🔵 **Blue circle**: Open
+- ⚠️ **Warning section**: Stale tasks (in-progress tasks that have exceeded the configured time threshold)
 
 ## Development
 
@@ -112,6 +115,7 @@ Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for gui
 ## Distribution
 
 See [DISTRIBUTION.md](DISTRIBUTION.md) for information on:
+
 - Publishing to VS Code Marketplace
 - Creating GitHub releases
 - Local installation methods

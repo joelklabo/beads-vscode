@@ -190,6 +190,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   private pendingRefresh: boolean = false;
   private debounceTimer: NodeJS.Timeout | undefined;
   private staleRefreshTimer: NodeJS.Timeout | undefined;
+  private treeView: vscode.TreeView<TreeItemType> | undefined;
 
   // Manual sort order: Map<issueId, sortIndex>
   private manualSortOrder: Map<string, number> = new Map();
@@ -230,6 +231,33 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
       this.staleRefreshTimer = undefined;
     }
     this.disposeWatcher();
+  }
+
+  setTreeView(treeView: vscode.TreeView<TreeItemType>): void {
+    this.treeView = treeView;
+  }
+
+  private updateBadge(): void {
+    if (!this.treeView) {
+      return;
+    }
+
+    // Get stale threshold from configuration (in minutes, convert to hours for isStale)
+    const config = vscode.workspace.getConfiguration('beads');
+    const thresholdMinutes = config.get<number>('staleThresholdMinutes', 10);
+    const thresholdHours = thresholdMinutes / 60;
+
+    // Count stale in_progress items
+    const staleCount = this.items.filter(item => isStale(item, thresholdHours)).length;
+
+    if (staleCount > 0) {
+      this.treeView.badge = {
+        tooltip: `${staleCount} stale task${staleCount !== 1 ? 's' : ''} (in progress > ${thresholdMinutes} min)`,
+        value: staleCount
+      };
+    } else {
+      this.treeView.badge = undefined;
+    }
   }
 
   getTreeItem(element: TreeItemType): vscode.TreeItem {
@@ -425,6 +453,9 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
       console.log('[Provider DEBUG] After loadBeads, items count:', this.items.length);
       console.log('[Provider DEBUG] Items IDs:', this.items.map(i => i.id).slice(0, 10));
       this.ensureWatcher(result.document.filePath);
+
+      // Update badge with stale count
+      this.updateBadge();
 
       this.onDidChangeTreeDataEmitter.fire();
 
@@ -3073,6 +3104,9 @@ export function activate(context: vscode.ExtensionContext): void {
     dragAndDropController: provider,
     canSelectMany: true,
   });
+
+  // Set tree view reference for badge updates
+  provider.setTreeView(treeView);
 
   // Register provider disposal
   context.subscriptions.push({ dispose: () => provider.dispose() });
