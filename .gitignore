@@ -7,6 +7,9 @@ out
 # Explicitly ignore claim lock created at runtime
 .beads/claim.lock
 .beads/merge.lock
+.beads/*.lock
+.beads/heartbeats/
+.npm-cache-*/
 DISTRIBUTION.md
 AGENTS.md
 .gitattributes
