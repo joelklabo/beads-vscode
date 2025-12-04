@@ -17,7 +17,7 @@ import {
   formatRelativeTimeDetailed,
 } from './activityFeed';
 import { currentWorktreeId } from './worktree';
-import { formatError } from './utils';
+import { buildPreviewSnippet, formatError, stripBeadIdPrefix } from './utils';
 
 /**
  * Time group section item for organizing events by time period
@@ -67,13 +67,28 @@ export class ActivityEventItem extends vscode.TreeItem {
   public readonly event: EventData;
 
   constructor(event: EventData, worktreeId?: string) {
-    super(event.description, vscode.TreeItemCollapsibleState.None);
+    const cleanTitle = stripBeadIdPrefix(event.issueTitle || event.description || event.issueId, event.issueId);
+    super(cleanTitle || event.description || event.issueId, vscode.TreeItemCollapsibleState.None);
 
     this.event = event;
     this.contextValue = 'activityEvent';
 
-    // Show relative time as description
-    this.description = formatRelativeTimeDetailed(event.createdAt);
+    // Secondary text shows ID, snippet, and relative time
+    const summary = buildEventSummary(event);
+    const descParts = [event.issueId];
+    if (summary) {
+      const preview = buildPreviewSnippet(summary, 80);
+      if (preview) {
+        descParts.push(preview);
+      }
+    }
+
+    const relative = formatRelativeTimeDetailed(event.createdAt);
+    if (relative) {
+      descParts.push(relative);
+    }
+
+    this.description = descParts.join(' · ');
 
     // Event-specific icon with color
     const iconColors: Record<string, string> = {
@@ -91,7 +106,7 @@ export class ActivityEventItem extends vscode.TreeItem {
     );
 
     // Rich tooltip
-    this.tooltip = this.buildTooltip(event, worktreeId);
+    this.tooltip = this.buildTooltip(event, worktreeId, summary);
 
     // Command to navigate to the issue (opens via extension handler)
     this.command = {
@@ -101,15 +116,15 @@ export class ActivityEventItem extends vscode.TreeItem {
     };
   }
 
-  private buildTooltip(event: EventData, worktreeId?: string): vscode.MarkdownString {
+  private buildTooltip(event: EventData, worktreeId: string | undefined, summary: string | undefined): vscode.MarkdownString {
     const md = new vscode.MarkdownString();
     md.isTrusted = true;
 
-    md.appendMarkdown(`**${event.description}**\n\n`);
+    md.appendMarkdown(`**${event.issueTitle || event.description || event.issueId}**\n\n`);
     md.appendMarkdown(`📋 Issue: \`${event.issueId}\`\n\n`);
 
-    if (event.issueTitle) {
-      md.appendMarkdown(`📝 ${event.issueTitle}\n\n`);
+    if (summary) {
+      md.appendMarkdown(`${summary}\n\n`);
     }
 
     md.appendMarkdown(`👤 Actor: ${event.actor}\n\n`);
@@ -120,6 +135,22 @@ export class ActivityEventItem extends vscode.TreeItem {
 
     return md;
   }
+}
+
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function buildEventSummary(event: EventData): string | undefined {
+  const base = (event.comment || event.description || '').trim();
+  if (!base) {
+    return undefined;
+  }
+
+  const pattern = new RegExp(`#?${escapeRegex(event.issueId)}`, 'gi');
+  const cleaned = base.replace(pattern, '').replace(/\s+/g, ' ').trim();
+
+  return cleaned || base;
 }
 
 /**
