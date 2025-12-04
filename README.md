@@ -61,6 +61,11 @@ The extension integrates with the Beads CLI (`bd`) and reads from the Beads data
 - `beads.projectRoot`: Optional override for the working directory used when invoking the CLI or resolving relative data file paths.
 - `beads.dataFile`: Path to the Beads data file. Defaults to `.beads/issues.jsonl` (supports both JSONL and JSON formats).
 - `beads.staleThresholdMinutes`: Number of minutes after which an in-progress task is highlighted as stale. Defaults to `10` minutes. Tasks in progress longer than this threshold will appear in a "⚠️ Stale Tasks" warning section at the top of the tree view, helping identify potentially stuck work or forgotten tasks.
+- `beads.feedback.enabled`: Opt-in flag for the feedback flow. When off (default) all feedback commands/UI stay hidden.
+- `beads.feedback.repository`: GitHub target in `owner/repo` form. Required when enabling feedback.
+- `beads.feedback.labels`: Map feedback types (bug, feature, question, other) to GitHub labels. Defaults to `bug`, `enhancement`, `question`, and `feedback`.
+- `beads.feedback.useGitHubCli`: Prefer the `gh` CLI for submissions when available. Defaults to `false`.
+- `beads.feedback.includeAnonymizedLogs`: Allow attaching sanitized logs/metadata when sending feedback (default: `true`).
 
 ## How to Use
 

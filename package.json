@@ -160,6 +160,60 @@
           "type": "boolean",
           "default": true,
           "description": "Show current worktree label in Beads views and tooltips"
+        },
+        "beads.feedback.enabled": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Enable the experimental feedback flow. When disabled, feedback commands and UI are hidden."
+        },
+        "beads.feedback.repository": {
+          "type": "string",
+          "default": "",
+          "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$",
+          "patternErrorMessage": "Use the GitHub owner/repo format, for example: acme/widgets",
+          "markdownDescription": "Default GitHub repository for feedback issues (owner/repo). Required when feedback is enabled."
+        },
+        "beads.feedback.labels": {
+          "type": "object",
+          "default": {
+            "bug": "bug",
+            "feature": "enhancement",
+            "question": "question",
+            "other": "feedback"
+          },
+          "properties": {
+            "bug": {
+              "type": "string",
+              "markdownDescription": "Label applied to bug reports"
+            },
+            "feature": {
+              "type": "string",
+              "markdownDescription": "Label applied to feature requests"
+            },
+            "question": {
+              "type": "string",
+              "markdownDescription": "Label applied to questions or requests for clarification"
+            },
+            "other": {
+              "type": "string",
+              "markdownDescription": "Fallback label when the feedback type is not specified"
+            }
+          },
+          "additionalProperties": {
+            "type": "string",
+            "markdownDescription": "Extra feedback type → label mappings (string)."
+          },
+          "markdownDescription": "Map feedback types to GitHub labels. Leave a value empty to skip labeling for that type."
+        },
+        "beads.feedback.useGitHubCli": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Use the GitHub CLI (gh) for feedback submission when available. Falls back to API when disabled."
+        },
+        "beads.feedback.includeAnonymizedLogs": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Allow attaching anonymized logs/metadata when sending feedback. Users are prompted before logs are included."
         }
       }
     },
