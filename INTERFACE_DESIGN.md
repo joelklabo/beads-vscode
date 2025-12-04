@@ -265,6 +265,67 @@ Test with mocked `execFile`:
 - Add issue templates
 - Add custom views (by priority, assignee, etc.)
 
+## AI Workflows & UX Contract (beads-vscode-19i)
+
+### Surfaces
+- **Chat participant (`@beads`)**: Copilot/vscode.lm chat + inline chat.
+- **Quick actions**: command palette / quick pick (“Summarize bead”, “Draft update”, “Suggest next step”).
+- **Risk scorer**: background LM classifying risk/staleness with mitigations (opt-in).
+- **Onboarding helper**: short tips + guard remediation guidance.
+
+### Shared context payload
+```jsonc
+{
+  "bead": { "id": "ABC-123", "title": "...", "status": "in_progress", "labels": ["frontend"], "parentId": "EPIC-9", "updatedAt": "2025-12-01T18:10:11Z" },
+  "selection": { "file": "src/foo.ts", "start": 120, "end": 145, "text": "selected code" },
+  "worktree": { "id": "Marvin/beads-vscode-123", "path": "/Users/.../worktrees/Marvin/beads-vscode-123" },
+  "telemetryConsent": true,
+  "modelHints": { "provider": "copilot|openai|ollama", "family": "gpt-4.1|gpt-5|gemini" }
+}
+```
+
+### Prompt templates (summaries)
+- **Chat ask (bead-aware)**  
+  ```
+  System: You are Beads assistant. Keep responses concise; prefer actionable steps.
+  Context: {bead fields, optional selection, worktree id}
+  User: {user message}
+  ```
+- **Quick action: Summarize bead** — Summarize for standup in ≤80 words using id/title/status/labels/blockers.
+- **Quick action: Next step** — Output JSON: {"next_step":"...","rationale":"...","confidence":0-1}
+- **Risk scorer** — Input: status, updatedAt, blockingDepsCount, labels. Output JSON: {"risk":"high|medium|low","reason":"...","actions":["..."]}.
+- **Onboarding tip** — Explain create/search/update + worktree guard in <120 words; no links except http/https.
+
+### Sequence sketch (chat)
+```
+User → Chat UI → Beads participant
+  ↳ Gather context (bead + selection + worktree + consent)
+  ↳ Build prompt + model hints
+  → LM call (Copilot or vscode.lm provider)
+  ← Response
+  ↳ Render markdown/actions; on error show toast + fallback quick-pick “Copy prompt” / “Retry smaller context”
+```
+
+### Error / fallback matrix
+| Condition | UX | Notes |
+| --- | --- | --- |
+| No model available | Toast: “AI unavailable. Configure provider or Copilot.” Offer settings command. | Do not open browser automatically. |
+| Timeout / rate limit | Toast with retry + backoff; log to output channel without PII. | Honor Retry-After. |
+| Context too large | Offer resend with truncated selection; show token estimate. | Never drop text silently. |
+| Workspace not trusted | Block and prompt to enable trust. | |
+| Telemetry off | Skip analytics; allow LM if user key provided. | |
+
+### Inputs / outputs per surface
+- **Chat**: input = text + context; output = sanitized markdown + optional actions (`openBead`, `insertCode`, `copy`).
+- **Quick actions**: input = bead id; output = JSON rendered to quick pick / notification.
+- **Risk scorer**: input = bead metadata only; output = risk JSON.
+- **Onboarding**: input = current view + optional error; output = markdown tip.
+
+### Open questions / owners
+- Persist model choice per workspace? (owner: Marvin)
+- Send file snippets only with per-invocation consent? (owner: PM)
+- Risk scorer cadence: manual vs scheduled? (owner: Eng/PM)
+
 ## Visual Design: Issue Type Icons
 
 ### Icon Selection Rationale
