@@ -188,8 +188,23 @@ class EpicTreeItem extends vscode.TreeItem {
   }
 }
 
+// Ungrouped section item for beads without a parent epic
+class UngroupedSectionItem extends vscode.TreeItem {
+  public readonly children: BeadItemData[];
+
+  constructor(children: BeadItemData[], isCollapsed: boolean = false) {
+    super('Ungrouped', isCollapsed ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.Expanded);
+
+    this.children = children;
+    this.contextValue = 'ungroupedSection';
+    this.description = `${children.length} item${children.length !== 1 ? 's' : ''}`;
+    this.iconPath = new vscode.ThemeIcon('inbox', new vscode.ThemeColor('charts.blue'));
+    this.tooltip = `Items without a parent epic: ${children.length}`;
+  }
+}
+
 // Union type for tree items
-type TreeItemType = StatusSectionItem | WarningSectionItem | EpicTreeItem | BeadTreeItem;
+type TreeItemType = StatusSectionItem | WarningSectionItem | EpicTreeItem | UngroupedSectionItem | BeadTreeItem;
 
 class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vscode.TreeDragAndDropController<TreeItemType> {
   private readonly onDidChangeTreeDataEmitter = new vscode.EventEmitter<TreeItemType | undefined | null | void>();
@@ -324,6 +339,10 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     if (element instanceof EpicTreeItem) {
       return element.children.map((item) => this.createTreeItem(item));
     }
+
+    if (element instanceof UngroupedSectionItem) {
+      return element.children.map((item) => this.createTreeItem(item));
+    }
     
     if (element instanceof BeadTreeItem) {
       return [];
@@ -400,7 +419,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     return sections;
   }
   
-  private createEpicTree(items: BeadItemData[]): (EpicTreeItem | WarningSectionItem)[] {
+  private createEpicTree(items: BeadItemData[]): (EpicTreeItem | UngroupedSectionItem | WarningSectionItem)[] {
     // Get stale threshold from configuration (in minutes, convert to hours for isStale)
     const config = vscode.workspace.getConfiguration('beads');
     const thresholdMinutes = config.get<number>('staleThresholdMinutes', 10);
@@ -440,7 +459,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     childrenMap.forEach(children => children.sort(naturalSort));
     ungrouped.sort(naturalSort);
     
-    const sections: (EpicTreeItem | WarningSectionItem)[] = [];
+    const sections: (EpicTreeItem | UngroupedSectionItem | WarningSectionItem)[] = [];
 
     // Stale tasks section (collapsible)
     if (staleItems.length > 0) {
@@ -459,7 +478,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     // Ungrouped bucket at the end
     if (ungrouped.length > 0) {
       const isCollapsed = this.collapsedSections.has('ungrouped');
-      sections.push(new EpicTreeItem(null, ungrouped, isCollapsed));
+      sections.push(new UngroupedSectionItem(ungrouped, isCollapsed));
     }
     
     return sections;
@@ -880,7 +899,10 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
       return 'stale';
     }
     if (element instanceof EpicTreeItem) {
-      return element.epic ? `epic-${element.epic.id}` : 'ungrouped';
+      return element.epic ? `epic-${element.epic.id}` : undefined;
+    }
+    if (element instanceof UngroupedSectionItem) {
+      return 'ungrouped';
     }
     return undefined;
   }
