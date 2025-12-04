@@ -3156,11 +3156,15 @@ async function visualizeDependencies(provider: BeadsTreeDataProvider): Promise<v
       }
     } else if (validated.command === 'addDependency') {
       await addDependencyCommand(provider, undefined, { sourceId: validated.sourceId, targetId: validated.targetId });
+      const refreshed = provider['items'] as BeadItemData[];
+      panel.webview.html = getDependencyTreeHtml(refreshed, dependencyStrings, locale, dependencyEditingEnabled);
     } else if (validated.command === 'removeDependency') {
       await removeDependencyCommand(provider, validated.sourceId && validated.targetId ? {
         sourceId: validated.sourceId,
         targetId: validated.targetId,
       } : undefined, { contextId: validated.contextId });
+      const refreshed = provider['items'] as BeadItemData[];
+      panel.webview.html = getDependencyTreeHtml(refreshed, dependencyStrings, locale, dependencyEditingEnabled);
     }
   });
 }
