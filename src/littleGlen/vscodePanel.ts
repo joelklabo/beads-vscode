@@ -21,15 +21,25 @@ export interface PanelRenderOptions extends MarkdownSanitizeOptions {
   contentSecurityPolicy?: string;
 }
 
-const DEFAULT_PANEL_CSP =
-  "default-src 'none'; img-src vscode-webview-resource: data:; style-src 'self'; script-src 'self';";
+const DEFAULT_PANEL_CSP = [
+  "default-src 'none';",
+  "img-src https: data:;",
+  "style-src 'self' 'unsafe-inline';",
+  "font-src https: data:;",
+  "script-src 'none';",
+  "connect-src 'none';",
+  "frame-src 'none';",
+  "object-src 'none';",
+  "base-uri 'none';",
+  "form-action 'none';"
+].join(' ');
 
 /**
  * Render sanitized HTML for the Little Glen webview panel.
  * The returned string is safe to pass directly to `webview.html`.
  */
 export function renderPanelHtml(body: string, options: PanelRenderOptions = {}): string {
-  const safeBody = sanitizeMarkdown(body, { allowRemoteImages: options.allowRemoteImages });
+  const safeBody = sanitizeMarkdown(body, { allowRemoteImages: !!options.allowRemoteImages });
   const heading = escapeHtml(options.title ?? 'Little Glen');
   const csp = options.contentSecurityPolicy ?? DEFAULT_PANEL_CSP;
 

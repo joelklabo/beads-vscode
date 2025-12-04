@@ -51,6 +51,7 @@ describe('Little Glen sanitization', () => {
     const html = renderPanelHtml('<p>Hello</p><script>alert(1)</script>', { title: '<img src=x>' });
 
     assert.ok(html.includes('Content-Security-Policy'));
+    assert.ok(html.includes("script-src 'none'"));
     assert.ok(html.includes('<div class="lg-content"><p>Hello</p></div>'));
     assert.ok(!html.includes('<script>alert(1)</script>'));
     // title is escaped, not rendered as HTML

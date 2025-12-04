@@ -13,5 +13,5 @@ export interface HoverRenderOptions extends MarkdownSanitizeOptions {
  * Consumers should set `supportHtml = true` on the MarkdownString they create.
  */
 export function renderHoverHtml(markdown: string, options: HoverRenderOptions = {}): string {
-  return sanitizeMarkdown(markdown, { allowRemoteImages: options.allowRemoteImages });
+  return sanitizeMarkdown(markdown, { allowRemoteImages: !!options.allowRemoteImages });
 }
