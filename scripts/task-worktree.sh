@@ -28,8 +28,8 @@ log_step() { echo -e "${BLUE}[STEP]${NC} $1"; }
 # Default lock timeout (seconds) unless overridden per-call
 LOCK_TIMEOUT_DEFAULT="${LOCK_TIMEOUT_SECONDS:-10}"
 CLAIM_LOCK_TIMEOUT_DEFAULT="${CLAIM_LOCK_TIMEOUT_SECONDS:-5}"
-HEARTBEAT_INTERVAL_DEFAULT="${HEARTBEAT_INTERVAL_SECONDS:-${HEARTBEAT_INTERVAL:-30}}"
-HEARTBEAT_STALE_DEFAULT="${HEARTBEAT_STALE_SECONDS:-300}"
+HEARTBEAT_INTERVAL_DEFAULT="${HEARTBEAT_INTERVAL_SECONDS:-${HEARTBEAT_INTERVAL:-60}}"
+HEARTBEAT_STALE_DEFAULT="${HEARTBEAT_STALE_SECONDS:-180}"
 LOCK_BACKEND="flock"
 
 detect_lock_backend() {
@@ -256,14 +256,40 @@ stop_heartbeat() {
   rm -f "$hb_file"
 }
 
+recover_stale_task() {
+  local task_id="$1"
+  local hb_worker="$2"
+  local actor="${WORKER:-${USER:-auto-recover}}"
+
+  init_env
+
+  local lock_file="${LOCK_DIR}/claim-${task_id}.lock"
+  LOCK_TIMEOUT="$CLAIM_LOCK_TIMEOUT_DEFAULT" with_lock "$lock_file" \
+    bd_cmd update "$task_id" --status open --assignee "" --actor "$actor" >/dev/null 2>&1 || true
+
+  # Remove heartbeat file(s) for this task
+  rm -f "${HEARTBEAT_DIR}/${hb_worker}__${task_id}.hb" "${HEARTBEAT_DIR}"/*__"${task_id}".hb 2>/dev/null || true
+
+  # Clean up orphaned worktrees, if any
+  local main_repo
+  main_repo=$(get_main_repo)
+  local wt_pattern="${main_repo}/../worktrees/*/${task_id}"
+  for wt in $wt_pattern; do
+    if [[ -d "$wt" ]]; then
+      log_warn "Removing orphaned worktree: $wt"
+      git -C "$main_repo" worktree remove "$wt" --force 2>/dev/null || rm -rf "$wt"
+    fi
+  done
+
+  git -C "$main_repo" worktree prune >/dev/null 2>&1 || true
+}
+
 sweep_stale_heartbeats() {
   local max_age="${1:-$HEARTBEAT_STALE_DEFAULT}"
   init_env
 
   local now
   now=$(date +%s)
-  local actor
-  actor="${WORKER:-${USER:-auto-recover}}"
 
   shopt -s nullglob
   for hb in "$HEARTBEAT_DIR"/*.hb; do
@@ -295,9 +321,7 @@ sweep_stale_heartbeats() {
         continue
       fi
 
-      local lock_file="${LOCK_DIR}/claim-${hb_task}.lock"
-      LOCK_TIMEOUT="$CLAIM_LOCK_TIMEOUT_DEFAULT" with_lock "$lock_file" bd_cmd update "$hb_task" --status open --assignee "" --actor "$actor" >/dev/null 2>&1 || true
-      rm -f "$hb"
+      recover_stale_task "$hb_task" "$hb_worker"
     fi
   done
   shopt -u nullglob
