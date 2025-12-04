@@ -86,12 +86,27 @@ async function runWorktreeGuard(projectRoot: string): Promise<void> {
   await execFileAsync(guardPath, { cwd: projectRoot });
 }
 
-async function runBdCommand(args: string[], projectRoot: string, requireGuard = true): Promise<void> {
+interface BdCommandOptions {
+  workspaceFolder?: vscode.WorkspaceFolder;
+  requireGuard?: boolean;
+}
+
+async function runBdCommand(args: string[], projectRoot: string, options: BdCommandOptions = {}): Promise<void> {
+  const workspaceFolder = options.workspaceFolder ?? vscode.workspace.getWorkspaceFolder(vscode.Uri.file(projectRoot));
+  const requireGuard = options.requireGuard !== false;
+
+  if (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0 && !workspaceFolder) {
+    throw new Error(`Project root ${projectRoot} is not within an open workspace folder`);
+  }
+
   if (requireGuard) {
     await runWorktreeGuard(projectRoot);
   }
 
-  const commandPath = await findBdCommand(vscode.workspace.getConfiguration('beads').get<string>('commandPath', 'bd'));
+  const commandPathSetting = vscode.workspace
+    .getConfiguration('beads', workspaceFolder)
+    .get<string>('commandPath', 'bd');
+  const commandPath = await findBdCommand(commandPathSetting);
   await execFileAsync(commandPath, args, { cwd: projectRoot });
 }
 
@@ -671,7 +686,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     }
 
     try {
-      await runBdCommand(['update', item.id, '--status', newStatus], projectRoot, true);
+      await runBdCommand(['update', item.id, '--status', newStatus], projectRoot);
       await this.refresh();
       void vscode.window.showInformationMessage(`Updated status to: ${newStatus}`);
     } catch (error) {
@@ -690,7 +705,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     }
 
     try {
-      await runBdCommand(['update', item.id, '--title', newTitle], projectRoot, true);
+      await runBdCommand(['update', item.id, '--title', newTitle], projectRoot);
       await this.refresh();
       void vscode.window.showInformationMessage(`Updated title to: ${newTitle}`);
     } catch (error) {
@@ -709,7 +724,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     }
 
     try {
-      await runBdCommand(['label', 'add', item.id, label], projectRoot, true);
+      await runBdCommand(['label', 'add', item.id, label], projectRoot);
       await this.refresh();
       void vscode.window.showInformationMessage(`Added label: ${label}`);
     } catch (error) {
@@ -728,7 +743,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     }
 
     try {
-      await runBdCommand(['label', 'remove', item.id, label], projectRoot, true);
+      await runBdCommand(['label', 'remove', item.id, label], projectRoot);
       await this.refresh();
       void vscode.window.showInformationMessage(`Removed label: ${label}`);
     } catch (error) {
@@ -1240,10 +1255,24 @@ class BeadTreeItem extends vscode.TreeItem {
   }
 }
 
-function resolveProjectRoot(config: vscode.WorkspaceConfiguration): string | undefined {
+function resolveProjectRoot(config: vscode.WorkspaceConfiguration, workspaceFolder?: vscode.WorkspaceFolder): string | undefined {
   const projectRootConfig = config.get<string>('projectRoot');
   if (projectRootConfig && projectRootConfig.trim().length > 0) {
+    if (path.isAbsolute(projectRootConfig)) {
+      return projectRootConfig;
+    }
+    if (workspaceFolder) {
+      return path.join(workspaceFolder.uri.fsPath, projectRootConfig);
+    }
+    const firstFolder = vscode.workspace.workspaceFolders?.[0];
+    if (firstFolder) {
+      return path.join(firstFolder.uri.fsPath, projectRootConfig);
+    }
     return projectRootConfig;
+  }
+
+  if (workspaceFolder) {
+    return workspaceFolder.uri.fsPath;
   }
 
   const workspaceFolders = vscode.workspace.workspaceFolders;
@@ -2970,7 +2999,7 @@ async function createBead(): Promise<void> {
   const projectRoot = resolveProjectRoot(config);
 
   try {
-    await runBdCommand(['create', name], projectRoot!, true);
+    await runBdCommand(['create', name], projectRoot!);
     void vscode.commands.executeCommand('beads.refresh');
     void vscode.window.showInformationMessage(`Created bead: ${name}`);
   } catch (error) {
@@ -3483,7 +3512,7 @@ export function activate(context: vscode.ExtensionContext): void {
       try {
         // Delete beads one by one with guard
         for (const item of beadItems) {
-          await runBdCommand(['delete', item.bead.id, '--force'], projectRoot!, true);
+          await runBdCommand(['delete', item.bead.id, '--force'], projectRoot!);
         }
 
         await provider.refresh();
@@ -3513,4 +3542,6 @@ export {
   EpicTreeItem,
   UngroupedSectionItem,
   openBeadFromFeed,
+  runBdCommand,
+  findBdCommand,
 };
