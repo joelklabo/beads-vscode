@@ -9,7 +9,7 @@
 import * as path from 'path';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
-import { parseUtcDate } from './utils';
+import { parseUtcDate } from './utils/format';
 
 const execFileAsync = promisify(execFile);
 

@@ -4,21 +4,10 @@ import { promises as fs } from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { promisify } from 'util';
-import {
-  BeadItemData,
-  normalizeBead,
-  extractBeads,
-  resolveDataFilePath,
-  formatError,
-  escapeHtml,
-  sanitizeTooltipText,
-  linkifyText,
-  formatRelativeTime,
-  isStale,
-  getStaleInfo,
-  buildPreviewSnippet,
-  stripBeadIdPrefix
-} from './utils';
+import { BeadItemData, normalizeBead, extractBeads, stripBeadIdPrefix } from './utils/beads';
+import { resolveDataFilePath } from './utils/fs';
+import { formatError, escapeHtml, sanitizeTooltipText, linkifyText, formatRelativeTime, buildPreviewSnippet } from './utils/format';
+import { getStaleInfo, isStale } from './utils/stale';
 import { ActivityFeedTreeDataProvider, ActivityEventItem } from './activityFeedProvider';
 import { EventType } from './activityFeed';
 import { validateLittleGlenMessage, AllowedLittleGlenCommand } from './littleGlen/validation';

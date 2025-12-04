@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { sanitizeMarkdown } from '../utils';
+import { sanitizeMarkdown } from '../utils/sanitize';
 import { renderPanelHtml } from '../littleGlen/vscodePanel';
 import { renderHoverHtml } from '../littleGlen/hover';
 

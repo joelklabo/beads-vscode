@@ -1,4 +1,4 @@
-import { sanitizeMarkdown, MarkdownSanitizeOptions } from '../utils';
+import { sanitizeMarkdown, MarkdownSanitizeOptions } from '../utils/sanitize';
 
 export interface HoverRenderOptions extends MarkdownSanitizeOptions {
   /**

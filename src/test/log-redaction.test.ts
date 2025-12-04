@@ -6,7 +6,7 @@ import {
   DEFAULT_LOG_BYTES_LIMIT,
   limitLogPayload,
   redactLogContent
-} from '../utils';
+} from '../utils/fs';
 import { buildFeedbackBody } from '../feedback';
 
 describe('Log redaction & capture', () => {

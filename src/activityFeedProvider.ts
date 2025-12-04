@@ -17,7 +17,8 @@ import {
   formatRelativeTimeDetailed,
 } from './activityFeed';
 import { currentWorktreeId } from './worktree';
-import { buildPreviewSnippet, sanitizeTooltipText, formatError, stripBeadIdPrefix } from './utils';
+import { stripBeadIdPrefix } from './utils/beads';
+import { buildPreviewSnippet, sanitizeTooltipText, formatError } from './utils/format';
 
 /**
  * Time group section item for organizing events by time period

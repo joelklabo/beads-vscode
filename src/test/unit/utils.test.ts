@@ -1,21 +1,16 @@
 import * as assert from 'assert';
 import * as path from 'path';
 import {
+  BeadItemData,
+  extractBeads,
   normalizeBead,
-  pickValue,
   pickFirstKey,
   pickTags,
-  resolveDataFilePath,
-  extractBeads,
-  formatError,
-  escapeHtml,
-  linkifyText,
-  formatRelativeTime,
-  isStale,
-  getStaleInfo,
-  DEFAULT_STALE_THRESHOLD_HOURS,
-  BeadItemData
-} from '../../utils';
+  pickValue
+} from '../../utils/beads';
+import { resolveDataFilePath } from '../../utils/fs';
+import { DEFAULT_STALE_THRESHOLD_HOURS, getStaleInfo, isStale } from '../../utils/stale';
+import { escapeHtml, formatError, formatRelativeTime, linkifyText } from '../../utils/format';
 
 describe('Utility Functions', () => {
 

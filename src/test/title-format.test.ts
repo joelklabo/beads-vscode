@@ -1,6 +1,7 @@
 import * as assert from 'assert';
 import Module = require('module');
-import { buildPreviewSnippet, stripBeadIdPrefix } from '../utils';
+import { stripBeadIdPrefix } from '../utils/beads';
+import { buildPreviewSnippet } from '../utils/format';
 
 function createVscodeStub() {
   class ThemeIcon {

@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import { formatRelativeTimeDetailed, getTimeGroup } from '../activityFeed';
-import { parseUtcDate } from '../utils';
+import { parseUtcDate } from '../utils/format';
 
 describe('Activity feed timestamps', () => {
   it('parses UTC and naive timestamps as UTC', () => {

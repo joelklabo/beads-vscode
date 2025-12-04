@@ -1,4 +1,5 @@
-import { escapeHtml, sanitizeMarkdown, MarkdownSanitizeOptions } from '../utils';
+import { escapeHtml } from '../utils/format';
+import { sanitizeMarkdown, MarkdownSanitizeOptions } from '../utils/sanitize';
 import { validateLittleGlenMessage, AllowedLittleGlenCommand } from './validation';
 
 export type PanelMessageHandler = {

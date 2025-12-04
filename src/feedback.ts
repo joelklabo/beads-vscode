@@ -6,7 +6,7 @@ import {
   limitLogPayload,
   redactLogContent,
   tailLogLines
-} from './utils';
+} from './utils/fs';
 
 export interface LogCaptureOptions {
   /** Explicit path to a log file to attach. */

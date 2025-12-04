@@ -5,7 +5,8 @@ import * as os from 'os';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import * as vscode from 'vscode';
-import { normalizeBead, isStale, getStaleInfo, BeadItemData } from '../../utils';
+import { BeadItemData, normalizeBead } from '../../utils/beads';
+import { getStaleInfo, isStale } from '../../utils/stale';
 import { BeadsTreeDataProvider, EpicTreeItem, UngroupedSectionItem, BeadTreeItem } from '../../extension';
 
 const execFileAsync = promisify(execFile);
