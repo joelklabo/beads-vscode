@@ -12,7 +12,9 @@ import {
   formatError,
   escapeHtml,
   linkifyText,
-  formatRelativeTime
+  formatRelativeTime,
+  isStale,
+  getStaleInfo
 } from './utils';
 import { ActivityFeedTreeDataProvider } from './activityFeedProvider';
 import { EventType } from './activityFeed';
@@ -96,8 +98,33 @@ class StatusSectionItem extends vscode.TreeItem {
   }
 }
 
+// Warning section item for stale in_progress tasks
+class WarningSectionItem extends vscode.TreeItem {
+  public readonly beads: BeadItemData[];
+  public readonly thresholdMinutes: number;
+  
+  constructor(beads: BeadItemData[], thresholdMinutes: number, isCollapsed: boolean = false) {
+    super('⚠️ Stale Tasks', isCollapsed ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.Expanded);
+    
+    this.beads = beads;
+    this.thresholdMinutes = thresholdMinutes;
+    this.contextValue = 'warningSection';
+    
+    // Show count as description
+    this.description = `${beads.length}`;
+    
+    // Warning icon with orange color
+    this.iconPath = new vscode.ThemeIcon('warning', new vscode.ThemeColor('charts.orange'));
+    
+    // Tooltip explaining what stale tasks are
+    this.tooltip = new vscode.MarkdownString();
+    this.tooltip.appendMarkdown(`**Stale Tasks:** ${beads.length} issue${beads.length !== 1 ? 's' : ''}\n\n`);
+    this.tooltip.appendMarkdown(`These tasks have been in progress for more than ${thresholdMinutes} minutes and may need attention.`);
+  }
+}
+
 // Union type for tree items
-type TreeItemType = StatusSectionItem | BeadTreeItem;
+type TreeItemType = StatusSectionItem | WarningSectionItem | BeadTreeItem;
 
 class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vscode.TreeDragAndDropController<TreeItemType> {
   private readonly onDidChangeTreeDataEmitter = new vscode.EventEmitter<TreeItemType | undefined | null | void>();
@@ -146,6 +173,11 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
       return element.beads.map((item) => this.createTreeItem(item));
     }
     
+    // If element is a WarningSectionItem, return its children (BeadTreeItems)
+    if (element instanceof WarningSectionItem) {
+      return element.beads.map((item) => this.createTreeItem(item));
+    }
+    
     // If element is a BeadTreeItem, it has no children
     if (element instanceof BeadTreeItem) {
       return [];
@@ -168,7 +200,15 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     return sortedItems.map((item) => this.createTreeItem(item));
   }
   
-  private createStatusSections(items: BeadItemData[]): StatusSectionItem[] {
+  private createStatusSections(items: BeadItemData[]): (StatusSectionItem | WarningSectionItem)[] {
+    // Get stale threshold from configuration (in minutes, convert to hours for isStale)
+    const config = vscode.workspace.getConfiguration('beads');
+    const thresholdMinutes = config.get<number>('staleThresholdMinutes', 10);
+    const thresholdHours = thresholdMinutes / 60;
+    
+    // Find stale items
+    const staleItems = items.filter(item => isStale(item, thresholdHours));
+    
     // Group items by status
     const statusOrder = ['open', 'in_progress', 'blocked', 'closed'];
     const grouped: Record<string, BeadItemData[]> = {};
@@ -192,8 +232,16 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
       group.sort(naturalSort);
     });
     
-    // Create section items for non-empty groups
-    const sections: StatusSectionItem[] = [];
+    // Create section items
+    const sections: (StatusSectionItem | WarningSectionItem)[] = [];
+    
+    // Add warning section at the top if there are stale items
+    if (staleItems.length > 0) {
+      const isCollapsed = this.collapsedSections.has('stale');
+      sections.push(new WarningSectionItem(staleItems, thresholdMinutes, isCollapsed));
+    }
+    
+    // Add status sections for non-empty groups
     statusOrder.forEach(status => {
       if (grouped[status].length > 0) {
         const isCollapsed = this.collapsedSections.has(status);
@@ -688,8 +736,20 @@ class BeadTreeItem extends vscode.TreeItem {
     const label = `${bead.id} ${bead.title}`;
     super(label, vscode.TreeItemCollapsibleState.None);
 
+    // Get stale threshold from config
+    const config = vscode.workspace.getConfiguration('beads');
+    const thresholdMinutes = config.get<number>('staleThresholdMinutes', 10);
+    const thresholdHours = thresholdMinutes / 60;
+    const staleInfo = getStaleInfo(bead);
+    const isTaskStale = isStale(bead, thresholdHours);
+
     // Build rich description with multiple pieces of info
     const descParts: string[] = [];
+    
+    // Add stale indicator at the beginning for visibility
+    if (isTaskStale && staleInfo) {
+      descParts.push(`⚠️ ${staleInfo.formattedTime}`);
+    }
     
     // Add description preview (first 40 chars)
     if (bead.description) {
@@ -729,13 +789,15 @@ class BeadTreeItem extends vscode.TreeItem {
     }
 
     // Build rich tooltip with all details
-    this.tooltip = this.buildRichTooltip(bead);
+    this.tooltip = this.buildRichTooltip(bead, isTaskStale, staleInfo);
 
-    // Use different icons based on status
+    // Use different icons based on status (stale tasks use warning color)
     if (bead.status === 'closed') {
       this.iconPath = new vscode.ThemeIcon('pass', new vscode.ThemeColor('testing.iconPassed'));
     } else if (bead.status === 'in_progress') {
-      this.iconPath = new vscode.ThemeIcon('clock', new vscode.ThemeColor('charts.yellow'));
+      // Use warning/orange color for stale tasks
+      const iconColor = isTaskStale ? 'charts.orange' : 'charts.yellow';
+      this.iconPath = new vscode.ThemeIcon('clock', new vscode.ThemeColor(iconColor));
     } else if (bead.status === 'blocked') {
       this.iconPath = new vscode.ThemeIcon('error', new vscode.ThemeColor('errorForeground'));
     } else {
@@ -743,7 +805,7 @@ class BeadTreeItem extends vscode.TreeItem {
     }
   }
   
-  private buildRichTooltip(bead: BeadItemData): vscode.MarkdownString {
+  private buildRichTooltip(bead: BeadItemData, isTaskStale: boolean, staleInfo: { hoursInProgress: number; formattedTime: string } | undefined): vscode.MarkdownString {
     const md = new vscode.MarkdownString();
     md.isTrusted = true;
     md.supportHtml = true;
@@ -761,6 +823,11 @@ class BeadTreeItem extends vscode.TreeItem {
     };
     const statusDisplay = (bead.status || 'open').split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
     md.appendMarkdown(`${statusEmoji[bead.status || 'open'] || '⚪'} **Status:** ${statusDisplay}\n\n`);
+    
+    // Stale warning for in_progress tasks
+    if (isTaskStale && staleInfo) {
+      md.appendMarkdown(`⚠️ **Stale:** In progress for ${staleInfo.formattedTime} (may need attention)\n\n`);
+    }
     
     // Description preview
     if (bead.description) {
