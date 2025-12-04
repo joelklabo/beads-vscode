@@ -58,6 +58,16 @@ describe('Little Glen sanitization', () => {
     assert.ok(html.includes('<h1>&lt;img src=x&gt;</h1>'));
   });
 
+  it('preserves localized titles and body text', () => {
+    const localizedTitle = 'État du flux';
+    const localizedBody = 'Aperçu des activités récentes';
+
+    const html = renderPanelHtml(`<p>${localizedBody}</p>`, { title: localizedTitle });
+
+    assert.ok(html.includes(localizedTitle));
+    assert.ok(html.includes(localizedBody));
+  });
+
   it('sanitizes hover HTML', () => {
     const html = renderHoverHtml('<p><img src="http://evil.test/x.png">Hi</p>');
     assert.ok(!html.includes('http://evil.test/x.png'));

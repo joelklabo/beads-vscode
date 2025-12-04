@@ -85,6 +85,114 @@ async function runBdCommand(args: string[], projectRoot: string, options: BdComm
 
 type TreeItemType = StatusSectionItem | WarningSectionItem | EpicTreeItem | UngroupedSectionItem | BeadTreeItem;
 
+type StatusLabelMap = {
+  open: string;
+  in_progress: string;
+  blocked: string;
+  closed: string;
+};
+
+interface BeadDetailStrings {
+  dependencyTreeTitle: string;
+  dependencyTreeUpstream: string;
+  dependencyTreeDownstream: string;
+  editLabel: string;
+  doneLabel: string;
+  descriptionLabel: string;
+  designLabel: string;
+  acceptanceLabel: string;
+  notesLabel: string;
+  detailsLabel: string;
+  assigneeLabel: string;
+  externalRefLabel: string;
+  createdLabel: string;
+  updatedLabel: string;
+  closedLabel: string;
+  labelsLabel: string;
+  noLabelsLabel: string;
+  markInReviewLabel: string;
+  removeInReviewLabel: string;
+  addLabelLabel: string;
+  dependsOnLabel: string;
+  blocksLabel: string;
+  labelPrompt: string;
+  statusLabels: StatusLabelMap;
+}
+
+interface DependencyTreeStrings {
+  title: string;
+  resetView: string;
+  autoLayout: string;
+  legendClosed: string;
+  legendInProgress: string;
+  legendOpen: string;
+  legendBlocked: string;
+  emptyTitle: string;
+  emptyDescription: string;
+  renderErrorTitle: string;
+}
+
+interface ActivityFeedStrings {
+  title: string;
+  emptyTitle: string;
+  emptyDescription: string;
+  eventsLabel: string;
+}
+
+const getStatusLabels = (): StatusLabelMap => ({
+  open: t('Open'),
+  in_progress: t('In Progress'),
+  blocked: t('Blocked'),
+  closed: t('Closed'),
+});
+
+const buildBeadDetailStrings = (statusLabels: StatusLabelMap): BeadDetailStrings => ({
+  dependencyTreeTitle: t('Dependency Tree'),
+  dependencyTreeUpstream: t('↑ Depends On (upstream)'),
+  dependencyTreeDownstream: t('↓ Blocked By This (downstream)'),
+  editLabel: t('Edit'),
+  doneLabel: t('Done'),
+  descriptionLabel: t('Description'),
+  designLabel: t('Design'),
+  acceptanceLabel: t('Acceptance Criteria'),
+  notesLabel: t('Notes'),
+  detailsLabel: t('Details'),
+  assigneeLabel: t('Assignee:'),
+  externalRefLabel: t('External Ref:'),
+  createdLabel: t('Created:'),
+  updatedLabel: t('Updated:'),
+  closedLabel: t('Closed:'),
+  labelsLabel: t('Labels'),
+  noLabelsLabel: t('No labels'),
+  markInReviewLabel: t('Mark as In Review'),
+  removeInReviewLabel: t('Remove In Review'),
+  addLabelLabel: t('Add Label'),
+  dependsOnLabel: t('Depends On'),
+  blocksLabel: t('Blocks'),
+  labelPrompt: t('Enter label name:'),
+  statusLabels,
+});
+
+const buildDependencyTreeStrings = (statusLabels: StatusLabelMap): DependencyTreeStrings => ({
+  title: t('Beads Dependency Tree'),
+  resetView: t('Reset View'),
+  autoLayout: t('Auto Layout'),
+  legendClosed: statusLabels.closed,
+  legendInProgress: statusLabels.in_progress,
+  legendOpen: statusLabels.open,
+  legendBlocked: statusLabels.blocked,
+  emptyTitle: t('No beads found'),
+  emptyDescription: t('The visualizer received 0 nodes. Check the Output panel for debug logs.'),
+  renderErrorTitle: t('Render Error'),
+});
+
+const buildActivityFeedStrings = (): ActivityFeedStrings => ({
+  title: t('Activity Feed'),
+  emptyTitle: t('No activity yet'),
+  emptyDescription: t('Events will appear here as you work with issues.'),
+  eventsLabel: t('events'),
+});
+
 class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vscode.TreeDragAndDropController<TreeItemType> {
   private readonly onDidChangeTreeDataEmitter = new vscode.EventEmitter<TreeItemType | undefined | null | void>();
   readonly onDidChangeTreeData = this.onDidChangeTreeDataEmitter.event;
@@ -423,11 +531,14 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   }
 
   private refreshOpenPanels(): void {
+    const statusLabels = getStatusLabels();
+    const beadStrings = buildBeadDetailStrings(statusLabels);
+    const locale = vscode.env.language || 'en';
     this.openPanels.forEach((panel, beadId) => {
       const updatedItem = this.items.find((i: BeadItemData) => i.id === beadId);
       if (updatedItem) {
         const nonce = createNonce();
-        panel.webview.html = getBeadDetailHtml(updatedItem, this.items, panel.webview, nonce);
+        panel.webview.html = getBeadDetailHtml(updatedItem, this.items, panel.webview, nonce, beadStrings, locale);
       }
     });
   }
@@ -1044,7 +1155,9 @@ function getBeadDetailHtml(
   item: BeadItemData,
   allItems: BeadItemData[] | undefined,
   webview: vscode.Webview,
-  nonce: string
+  nonce: string,
+  strings: BeadDetailStrings,
+  locale: string
 ): string {
   const raw = item.raw as any;
   const description = raw?.description || '';
@@ -1053,9 +1166,9 @@ function getBeadDetailHtml(
   const notes = raw?.notes || '';
   const issueType = raw?.issue_type || '';
   const priority = raw?.priority || '';
-  const createdAt = raw?.created_at ? new Date(raw.created_at).toLocaleString() : '';
-  const updatedAt = raw?.updated_at ? new Date(raw.updated_at).toLocaleString() : '';
-  const closedAt = raw?.closed_at ? new Date(raw.closed_at).toLocaleString() : '';
+  const createdAt = raw?.created_at ? new Date(raw.created_at).toLocaleString(locale) : '';
+  const updatedAt = raw?.updated_at ? new Date(raw.updated_at).toLocaleString(locale) : '';
+  const closedAt = raw?.closed_at ? new Date(raw.closed_at).toLocaleString(locale) : '';
   const dependencies = raw?.dependencies || [];
   const assignee = raw?.assignee || '';
   const labels = raw?.labels || [];
@@ -1074,17 +1187,17 @@ function getBeadDetailHtml(
         <div class="dependency-tree-section">
             <div class="dependency-tree-header" id="treeHeader">
                 <span class="tree-toggle" id="treeToggle">▼</span>
-                <span class="section-title" style="margin: 0;">Dependency Tree</span>
+                <span class="section-title" style="margin: 0;">${escapeHtml(strings.dependencyTreeTitle)}</span>
             </div>
             <div class="dependency-tree-container" id="treeContainer">`;
       
       if (hasUpstream) {
-        dependencyTreeHtml += `<div class="tree-direction-label">↑ Depends On (upstream)</div>`;
+        dependencyTreeHtml += `<div class="tree-direction-label">${escapeHtml(strings.dependencyTreeUpstream)}</div>`;
         dependencyTreeHtml += renderTreeHtml(upstreamTree!, item.id, true, '');
       }
       
       if (hasDownstream) {
-        dependencyTreeHtml += `<div class="tree-direction-label">↓ Blocked By This (downstream)</div>`;
+        dependencyTreeHtml += `<div class="tree-direction-label">${escapeHtml(strings.dependencyTreeDownstream)}</div>`;
         dependencyTreeHtml += renderTreeHtml(downstreamTree!, item.id, true, '');
       }
       
@@ -1144,10 +1257,15 @@ function getBeadDetailHtml(
 
   const priorityLabel = ['', 'P1', 'P2', 'P3', 'P4'][priority] || '';
 
-  // Format status for display
-  const statusDisplay = item.status
-    ? item.status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
-    : '';
+  const getStatusLabel = (status?: string): string => {
+    if (!status) {
+      return '';
+    }
+    const key = status as keyof StatusLabelMap;
+    return strings.statusLabels[key] ?? status;
+  };
+
+  const statusDisplay = getStatusLabel(item.status) || strings.statusLabels.open;
 
   const csp = [
     "default-src 'none'",
@@ -1160,7 +1278,7 @@ function getBeadDetailHtml(
   ].join('; ');
 
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="${escapeHtml(locale)}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -1476,17 +1594,17 @@ function getBeadDetailHtml(
     <div class="header">
         <div class="header-top">
             <div class="issue-id">${item.id}</div>
-            <button class="edit-button" id="editButton">Edit</button>
+            <button class="edit-button" id="editButton">${escapeHtml(strings.editLabel)}</button>
         </div>
         <h1 class="title" id="issueTitle" contenteditable="false">${escapeHtml(item.title)}</h1>
         <div class="metadata">
             <div class="status-wrapper">
-                <span class="badge status-badge" id="statusBadge" data-status="${item.status || 'open'}">${statusDisplay || 'Open'}</span>
+                <span class="badge status-badge" id="statusBadge" data-status="${item.status || 'open'}">${escapeHtml(statusDisplay || strings.statusLabels.open)}</span>
                 <div class="status-dropdown" id="statusDropdown">
-                    <div class="status-option" data-status="open">Open</div>
-                    <div class="status-option" data-status="in_progress">In Progress</div>
-                    <div class="status-option" data-status="blocked">Blocked</div>
-                    <div class="status-option" data-status="closed">Closed</div>
+                    <div class="status-option" data-status="open">${escapeHtml(strings.statusLabels.open)}</div>
+                    <div class="status-option" data-status="in_progress">${escapeHtml(strings.statusLabels.in_progress)}</div>
+                    <div class="status-option" data-status="blocked">${escapeHtml(strings.statusLabels.blocked)}</div>
+                    <div class="status-option" data-status="closed">${escapeHtml(strings.statusLabels.closed)}</div>
                 </div>
             </div>
             ${issueType ? `<span class="badge type-badge">${issueType.toUpperCase()}</span>` : ''}
@@ -1496,63 +1614,63 @@ function getBeadDetailHtml(
 
     ${description ? `
     <div class="section">
-        <div class="section-title">Description</div>
+        <div class="section-title">${escapeHtml(strings.descriptionLabel)}</div>
         <div class="description">${linkifyText(description)}</div>
     </div>
     ` : ''}
 
     ${design ? `
     <div class="section">
-        <div class="section-title">Design</div>
+        <div class="section-title">${escapeHtml(strings.designLabel)}</div>
         <div class="description">${linkifyText(design)}</div>
     </div>
     ` : ''}
 
     ${acceptanceCriteria ? `
     <div class="section">
-        <div class="section-title">Acceptance Criteria</div>
+        <div class="section-title">${escapeHtml(strings.acceptanceLabel)}</div>
         <div class="description">${linkifyText(acceptanceCriteria)}</div>
     </div>
     ` : ''}
 
     ${notes ? `
     <div class="section">
-        <div class="section-title">Notes</div>
+        <div class="section-title">${escapeHtml(strings.notesLabel)}</div>
         <div class="description">${linkifyText(notes)}</div>
     </div>
     ` : ''}
 
     <div class="section">
-        <div class="section-title">Details</div>
-        ${assignee ? `<div class="meta-item"><span class="meta-label">Assignee:</span><span class="meta-value">${escapeHtml(assignee)}</span></div>` : ''}
-        ${item.externalReferenceId ? `<div class="meta-item"><span class="meta-label">External Ref:</span><span class="meta-value"><a href="${escapeHtml(item.externalReferenceId)}" class="external-link" target="_blank">${escapeHtml(item.externalReferenceDescription || item.externalReferenceId)}</a></span></div>` : ''}
-        ${createdAt ? `<div class="meta-item"><span class="meta-label">Created:</span><span class="meta-value">${createdAt}</span></div>` : ''}
-        ${updatedAt ? `<div class="meta-item"><span class="meta-label">Updated:</span><span class="meta-value">${updatedAt}</span></div>` : ''}
-        ${closedAt ? `<div class="meta-item"><span class="meta-label">Closed:</span><span class="meta-value">${closedAt}</span></div>` : ''}
+        <div class="section-title">${escapeHtml(strings.detailsLabel)}</div>
+        ${assignee ? `<div class="meta-item"><span class="meta-label">${escapeHtml(strings.assigneeLabel)}</span><span class="meta-value">${escapeHtml(assignee)}</span></div>` : ''}
+        ${item.externalReferenceId ? `<div class="meta-item"><span class="meta-label">${escapeHtml(strings.externalRefLabel)}</span><span class="meta-value"><a href="${escapeHtml(item.externalReferenceId)}" class="external-link" target="_blank">${escapeHtml(item.externalReferenceDescription || item.externalReferenceId)}</a></span></div>` : ''}
+        ${createdAt ? `<div class="meta-item"><span class="meta-label">${escapeHtml(strings.createdLabel)}</span><span class="meta-value">${createdAt}</span></div>` : ''}
+        ${updatedAt ? `<div class="meta-item"><span class="meta-label">${escapeHtml(strings.updatedLabel)}</span><span class="meta-value">${updatedAt}</span></div>` : ''}
+        ${closedAt ? `<div class="meta-item"><span class="meta-label">${escapeHtml(strings.closedLabel)}</span><span class="meta-value">${closedAt}</span></div>` : ''}
     </div>
 
     <div class="section">
-        <div class="section-title">Labels</div>
+        <div class="section-title">${escapeHtml(strings.labelsLabel)}</div>
         <div class="tags" id="labelsContainer">
-            ${labels && labels.length > 0 ? labels.map((label: string) => `<span class="tag" data-label="${escapeHtml(label)}">${escapeHtml(label)}<span class="tag-remove" style="display: none;">×</span></span>`).join('') : '<span class="empty">No labels</span>'}
+            ${labels && labels.length > 0 ? labels.map((label: string) => `<span class="tag" data-label="${escapeHtml(label)}">${escapeHtml(label)}<span class="tag-remove" style="display: none;">×</span></span>`).join('') : `<span class="empty">${escapeHtml(strings.noLabelsLabel)}</span>`}
         </div>
         <div style="margin-top: 12px; display: none;" id="labelActions">
             <button class="edit-button" id="addInReviewButton" style="margin-right: 8px;">
-                <span id="inReviewButtonText">Mark as In Review</span>
+                <span id="inReviewButtonText">${escapeHtml(strings.markInReviewLabel)}</span>
             </button>
-            <button class="edit-button" id="addLabelButton">Add Label</button>
+            <button class="edit-button" id="addLabelButton">${escapeHtml(strings.addLabelLabel)}</button>
         </div>
     </div>
 
     ${dependsOn.length > 0 ? `
     <div class="section">
-        <div class="section-title">Depends On</div>
+        <div class="section-title">${escapeHtml(strings.dependsOnLabel)}</div>
         ${dependsOn.map((dep: any) => `
             <div class="dependency-item" data-issue-id="${dep.id}">
                 <div class="dependency-type">${dep.type}</div>
                 <strong>${dep.id}</strong>
                 ${dep.title ? `<div style="margin-top: 4px;">${escapeHtml(dep.title)}</div>` : ''}
-                ${dep.status ? `<span class="badge status-badge" style="margin-top: 4px; display: inline-block;">${dep.status.split('_').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}</span>` : ''}
+                ${dep.status ? `<span class="badge status-badge" style="margin-top: 4px; display: inline-block;">${escapeHtml(getStatusLabel(dep.status))}</span>` : ''}
             </div>
         `).join('')}
     </div>
@@ -1560,13 +1678,13 @@ function getBeadDetailHtml(
 
     ${blocks.length > 0 ? `
     <div class="section">
-        <div class="section-title">Blocks</div>
+        <div class="section-title">${escapeHtml(strings.blocksLabel)}</div>
         ${blocks.map((dep: any) => `
             <div class="dependency-item" data-issue-id="${dep.id}">
                 <div class="dependency-type">${dep.type}</div>
                 <strong>${dep.id}</strong>
                 ${dep.title ? `<div style="margin-top: 4px;">${escapeHtml(dep.title)}</div>` : ''}
-                ${dep.status ? `<span class="badge status-badge" style="margin-top: 4px; display: inline-block;">${dep.status.split('_').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}</span>` : ''}
+                ${dep.status ? `<span class="badge status-badge" style="margin-top: 4px; display: inline-block;">${escapeHtml(getStatusLabel(dep.status))}</span>` : ''}
             </div>
         `).join('')}
     </div>
@@ -1588,6 +1706,15 @@ function getBeadDetailHtml(
         const addLabelButton = document.getElementById('addLabelButton');
         const inReviewButtonText = document.getElementById('inReviewButtonText');
         const labelsContainer = document.getElementById('labelsContainer');
+
+        const localized = ${JSON.stringify({
+          edit: strings.editLabel,
+          done: strings.doneLabel,
+          markInReview: strings.markInReviewLabel,
+          removeInReview: strings.removeInReviewLabel,
+          addLabel: strings.addLabelLabel,
+          promptLabel: strings.labelPrompt,
+        })};
 
         // Dependency tree toggle
         const treeHeader = document.getElementById('treeHeader');
@@ -1623,15 +1750,17 @@ function getBeadDetailHtml(
         const currentLabels = ${JSON.stringify(labels || [])};
         const hasInReview = currentLabels.includes('in-review');
 
+        inReviewButtonText.textContent = localized.markInReview;
+
         if (hasInReview) {
-            inReviewButtonText.textContent = 'Remove In Review';
+            inReviewButtonText.textContent = localized.removeInReview;
         }
 
         editButton.addEventListener('click', () => {
             isEditMode = !isEditMode;
 
             if (isEditMode) {
-                editButton.textContent = 'Done';
+                editButton.textContent = localized.done;
                 statusBadge.classList.add('editable');
                 labelActions.style.display = 'block';
                 issueTitle.contentEditable = 'true';
@@ -1647,7 +1776,7 @@ function getBeadDetailHtml(
                     }
                 });
             } else {
-                editButton.textContent = 'Edit';
+                editButton.textContent = localized.edit;
                 statusBadge.classList.remove('editable');
                 statusDropdown.classList.remove('show');
                 labelActions.style.display = 'none';
@@ -1711,12 +1840,19 @@ function getBeadDetailHtml(
             const hasInReview = currentLabels.includes('in-review');
 
             if (hasInReview) {
+                const index = currentLabels.indexOf('in-review');
+                if (index >= 0) {
+                    currentLabels.splice(index, 1);
+                }
+                inReviewButtonText.textContent = localized.markInReview;
                 vscode.postMessage({
                     command: 'removeLabel',
                     label: 'in-review',
                     issueId: '${item.id}'
                 });
             } else {
+                currentLabels.push('in-review');
+                inReviewButtonText.textContent = localized.removeInReview;
                 vscode.postMessage({
                     command: 'addLabel',
                     label: 'in-review',
@@ -1727,7 +1863,7 @@ function getBeadDetailHtml(
 
         // Handle custom label addition
         addLabelButton.addEventListener('click', () => {
-            const label = prompt('Enter label name:');
+            const label = prompt(localized.promptLabel);
             if (label && label.trim()) {
                 vscode.postMessage({
                     command: 'addLabel',
@@ -1785,7 +1921,7 @@ function getBeadDetailHtml(
 </html>`;
 }
 
-function getDependencyTreeHtml(items: BeadItemData[]): string {
+function getDependencyTreeHtml(items: BeadItemData[], strings: DependencyTreeStrings, locale: string): string {
   // DEBUG: Log input to HTML generator
   console.log('[getDependencyTreeHtml DEBUG] Received items count:', items?.length ?? 'undefined/null');
 
@@ -1853,11 +1989,11 @@ function getDependencyTreeHtml(items: BeadItemData[]): string {
   const edgesJson = JSON.stringify(edges);
 
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="${escapeHtml(locale)}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Beads Dependency Tree</title>
+    <title>${escapeHtml(strings.title)}</title>
     <style>
         body {
             font-family: var(--vscode-font-family);
@@ -2044,26 +2180,26 @@ function getDependencyTreeHtml(items: BeadItemData[]): string {
 </head>
 <body>
     <div class="controls">
-        <button class="control-button" onclick="resetZoom()">Reset View</button>
-        <button class="control-button" onclick="autoLayout()">Auto Layout</button>
+        <button class="control-button" onclick="resetZoom()">${escapeHtml(strings.resetView)}</button>
+        <button class="control-button" onclick="autoLayout()">${escapeHtml(strings.autoLayout)}</button>
     </div>
 
     <div class="legend">
         <div class="legend-item">
             <span class="status-indicator closed"></span>
-            <span>Closed</span>
+            <span>${escapeHtml(strings.legendClosed)}</span>
         </div>
         <div class="legend-item">
             <span class="status-indicator in_progress"></span>
-            <span>In Progress</span>
+            <span>${escapeHtml(strings.legendInProgress)}</span>
         </div>
         <div class="legend-item">
             <span class="status-indicator open"></span>
-            <span>Open</span>
+            <span>${escapeHtml(strings.legendOpen)}</span>
         </div>
         <div class="legend-item">
             <span class="status-indicator blocked"></span>
-            <span>Blocked</span>
+            <span>${escapeHtml(strings.legendBlocked)}</span>
         </div>
     </div>
 
@@ -2076,6 +2212,11 @@ function getDependencyTreeHtml(items: BeadItemData[]): string {
         const vscode = acquireVsCodeApi();
         const nodes = ${nodesJson};
         const edges = ${edgesJson};
+        const localized = ${JSON.stringify({
+          emptyTitle: strings.emptyTitle,
+          emptyDescription: strings.emptyDescription,
+          renderErrorTitle: strings.renderErrorTitle,
+        })};
 
         console.log('[Dependency Tree] Script started');
         console.log('[Dependency Tree] Loaded', nodes.length, 'nodes and', edges.length, 'edges');
@@ -2084,7 +2225,7 @@ function getDependencyTreeHtml(items: BeadItemData[]): string {
 
         // DEBUG: Show visible indicator if nodes exist
         if (nodes.length === 0) {
-            document.body.innerHTML = '<div style="padding: 40px; text-align: center; color: var(--vscode-errorForeground);"><h2>No beads found</h2><p>The visualizer received 0 nodes. Check the Output panel for debug logs.</p></div>';
+            document.body.innerHTML = '<div style="padding: 40px; text-align: center; color: var(--vscode-errorForeground);"><h2>' + localized.emptyTitle + '</h2><p>' + localized.emptyDescription + '</p></div>';
         }
 
         const nodeElements = new Map();
@@ -2422,7 +2563,7 @@ function getDependencyTreeHtml(items: BeadItemData[]): string {
             console.log('[Dependency Tree] Initial render completed');
         } catch (err) {
             console.error('[Dependency Tree] Render error:', err);
-            document.body.innerHTML = '<div style="padding: 40px; color: var(--vscode-errorForeground);"><h2>Render Error</h2><pre>' + err.message + '</pre></div>';
+            document.body.innerHTML = '<div style="padding: 40px; color: var(--vscode-errorForeground);"><h2>' + localized.renderErrorTitle + '</h2><pre>' + err.message + '</pre></div>';
         }
     </script>
 </body>
@@ -2444,7 +2585,10 @@ async function openBead(item: BeadItemData, provider: BeadsTreeDataProvider): Pr
 
   // Get all items from the provider to calculate reverse dependencies
   const allItems = provider['items'] as BeadItemData[];
-  panel.webview.html = getBeadDetailHtml(item, allItems, panel.webview, nonce);
+  const statusLabels = getStatusLabels();
+  const beadStrings = buildBeadDetailStrings(statusLabels);
+  const locale = vscode.env.language || 'en';
+  panel.webview.html = getBeadDetailHtml(item, allItems, panel.webview, nonce, beadStrings, locale);
 
   // Register this panel so it can be refreshed when data changes
   provider.registerPanel(item.id, panel);
@@ -2547,9 +2691,13 @@ async function createBead(): Promise<void> {
 }
 
 async function visualizeDependencies(provider: BeadsTreeDataProvider): Promise<void> {
+  const statusLabels = getStatusLabels();
+  const dependencyStrings = buildDependencyTreeStrings(statusLabels);
+  const locale = vscode.env.language || 'en';
+
   const panel = vscode.window.createWebviewPanel(
     'beadDependencyTree',
-    t('Beads Dependency Tree'),
+    dependencyStrings.title,
     vscode.ViewColumn.One,
     {
       enableScripts: true,
@@ -2567,7 +2715,7 @@ async function visualizeDependencies(provider: BeadsTreeDataProvider): Promise<v
     console.log('[Visualizer DEBUG] First item raw data:', JSON.stringify(items[0]?.raw, null, 2));
   }
 
-  panel.webview.html = getDependencyTreeHtml(items);
+  panel.webview.html = getDependencyTreeHtml(items, dependencyStrings, locale);
 
   // Handle messages from the webview
   panel.webview.onDidReceiveMessage(async (message) => {
@@ -2588,7 +2736,7 @@ async function visualizeDependencies(provider: BeadsTreeDataProvider): Promise<v
   });
 }
 
-function getActivityFeedPanelHtml(events: import('./activityFeed').EventData[]): string {
+function getActivityFeedPanelHtml(events: import('./activityFeed').EventData[], strings: ActivityFeedStrings, locale: string): string {
   const eventCards = events.map(event => {
     const iconMap: Record<string, string> = {
       'sparkle': '✨',
@@ -2617,7 +2765,8 @@ function getActivityFeedPanelHtml(events: import('./activityFeed').EventData[]):
     };
     const icon = iconMap[event.iconName] || '•';
     const color = colorMap[event.colorClass] || '#666';
-    const time = event.createdAt.toLocaleString();
+    const time = event.createdAt.toLocaleString(locale);
+    const actorLabel = escapeHtml(t('by {0}', event.actor));
     
     return `
       <div class="event-card" data-issue-id="${escapeHtml(event.issueId)}">
@@ -2625,11 +2774,11 @@ function getActivityFeedPanelHtml(events: import('./activityFeed').EventData[]):
         <div class="event-content">
           <div class="event-header">
             <span class="event-description">${escapeHtml(event.description)}</span>
-            <span class="event-time" title="${time}">${escapeHtml(event.createdAt.toLocaleTimeString())}</span>
+            <span class="event-time" title="${time}">${escapeHtml(event.createdAt.toLocaleTimeString(locale))}</span>
           </div>
           ${event.issueTitle ? `<div class="event-issue">${escapeHtml(event.issueTitle)}</div>` : ''}
           <div class="event-meta">
-            <span class="event-actor">by ${escapeHtml(event.actor)}</span>
+            <span class="event-actor">${actorLabel}</span>
             <span class="event-id">#${escapeHtml(event.issueId)}</span>
           </div>
         </div>
@@ -2638,11 +2787,11 @@ function getActivityFeedPanelHtml(events: import('./activityFeed').EventData[]):
   }).join('');
 
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="${escapeHtml(locale)}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Activity Feed</title>
+    <title>${escapeHtml(strings.title)}</title>
     <style>
         body {
             font-family: var(--vscode-font-family);
@@ -2787,8 +2936,8 @@ function getActivityFeedPanelHtml(events: import('./activityFeed').EventData[]):
 </head>
 <body>
     <div class="activity-header">
-        <h1 class="activity-title">Activity Feed</h1>
-        <span class="event-count">${events.length} events</span>
+        <h1 class="activity-title">${escapeHtml(strings.title)}</h1>
+        <span class="event-count">${escapeHtml(t('{0} {1}', events.length, strings.eventsLabel))}</span>
     </div>
     
     ${events.length > 0 ? `
@@ -2798,8 +2947,8 @@ function getActivityFeedPanelHtml(events: import('./activityFeed').EventData[]):
     ` : `
     <div class="empty-state">
         <div class="empty-state-icon">📋</div>
-        <h3>No activity yet</h3>
-        <p>Events will appear here as you work with issues.</p>
+        <h3>${escapeHtml(strings.emptyTitle)}</h3>
+        <p>${escapeHtml(strings.emptyDescription)}</p>
     </div>
     `}
     
@@ -2823,9 +2972,11 @@ function getActivityFeedPanelHtml(events: import('./activityFeed').EventData[]):
 }
 
 async function openActivityFeedPanel(activityFeedProvider: ActivityFeedTreeDataProvider, beadsProvider: BeadsTreeDataProvider): Promise<void> {
+  const activityStrings = buildActivityFeedStrings();
+  const locale = vscode.env.language || 'en';
   const panel = vscode.window.createWebviewPanel(
     'activityFeedPanel',
-    t('Activity Feed'),
+    activityStrings.title,
     vscode.ViewColumn.One,
     {
       enableScripts: true,
@@ -2840,8 +2991,7 @@ async function openActivityFeedPanel(activityFeedProvider: ActivityFeedTreeDataP
   const { fetchEvents } = await import('./activityFeed');
   const result = await fetchEvents(projectRoot, { limit: 100 });
 
-  // 
-  panel.webview.html = getActivityFeedPanelHtml(result.events);
+  panel.webview.html = getActivityFeedPanelHtml(result.events, activityStrings, locale);
 
   // Handle messages from the webview
   panel.webview.onDidReceiveMessage(async (message) => {
