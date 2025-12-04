@@ -8,6 +8,8 @@ This Visual Studio Code extension provides a simple explorer view for [Beads](ht
 
 - **Dedicated Activity Bar**: Beads has its own dedicated view in the VS Code activity bar for easy access.
 - **Tree View**: Explorer view that lists all beads for the current workspace with status-based icons.
+- **Issue Type Icons**: Each issue type displays with a distinctive icon - epics (📦), tasks (☑️), bugs (🐛), features (💡), spikes (🧪), and chores (🔧) - making it easy to identify different work types at a glance.
+- **Epic Grouping**: Group tasks by their parent epic using the "Toggle Sort Mode" command. Epics appear as expandable sections containing their child tasks, with ungrouped items shown in a separate section. Toggle between ID sort, status sort, and epic grouping modes.
 - **Live Data Sync**: Automatically watches the Beads database for changes and refreshes the view in real-time.
 - **Stale Task Warning**: Automatically detects and highlights in-progress tasks that have been stale for too long. A warning section at the top of the tree view shows tasks that exceed the configurable threshold, helping identify potentially stuck work or forgotten tasks.
 - **Search**: Search across beads by ID, title, description, labels, status, assignee, and more.
@@ -41,6 +43,7 @@ The extension integrates with the Beads CLI (`bd`) and reads from the Beads data
 | `Beads: Edit External Reference` | Update the external reference identifier stored for the bead. |
 | `Beads: Create` | Create a new bead by prompting for a title and invoking `bd create`. |
 | `Beads: Visualize Dependencies` | Open an interactive dependency graph showing relationships between beads. |
+| `Beads: Toggle Sort Mode` | Cycle through view modes: ID sort → Status grouping → Epic grouping. Epic mode shows tasks grouped under their parent epics. |
 | `Beads: Clear Manual Sort Order` | Reset manual drag-and-drop sorting and return to natural ID-based sorting. |
 | `Beads: Delete` | Delete selected bead(s) from the project. |
 
@@ -69,6 +72,27 @@ The extension integrates with the Beads CLI (`bd`) and reads from the Beads data
 4. **Edit Status/Labels**: Click "Edit" in the detail view to modify status and labels
 5. **Visualize**: Click the graph icon to see dependency relationships
 6. **Reorder**: Drag and drop beads to customize the order (persisted per workspace)
+
+### View Modes
+
+The extension supports three view modes that you can cycle through using the "Toggle Sort Mode" command:
+
+1. **ID Sort** (default): Beads are sorted naturally by ID
+2. **Status Grouping**: Beads are grouped into collapsible sections by status (Open, In Progress, Blocked, Closed)
+3. **Epic Grouping**: Beads are grouped under their parent epics. Epics appear as expandable sections with their child tasks nested underneath. Tasks without a parent epic are shown in an "Ungrouped" section.
+
+### Issue Type Icons
+
+Each issue type displays with a distinctive icon based on status color:
+
+- 📦 **Epic**: Large initiatives (icon: `symbol-package`)
+- ☑️ **Task**: Actionable work items (icon: `checklist`)
+- 🐛 **Bug**: Issues to fix (icon: `bug`)
+- 💡 **Feature**: New capabilities (icon: `lightbulb`)
+- 🧪 **Spike**: Research or investigation (icon: `beaker`)
+- 🔧 **Chore**: Maintenance work (icon: `tools`)
+
+Closed items always show a green checkmark (✅) regardless of type.
 
 ### Status Icons
 
