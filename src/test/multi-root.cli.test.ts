@@ -6,6 +6,7 @@ describe('Multi-root bd command resolution', () => {
   let restoreLoad: any;
   let runBdCommand: any;
   const execCalls: Array<{ command: string; args: string[]; options: any }> = [];
+  const execCliStub = async ({ commandPath, args, cwd }: any) => { execCalls.push({ command: commandPath, args, options: { cwd } }); return { stdout: '', stderr: '' }; };
   let workspaceFolders: any[];
 
   before(() => {
@@ -73,7 +74,7 @@ describe('Multi-root bd command resolution', () => {
         getConfiguration: (_section: string, workspaceFolder?: any) => ({
           get: (key: string, fallback: any) => {
             if (key === 'commandPath') {
-              return workspaceFolder?.name === 'two' ? '/bin/ls' : '/bin/echo';
+              return workspaceFolder?.name === 'two' ? '/custom/bd-two' : '/custom/bd-one';
             }
             if (key === 'enableWorktreeGuard') {
               return false;
@@ -109,7 +110,6 @@ describe('Multi-root bd command resolution', () => {
       return restoreLoad(request, parent, isMain);
     };
 
-    delete require.cache[require.resolve('../utils/cli')];
     delete require.cache[require.resolve('../extension')];
     runBdCommand = require('../extension').runBdCommand;
   });
@@ -121,15 +121,10 @@ describe('Multi-root bd command resolution', () => {
 
   it('uses workspace-specific command path and cwd', async () => {
     execCalls.length = 0;
-    const execOverride = async ({ commandPath, args, cwd }: any) => {
-      execCalls.push({ command: commandPath, args, options: { cwd } });
-      return { stdout: '', stderr: '' };
-    };
-
-    await runBdCommand(['list'], '/workspace/two', { workspaceFolder: workspaceFolders[1], execOverride });
+    await runBdCommand(['list'], '/workspace/two', { workspaceFolder: workspaceFolders[1], execCli: execCliStub });
 
     const lastCall = execCalls[execCalls.length - 1];
-    assert.strictEqual(lastCall.command, '/bin/ls');
+    assert.strictEqual(lastCall.command, '/custom/bd-two');
     assert.strictEqual(lastCall.options?.cwd, '/workspace/two');
   });
 
@@ -137,7 +132,7 @@ describe('Multi-root bd command resolution', () => {
     execCalls.length = 0;
     let error: any;
     try {
-      await runBdCommand(['list'], '/outside/root');
+      await runBdCommand(['list'], '/outside/root', { execCli: execCliStub });
     } catch (e) {
       error = e;
     }

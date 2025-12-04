@@ -99,13 +99,13 @@ async function warnIfDependencyEditingUnsupported(workspaceFolder?: vscode.Works
 interface BdCommandOptions {
   workspaceFolder?: vscode.WorkspaceFolder;
   requireGuard?: boolean;
+  execCli?: typeof execCliWithPolicy;
   execOverride?: typeof execCliWithPolicy;
 }
 
 async function runBdCommand(args: string[], projectRoot: string, options: BdCommandOptions = {}): Promise<void> {
   const workspaceFolder = options.workspaceFolder ?? vscode.workspace.getWorkspaceFolder(vscode.Uri.file(projectRoot));
   const requireGuard = options.requireGuard !== false;
-  const executor = options.execOverride ?? execCliWithPolicy;
 
   if (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0 && !workspaceFolder) {
     throw new Error(t('Project root {0} is not within an open workspace folder', projectRoot));
@@ -119,8 +119,9 @@ async function runBdCommand(args: string[], projectRoot: string, options: BdComm
   const commandPathSetting = config.get<string>('commandPath', 'bd');
   const commandPath = await findBdCommand(commandPathSetting);
   const cliPolicy = getCliExecutionConfig(config);
+  const execFn = options.execCli ?? options.execOverride ?? execCliWithPolicy;
 
-  await executor({
+  await execFn({
     commandPath,
     args,
     cwd: projectRoot,
@@ -2296,7 +2297,7 @@ function getDependencyTreeHtml(items: BeadItemData[], strings: DependencyTreeStr
             position: absolute;
             top: 0;
             left: 0;
-            pointer-events: none;
+            pointer-events: auto;
             z-index: 0;
         }
 
@@ -2306,11 +2307,17 @@ function getDependencyTreeHtml(items: BeadItemData[], strings: DependencyTreeStr
             fill: none;
             marker-end: url(#arrowhead);
             opacity: 0.8;
+            cursor: pointer;
         }
 
         .edge.blocks {
             stroke: #f14c4c;
             stroke-width: 2.5;
+        }
+
+        .edge.selected {
+            stroke: var(--vscode-focusBorder, #007acc);
+            stroke-width: 3;
         }
 
         .controls {
@@ -2319,6 +2326,7 @@ function getDependencyTreeHtml(items: BeadItemData[], strings: DependencyTreeStr
             right: 20px;
             display: flex;
             gap: 8px;
+            align-items: center;
         }
 
         .control-button {
@@ -2334,6 +2342,11 @@ function getDependencyTreeHtml(items: BeadItemData[], strings: DependencyTreeStr
 
         .control-button:hover {
             background-color: var(--vscode-button-hoverBackground);
+        }
+
+        .hint-text {
+            font-size: 12px;
+            color: var(--vscode-descriptionForeground);
         }
 
         .legend {
@@ -2363,6 +2376,7 @@ function getDependencyTreeHtml(items: BeadItemData[], strings: DependencyTreeStr
         <button class="control-button" onclick="resetZoom()">${escapeHtml(strings.resetView)}</button>
         <button class="control-button" onclick="autoLayout()">${escapeHtml(strings.autoLayout)}</button>
         ${dependencyEditingEnabled ? `<button class="control-button" id="removeEdgeButton">${escapeHtml(strings.removeDependencyLabel)}</button>` : ''}
+        ${dependencyEditingEnabled ? `<span class="hint-text" id="linkHint">Shift+Click a node to add a dependency</span>` : ''}
     </div>
 
     <div class="legend">
@@ -2393,6 +2407,7 @@ function getDependencyTreeHtml(items: BeadItemData[], strings: DependencyTreeStr
         const vscode = acquireVsCodeApi();
         const nodes = ${nodesJson};
         const edges = ${edgesJson};
+        const dependencyEditingEnabled = ${dependencyEditingEnabled ? 'true' : 'false'};
         const localized = ${JSON.stringify({
           emptyTitle: strings.emptyTitle,
           emptyDescription: strings.emptyDescription,
@@ -2416,15 +2431,36 @@ function getDependencyTreeHtml(items: BeadItemData[], strings: DependencyTreeStr
         const previousState = vscode.getState() || {};
         let savedPositions = previousState.nodePositions || {};
         let lastSelectedNodeId = previousState.lastSelectedNodeId;
+        let selectedEdge = null;
+        let linkSourceId = null;
+        const linkHint = document.getElementById('linkHint');
 
         const removeEdgeButton = document.getElementById('removeEdgeButton');
         if (removeEdgeButton) {
             removeEdgeButton.addEventListener('click', () => {
-                vscode.postMessage({
-                    command: 'removeDependency',
-                    contextId: lastSelectedNodeId,
-                });
+                if (selectedEdge) {
+                    vscode.postMessage({
+                        command: 'removeDependency',
+                        sourceId: selectedEdge.from,
+                        targetId: selectedEdge.to,
+                    });
+                } else if (lastSelectedNodeId) {
+                    vscode.postMessage({
+                        command: 'removeDependency',
+                        contextId: lastSelectedNodeId,
+                    });
+                }
             });
+        }
+
+        function updateHint(text) {
+            if (linkHint) {
+                linkHint.textContent = text;
+            }
+        }
+
+        if (dependencyEditingEnabled) {
+            updateHint('Shift+Click a node to add a dependency');
         }
 
         // Drag state
@@ -2553,16 +2589,38 @@ function getDependencyTreeHtml(items: BeadItemData[], strings: DependencyTreeStr
                 e.preventDefault();
             });
 
-            // Click to open (only if not dragged)
+            // Click to open (only if not dragged) or to add dependency when enabled
             div.addEventListener('click', (e) => {
-                if (!isDragging) {
-                    lastSelectedNodeId = node.id;
-                    vscode.setState({ nodePositions: savedPositions, lastSelectedNodeId });
-                    vscode.postMessage({
-                        command: 'openBead',
-                        beadId: node.id
-                    });
+                if (isDragging) {
+                    return;
                 }
+
+                if (dependencyEditingEnabled && (e.shiftKey || linkSourceId)) {
+                    if (!linkSourceId) {
+                        linkSourceId = node.id;
+                        updateHint('Select a target for ' + node.id);
+                    } else if (linkSourceId === node.id) {
+                        linkSourceId = null;
+                        updateHint('Link cancelled');
+                    } else {
+                        vscode.postMessage({
+                            command: 'addDependency',
+                            sourceId: linkSourceId,
+                            targetId: node.id,
+                        });
+                        linkSourceId = null;
+                        updateHint('Shift+Click a node to add a dependency');
+                    }
+                    return;
+                }
+
+                selectedEdge = null;
+                lastSelectedNodeId = node.id;
+                vscode.setState({ nodePositions: savedPositions, lastSelectedNodeId });
+                vscode.postMessage({
+                    command: 'openBead',
+                    beadId: node.id
+                });
             });
 
             return div;
@@ -2592,7 +2650,7 @@ function getDependencyTreeHtml(items: BeadItemData[], strings: DependencyTreeStr
             const midY = (y1 + y2) / 2;
             const path = 'M ' + x1 + ' ' + y1 + ' C ' + x1 + ' ' + midY + ', ' + x2 + ' ' + midY + ', ' + x2 + ' ' + y2;
 
-            return '<path d="' + path + '" class="edge ' + type + '" />';
+            return '<path d="' + path + '" class="edge ' + type + '" data-from="' + from + '" data-to="' + to + '" />';
         }
 
         function render() {
@@ -2642,6 +2700,7 @@ function getDependencyTreeHtml(items: BeadItemData[], strings: DependencyTreeStr
                     '</marker>' +
                     '</defs>' +
                     edgePaths;
+                bindEdgeClicks();
                 console.log('[Dependency Tree] SVG innerHTML set');
             }, 100);
         }
@@ -2696,6 +2755,26 @@ function getDependencyTreeHtml(items: BeadItemData[], strings: DependencyTreeStr
                 '</marker>' +
                 '</defs>' +
                 edgePaths;
+            bindEdgeClicks();
+        }
+        function bindEdgeClicks() {
+            const edgeEls = Array.from(document.querySelectorAll('path.edge')) as any[];
+            edgeEls.forEach((el) => {
+                el.addEventListener('click', () => {
+                    edgeEls.forEach((e) => e.classList.remove('selected'));
+                    el.classList.add('selected');
+                    selectedEdge = { from: el.getAttribute('data-from'), to: el.getAttribute('data-to') };
+                });
+                el.addEventListener('dblclick', () => {
+                    if (dependencyEditingEnabled) {
+                        vscode.postMessage({
+                            command: 'removeDependency',
+                            sourceId: el.getAttribute('data-from'),
+                            targetId: el.getAttribute('data-to'),
+                        });
+                    }
+                });
+            });
         }
 
         // Global mouse move handler for dragging
@@ -2921,7 +3000,11 @@ async function pickBeadQuick(
   return selection?.bead;
 }
 
-async function addDependencyCommand(provider: BeadsTreeDataProvider, sourceItem?: BeadItemData): Promise<void> {
+async function addDependencyCommand(
+  provider: BeadsTreeDataProvider,
+  sourceItem?: BeadItemData,
+  edge?: { sourceId?: string; targetId?: string }
+): Promise<void> {
   const config = vscode.workspace.getConfiguration('beads');
   const dependencyEditingEnabled = config.get<boolean>('enableDependencyEditing', false);
   if (!dependencyEditingEnabled) {
@@ -2932,17 +3015,16 @@ async function addDependencyCommand(provider: BeadsTreeDataProvider, sourceItem?
   const items = (provider as any)['items'] as BeadItemData[] | undefined;
   const source =
     sourceItem ??
+    (edge?.sourceId ? items?.find((i) => i.id === edge.sourceId) : undefined) ??
     (await pickBeadQuick(items, t('Select the issue that depends on another item')));
 
   if (!source) {
     return;
   }
 
-  const target = await pickBeadQuick(
-    items,
-    t('Select the issue {0} depends on', source.id),
-    source.id,
-  );
+  const target = edge?.targetId
+    ? items?.find((i) => i.id === edge.targetId)
+    : await pickBeadQuick(items, t('Select the issue {0} depends on', source.id), source.id);
 
   if (!target) {
     return;
@@ -3059,7 +3141,7 @@ async function visualizeDependencies(provider: BeadsTreeDataProvider): Promise<v
 
   // Handle messages from the webview
   panel.webview.onDidReceiveMessage(async (message) => {
-    const allowed: AllowedLittleGlenCommand[] = ['openBead', 'removeDependency'];
+    const allowed: AllowedLittleGlenCommand[] = ['openBead', 'addDependency', 'removeDependency'];
     const validated = validateLittleGlenMessage(message, allowed);
     if (!validated) {
       console.warn('[Little Glen] Ignoring invalid visualizeDependencies message');
@@ -3072,6 +3154,8 @@ async function visualizeDependencies(provider: BeadsTreeDataProvider): Promise<v
       } else {
         void vscode.window.showWarningMessage(t('Issue {0} not found', validated.beadId));
       }
+    } else if (validated.command === 'addDependency') {
+      await addDependencyCommand(provider, undefined, { sourceId: validated.sourceId, targetId: validated.targetId });
     } else if (validated.command === 'removeDependency') {
       await removeDependencyCommand(provider, validated.sourceId && validated.targetId ? {
         sourceId: validated.sourceId,
@@ -3780,4 +3864,6 @@ export {
   openBeadFromFeed,
   runBdCommand,
   findBdCommand,
+  collectDependencyEdges,
+  addDependencyCommand,
 };
