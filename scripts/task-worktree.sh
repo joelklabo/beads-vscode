@@ -67,6 +67,16 @@ init_env() {
 
 bd_cmd() {
   init_env
+  # Guard against duplicate/invalid worktree state before bd mutations
+  if [[ "${SKIP_GUARD:-0}" != "1" ]]; then
+    if [[ -x "${MAIN_REPO}/scripts/worktree-guard.sh" ]]; then
+      QUIET=1 "${MAIN_REPO}/scripts/worktree-guard.sh" || {
+        log_error "worktree guard failed; fix issues before proceeding"
+        exit 1
+      }
+    fi
+  fi
+
   BEADS_DIR="$BEADS_DIR" BEADS_NO_DAEMON=1 npx bd "$@"
 }
 
