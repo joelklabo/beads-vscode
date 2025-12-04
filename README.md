@@ -66,6 +66,7 @@ The extension integrates with the Beads CLI (`bd`) and reads from the Beads data
 - `beads.feedback.labels`: Map feedback types (bug, feature, question, other) to GitHub labels. Defaults to `bug`, `enhancement`, `question`, and `feedback`.
 - `beads.feedback.useGitHubCli`: Prefer the `gh` CLI for submissions when available. Defaults to `false`.
 - `beads.feedback.includeAnonymizedLogs`: Allow attaching sanitized logs/metadata when sending feedback (default: `true`).
+- `beads.enableDependencyEditing`: Experimental flag (default: `false`) to show dependency add/remove UI. Requires `bd` CLI version `>= 0.29.0`; the extension will warn if the CLI is too old.
 
 ## How to Use
 

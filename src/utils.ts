@@ -6,3 +6,4 @@ export * from './utils/config';
 export * from './utils/stale';
 export * from './utils/sanitize';
 export * from './utils/environment';
+export * from './utils/cli';

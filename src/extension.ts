@@ -9,6 +9,7 @@ import {
   escapeHtml,
   linkifyText,
   isStale,
+  warnIfDependencyEditingUnsupported as warnIfDependencyEditingUnsupportedCli,
 } from './utils';
 import { ActivityFeedTreeDataProvider, ActivityEventItem } from './activityFeedProvider';
 import { EventType } from './activityFeed';
@@ -37,6 +38,9 @@ function createNonce(): string {
 }
 
 let guardWarningShown = false;
+let dependencyVersionWarned = false;
+
+const MIN_DEPENDENCY_CLI = '0.29.0';
 
 async function runWorktreeGuard(projectRoot: string): Promise<void> {
   const config = vscode.workspace.getConfiguration('beads');
@@ -58,6 +62,28 @@ async function runWorktreeGuard(projectRoot: string): Promise<void> {
 
   await execFileAsync(guardPath, { cwd: projectRoot });
 }
+
+async function warnIfDependencyEditingUnsupported(workspaceFolder?: vscode.WorkspaceFolder): Promise<void> {
+  const config = vscode.workspace.getConfiguration('beads', workspaceFolder);
+  if (!config.get<boolean>('enableDependencyEditing', false) || dependencyVersionWarned) {
+    return;
+  }
+
+  const commandPathSetting = config.get<string>('commandPath', 'bd');
+  try {
+    const commandPath = await findBdCommand(commandPathSetting);
+    await warnIfDependencyEditingUnsupportedCli(commandPath, MIN_DEPENDENCY_CLI, workspaceFolder?.uri.fsPath, (message) => {
+      dependencyVersionWarned = true;
+      void vscode.window.showWarningMessage(message);
+    });
+  } catch (error) {
+    dependencyVersionWarned = true;
+    void vscode.window.showWarningMessage(
+      'Could not determine bd version; dependency editing may be unsupported. Ensure bd is installed and on your PATH.'
+    );
+  }
+}
+
 
 interface BdCommandOptions {
   workspaceFolder?: vscode.WorkspaceFolder;
@@ -3215,6 +3241,23 @@ export function activate(context: vscode.ExtensionContext): void {
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         void vscode.window.showErrorMessage(t('Failed to delete beads: {0}', errorMessage));
+      }
+    }),
+  );
+
+  // If dependency editing is enabled, warn early when the bd CLI is too old
+  const workspaces = vscode.workspace.workspaceFolders ?? [];
+  workspaces.forEach((workspaceFolder) => {
+    void warnIfDependencyEditingUnsupported(workspaceFolder);
+  });
+
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration((event) => {
+      if (event.affectsConfiguration('beads.enableDependencyEditing')) {
+        const folders = vscode.workspace.workspaceFolders ?? [];
+        folders.forEach((workspaceFolder) => {
+          void warnIfDependencyEditingUnsupported(workspaceFolder);
+        });
       }
     }),
   );
