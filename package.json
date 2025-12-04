@@ -68,8 +68,8 @@
       },
       {
         "command": "beads.toggleSortMode",
-        "title": "Beads: Toggle Sort by Status",
-        "icon": "$(arrow-swap)"
+        "title": "Beads: Cycle Sort Mode (ID → Status → Epic)",
+        "icon": "$(list-tree)"
       },
       {
         "command": "beads.refreshActivityFeed",

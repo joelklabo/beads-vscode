@@ -781,7 +781,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   }
 
   private loadSortMode(): void {
-    const saved = this.context.workspaceState.get<'id' | 'status'>('beads.sortMode');
+    const saved = this.context.workspaceState.get<'id' | 'status' | 'epic'>('beads.sortMode');
     if (saved) {
       this.sortMode = saved;
     }
