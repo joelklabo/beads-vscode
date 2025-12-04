@@ -70,6 +70,130 @@ bd_cmd() {
   BEADS_DIR="$BEADS_DIR" BEADS_NO_DAEMON=1 npx bd "$@"
 }
 
+# Extract a list of files from a task description's "## Files" section
+get_task_files() {
+  local task_id="$1"
+  local task_json desc
+  task_json=$(bd_cmd show "$task_id" --json 2>/dev/null || echo '{}')
+  desc=$(echo "$task_json" | jq -r '.[0].description // ""' 2>/dev/null || echo "")
+
+  echo "$desc" | awk '
+    BEGIN { capture = 0 }
+    /^##[[:space:]]*Files/ { capture = 1; next }
+    capture {
+      if ($0 ~ /^##[[:space:]]+/) { exit }
+      if ($0 ~ /^\s*$/) { exit }
+      if ($0 ~ /^\s*-/) {
+        sub(/^\s*-\s*/, "", $0)
+        if (length($0) > 0) print $0
+      }
+    }
+  '
+}
+
+# Determine if a candidate task conflicts (overlapping files) with any in-progress task
+has_file_conflicts() {
+  local candidate="$1"
+  local candidate_files inprogress_json conflict=1
+
+  candidate_files=$(get_task_files "$candidate")
+  # If the task did not declare files, assume no conflict to avoid starvation
+  if [[ -z "$candidate_files" ]]; then
+    return 1
+  fi
+
+  inprogress_json=$(bd_cmd list --status in_progress --json 2>/dev/null || echo '[]')
+  mapfile -t inprogress_ids < <(echo "$inprogress_json" | jq -r '.[].id // empty')
+
+  for ip_id in "${inprogress_ids[@]}"; do
+    [[ "$ip_id" == "$candidate" ]] && continue
+    ip_files=$(get_task_files "$ip_id")
+    [[ -z "$ip_files" ]] && continue
+    while IFS= read -r cf; do
+      while IFS= read -r ipf; do
+        if [[ "$cf" == "$ipf" ]]; then
+          return 0
+        fi
+      done <<<"$ip_files"
+    done <<<"$candidate_files"
+  done
+
+  return 1
+}
+
+cmd_claim_next() {
+  local worker="$1"
+
+  if [[ -z "$worker" ]]; then
+    echo "Usage: $0 claim-next <worker-name>"
+    exit 1
+  fi
+
+  init_env
+  detect_lock_backend
+
+  local global_lock="${LOCK_DIR}/claim-next.lock"
+  local selected=""
+
+  local selection_output status
+  set +e
+  selection_output=$(with_lock "$global_lock" bash -c '
+    set -e
+    worker="$1"
+    LOCK_DIR="$2"
+    BEADS_DIR="$3"
+    script="$4"
+
+    ready_json=$(BEADS_DIR="$BEADS_DIR" BEADS_NO_DAEMON=1 npx bd ready --json 2>/dev/null || echo "[]")
+    mapfile -t ready_ids < <(echo "$ready_json" | jq -r "sort_by(.priority, .created_at)[]?.id // empty")
+
+    for task_id in "${ready_ids[@]}"; do
+      [[ -z "$task_id" ]] && continue
+
+      # Skip if files conflict with in-progress work
+      if ! "$script" __has_conflict "$task_id"; then
+        claim_lock="${LOCK_DIR}/claim-${task_id}.lock"
+        if "$script" __claim_under_lock "$task_id" "$worker" "$claim_lock"; then
+          echo "$task_id"
+          exit 0
+        fi
+      fi
+    done
+
+    exit 2
+  ' bash "$worker" "$LOCK_DIR" "$BEADS_DIR" "$0")
+  status=$?
+  set -e
+  if [[ $status -eq 0 ]]; then
+    selected=$(echo "$selection_output" | tail -n1)
+  fi
+
+  if [[ -z "$selected" ]]; then
+    log_info "No tasks available for claim-next"
+    exit 0
+  fi
+
+  log_info "Claimed task via claim-next: $selected"
+  SKIP_INITIAL_CLAIM=1 TASK_ID="$selected" WORKER="$worker" "$0" start "$worker" "$selected"
+  exit $?
+}
+
+# Helper entrypoints for subshell use in cmd_claim_next
+if [[ "$1" == "__has_conflict" ]]; then
+  shift
+  task_id="$1"
+  if has_file_conflicts "$task_id"; then exit 0; else exit 1; fi
+fi
+
+if [[ "$1" == "__claim_under_lock" ]]; then
+  shift
+  task_id="$1"; worker="$2"; lock_file="$3"
+  if LOCK_TIMEOUT="$CLAIM_LOCK_TIMEOUT_DEFAULT" with_lock "$lock_file" claim_task_atomic "$task_id" "$worker"; then
+    exit 0
+  fi
+  exit 1
+fi
+
 with_lock() {
   local lockfile="$1"; shift
   local timeout="${LOCK_TIMEOUT:-$LOCK_TIMEOUT_DEFAULT}"
@@ -617,10 +741,15 @@ case "$COMMAND" in
     log_step "Sweeping stale tasks before claiming..."
     sweep_stale_heartbeats "$HEARTBEAT_STALE_DEFAULT"
 
-    # Atomically claim the task under a per-task lock
-    log_step "Atomically claiming task (lock: $CLAIM_LOCK)..."
-    LOCK_TIMEOUT="$CLAIM_LOCK_TIMEOUT" with_lock "$CLAIM_LOCK" claim_task_atomic "$TASK_ID" "$WORKER"
-    CLAIMED=true
+    if [[ "$SKIP_INITIAL_CLAIM" == "1" ]]; then
+      log_step "Skipping claim (already claimed)"
+      CLAIMED=true
+    else
+      # Atomically claim the task under a per-task lock
+      log_step "Atomically claiming task (lock: $CLAIM_LOCK)..."
+      LOCK_TIMEOUT="$CLAIM_LOCK_TIMEOUT" with_lock "$CLAIM_LOCK" claim_task_atomic "$TASK_ID" "$WORKER"
+      CLAIMED=true
+    fi
 
     # Fetch latest from origin
     log_step "Fetching latest from origin..."
@@ -955,6 +1084,14 @@ case "$COMMAND" in
     else
       log_info "Cancelled"
     fi
+    ;;
+
+  claim-next)
+    if [[ -z "$WORKER" ]]; then
+      echo "Usage: $0 claim-next <worker-name>"
+      exit 1
+    fi
+    cmd_claim_next "$WORKER"
     ;;
 
   *)
