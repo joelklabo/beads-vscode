@@ -136,6 +136,12 @@
           "type": "string",
           "default": ".beads/issues.jsonl",
           "description": "Path to the beads data JSONL file (relative to the project root or absolute)"
+        },
+        "beads.staleThresholdMinutes": {
+          "type": "number",
+          "default": 10,
+          "minimum": 1,
+          "description": "Number of minutes after which an in-progress task is highlighted as stale. Tasks in progress longer than this threshold will be visually flagged to help identify potentially stuck work."
         }
       }
     },
