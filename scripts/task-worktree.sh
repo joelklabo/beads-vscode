@@ -952,6 +952,104 @@ case "$COMMAND" in
     git worktree list
     ;;
 
+  audit)
+    MAIN_REPO=$(get_main_repo)
+    init_env
+    cd "$MAIN_REPO"
+
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "Worktree Guard Audit"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+    # Collect worktrees
+    mapfile -t wt_lines < <(git worktree list --porcelain)
+    declare -A wt_by_task
+    declare -A wt_path_by_task
+    for ((i=0; i<${#wt_lines[@]}; i++)); do
+      line=${wt_lines[$i]}
+      if [[ "$line" == "worktree "* ]]; then
+        wt_path=${line#worktree }
+        # Task inferred from folder name if pattern matches
+        if [[ "$wt_path" =~ worktrees/([^/]+)/([^/]+)$ ]]; then
+          worker="${BASH_REMATCH[1]}"; task_id="${BASH_REMATCH[2]}"
+          wt_by_task[$task_id]="${wt_by_task[$task_id]} ${worker}"
+          wt_path_by_task[$task_id]="$wt_path"
+        fi
+      fi
+    done
+
+    # In-progress tasks from bd
+    inprog_json=$(bd_cmd list --status in_progress --json 2>/dev/null || echo '[]')
+    mapfile -t inprog_ids < <(echo "$inprog_json" | jq -r '.[].id // empty')
+
+    # Heartbeats
+    shopt -s nullglob
+    hb_files=(${HEARTBEAT_DIR}/*.hb)
+    shopt -u nullglob
+    declare -A hb_by_task
+    for hb in "${hb_files[@]}"; do
+      base=$(basename "$hb" .hb)
+      worker="${base%%__*}"; task_id="${base#*__}"
+      hb_by_task[$task_id]="${hb_by_task[$task_id]} ${worker}"
+    done
+
+    issues=0
+
+    echo "- Checking duplicate worktrees per task..."
+    for task in "${!wt_by_task[@]}"; do
+      # count workers
+      read -r -a workers <<<"${wt_by_task[$task]}"
+      if (( ${#workers[@]} > 1 )); then
+        issues=$((issues+1))
+        log_error "Task $task has multiple worktrees (workers:${wt_by_task[$task]})"
+      fi
+    done
+
+    echo "- Checking in-progress tasks without worktrees..."
+    for task in "${inprog_ids[@]}"; do
+      if [[ -z "${wt_path_by_task[$task]}" ]]; then
+        issues=$((issues+1))
+        log_error "Task $task is in_progress but no worktree found"
+      fi
+    done
+
+    echo "- Checking worktrees whose tasks are not in_progress..."
+    for task in "${!wt_path_by_task[@]}"; do
+      found=false
+      for ip in "${inprog_ids[@]}"; do
+        [[ "$task" == "$ip" ]] && found=true && break
+      done
+      if [[ "$found" == false ]]; then
+        issues=$((issues+1))
+        log_warn "Worktree for $task exists but task is not in_progress"
+      fi
+    done
+
+    echo "- Checking heartbeats consistency..."
+    for task in "${!hb_by_task[@]}"; do
+      if [[ -z "${wt_path_by_task[$task]}" ]]; then
+        issues=$((issues+1))
+        log_warn "Heartbeat present for $task but no worktree directory"
+      fi
+    done
+    for task in "${!wt_path_by_task[@]}"; do
+      if [[ -z "${hb_by_task[$task]}" ]]; then
+        issues=$((issues+1))
+        log_warn "Worktree for $task missing heartbeat file"
+      fi
+    done
+
+    if (( issues == 0 )); then
+      log_info "✅ Guard audit passed (no issues found)"
+    else
+      log_error "Guard audit found $issues issue(s)."
+      echo "Remediation:"
+      echo "  - Remove orphaned worktrees: git worktree remove <path> --force"
+      echo "  - Clear stale heartbeats: rm .beads/heartbeats/<worker>__<task>.hb"
+      echo "  - Update task status: npx bd update <task> --status open"
+    fi
+    ;;
+
   verify)
     # Verify the agent is in a worktree, not the main repo
     # Usage: verify [task-id] - optionally verify you're in the CORRECT worktree
