@@ -18,7 +18,7 @@ is_mutation() {
 }
 
 if [[ $# -gt 0 ]] && is_mutation "$1"; then
-  SKIP_GUARD=${SKIP_GUARD:-0} QUIET=1 "$GUARD"
+  QUIET=1 "$GUARD"
 fi
 
 exec $BD_BIN "$@"

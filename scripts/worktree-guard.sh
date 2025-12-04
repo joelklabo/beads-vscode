@@ -120,8 +120,4 @@ if (process.env.QUIET !== '1') {
 NODE
 }
 
-if [[ "${SKIP_GUARD:-0}" == "1" ]]; then
-  exit 0
-fi
-
 acquire_lock run_guard
