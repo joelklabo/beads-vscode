@@ -62,7 +62,7 @@ init_env() {
   export BEADS_DIR
   export BEADS_NO_DAEMON=1
 
-  enable_sqlite_wal
+  init_db
 }
 
 bd_cmd() {
@@ -184,17 +184,34 @@ add_jitter() {
 enable_sqlite_wal() {
   local db_path="$BEADS_DIR/beads.db"
 
-  if [[ ! -f "$db_path" ]]; then
-    return
-  fi
-
   if ! command -v sqlite3 >/dev/null 2>&1; then
     log_warn "sqlite3 not found; cannot enforce WAL mode for $db_path"
     return
   fi
 
-  sqlite3 "$db_path" "PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;" >/dev/null 2>&1 || \
+  if [[ ! -f "$db_path" ]]; then
+    return
+  fi
+
+  # Enable WAL and set a generous busy timeout for concurrent readers/writers
+  sqlite3 "$db_path" "PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000; PRAGMA synchronous=NORMAL;" >/dev/null 2>&1 || \
     log_warn "Could not enable WAL mode on $db_path"
+
+  # Opportunistically checkpoint to keep wal file small
+  sqlite3 "$db_path" "PRAGMA wal_checkpoint(TRUNCATE);" >/dev/null 2>&1 || true
+}
+
+init_db() {
+  local db_path="$BEADS_DIR/beads.db"
+
+  mkdir -p "$BEADS_DIR"
+
+  # Create database if missing so we can apply WAL pragmas immediately
+  if [[ ! -f "$db_path" ]] && command -v sqlite3 >/dev/null 2>&1; then
+    sqlite3 "$db_path" "VACUUM;" >/dev/null 2>&1 || true
+  fi
+
+  enable_sqlite_wal
 }
 
 start_heartbeat() {
