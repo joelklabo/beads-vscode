@@ -3400,3 +3400,6 @@ export function activate(context: vscode.ExtensionContext): void {
 export function deactivate(): void {
   // no-op
 }
+
+// Expose core classes for unit testing
+export { BeadsTreeDataProvider, BeadTreeItem, EpicTreeItem, UngroupedSectionItem };
