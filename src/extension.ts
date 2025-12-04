@@ -84,9 +84,14 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<BeadTreeItem>, vs
   // Manual sort order: Map<issueId, sortIndex>
   private manualSortOrder: Map<string, number> = new Map();
 
+  // Sort mode: 'id' (natural ID sort) or 'status' (group by status)
+  private sortMode: 'id' | 'status' = 'id';
+
   constructor(private readonly context: vscode.ExtensionContext) {
     // Load persisted sort order
     this.loadSortOrder();
+    // Load persisted sort mode
+    this.loadSortMode();
   }
 
   getTreeItem(element: BeadTreeItem): vscode.TreeItem {
@@ -469,33 +474,88 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<BeadTreeItem>, vs
     void vscode.window.showInformationMessage('Manual sort order cleared');
   }
 
+  private loadSortMode(): void {
+    const saved = this.context.workspaceState.get<'id' | 'status'>('beads.sortMode');
+    if (saved) {
+      this.sortMode = saved;
+    }
+  }
+
+  private saveSortMode(): void {
+    void this.context.workspaceState.update('beads.sortMode', this.sortMode);
+  }
+
+  toggleSortMode(): void {
+    this.sortMode = this.sortMode === 'id' ? 'status' : 'id';
+    this.saveSortMode();
+    this.onDidChangeTreeDataEmitter.fire();
+    const modeDisplay = this.sortMode === 'id' ? 'ID (natural)' : 'Status';
+    void vscode.window.showInformationMessage(`Sort mode: ${modeDisplay}`);
+  }
+
+  getSortMode(): 'id' | 'status' {
+    return this.sortMode;
+  }
+
   private applySortOrder(items: BeadItemData[]): BeadItemData[] {
-    // If no manual sort order exists, return items as-is (already naturally sorted)
-    if (this.manualSortOrder.size === 0) {
-      return items;
+    // If manual sort order exists, apply it first
+    if (this.manualSortOrder.size > 0) {
+      // Separate items with manual order from those without
+      const itemsWithOrder: Array<{item: BeadItemData, order: number}> = [];
+      const itemsWithoutOrder: BeadItemData[] = [];
+
+      items.forEach(item => {
+        const order = this.manualSortOrder.get(item.id);
+        if (order !== undefined) {
+          itemsWithOrder.push({ item, order });
+        } else {
+          itemsWithoutOrder.push(item);
+        }
+      });
+
+      // Sort items with manual order by their order index
+      itemsWithOrder.sort((a, b) => a.order - b.order);
+
+      // Combine: manually ordered items first, then naturally sorted items
+      return [
+        ...itemsWithOrder.map(x => x.item),
+        ...itemsWithoutOrder
+      ];
     }
 
-    // Separate items with manual order from those without
-    const itemsWithOrder: Array<{item: BeadItemData, order: number}> = [];
-    const itemsWithoutOrder: BeadItemData[] = [];
+    // Apply sort mode
+    if (this.sortMode === 'status') {
+      return this.sortByStatus(items);
+    }
 
-    items.forEach(item => {
-      const order = this.manualSortOrder.get(item.id);
-      if (order !== undefined) {
-        itemsWithOrder.push({ item, order });
-      } else {
-        itemsWithoutOrder.push(item);
+    // Default: return items as-is (already naturally sorted by ID)
+    return items;
+  }
+
+  private sortByStatus(items: BeadItemData[]): BeadItemData[] {
+    // Define status priority order: open first, then in_progress, blocked, closed last
+    const statusPriority: Record<string, number> = {
+      'open': 0,
+      'in_progress': 1,
+      'blocked': 2,
+      'closed': 3
+    };
+
+    return [...items].sort((a, b) => {
+      const statusA = a.status || 'open';
+      const statusB = b.status || 'open';
+
+      const priorityA = statusPriority[statusA] ?? 4;
+      const priorityB = statusPriority[statusB] ?? 4;
+
+      // First sort by status priority
+      if (priorityA !== priorityB) {
+        return priorityA - priorityB;
       }
+
+      // Then sort by ID naturally within each status group
+      return naturalSort(a, b);
     });
-
-    // Sort items with manual order by their order index
-    itemsWithOrder.sort((a, b) => a.order - b.order);
-
-    // Combine: manually ordered items first, then naturally sorted items
-    return [
-      ...itemsWithOrder.map(x => x.item),
-      ...itemsWithoutOrder
-    ];
   }
 }
 
@@ -2068,6 +2128,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('beads.search', () => provider.search()),
     vscode.commands.registerCommand('beads.clearSearch', () => provider.clearSearch()),
     vscode.commands.registerCommand('beads.clearSortOrder', () => provider.clearSortOrder()),
+    vscode.commands.registerCommand('beads.toggleSortMode', () => provider.toggleSortMode()),
     vscode.commands.registerCommand('beads.openBead', (item: BeadItemData) => openBead(item, provider)),
     vscode.commands.registerCommand('beads.createBead', () => createBead()),
     vscode.commands.registerCommand('beads.visualizeDependencies', () => visualizeDependencies(provider)),
