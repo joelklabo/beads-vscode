@@ -77,6 +77,14 @@ Unit tests go in `src/test/unit/`, integration tests in `src/test/suite/`.
 - Include debug logging with `[Provider DEBUG]` or `[loadBeads DEBUG]` prefixes
 - Keep webview HTML generation in dedicated functions (e.g., `getBeadDetailHtml()`)
 
+### File System Guidelines
+
+- **NEVER use `/tmp/` for temporary files** - macOS will prompt for permission
+- **ALWAYS use the local `tmp/` directory** in the workspace root for temporary files
+- The `tmp/` directory is gitignored and safe for development artifacts
+- Example: `path.join(workspaceRoot, 'tmp', 'myfile.txt')` ✅
+- Example: `/tmp/myfile.txt` ❌
+
 ## Common Tasks
 
 ### Adding a new command

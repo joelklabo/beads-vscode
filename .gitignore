@@ -7,6 +7,9 @@ DISTRIBUTION.md
 AGENTS.md
 .gitattributes
 
+# Local temporary files (DO NOT use /tmp/ - use this local tmp/ instead)
+tmp/
+
 # Git worktrees for multi-agent workflow (stored outside repo)
 # Note: worktrees are at ../worktrees/, not in repo, but just in case
 worktrees/
