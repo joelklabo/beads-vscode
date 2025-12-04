@@ -214,6 +214,11 @@
           "type": "boolean",
           "default": true,
           "markdownDescription": "Allow attaching anonymized logs/metadata when sending feedback. Users are prompted before logs are included."
+        },
+        "beads.enableDependencyEditing": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Enable experimental dependency editing UI (add/remove). Requires bd CLI support; shows warning when CLI version is too old."
         }
       }
     },

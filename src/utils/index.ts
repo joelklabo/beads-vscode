@@ -7,3 +7,4 @@ export * from './config';
 export * from './stale';
 export * from './sanitize';
 export * from './environment';
+export * from './cli';
