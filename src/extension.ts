@@ -191,6 +191,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   private debounceTimer: NodeJS.Timeout | undefined;
   private staleRefreshTimer: NodeJS.Timeout | undefined;
   private treeView: vscode.TreeView<TreeItemType> | undefined;
+  private statusBarItem: vscode.StatusBarItem | undefined;
 
   // Manual sort order: Map<issueId, sortIndex>
   private manualSortOrder: Map<string, number> = new Map();
@@ -230,11 +231,19 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
       clearInterval(this.staleRefreshTimer);
       this.staleRefreshTimer = undefined;
     }
+    if (this.statusBarItem) {
+      this.statusBarItem.dispose();
+      this.statusBarItem = undefined;
+    }
     this.disposeWatcher();
   }
 
   setTreeView(treeView: vscode.TreeView<TreeItemType>): void {
     this.treeView = treeView;
+  }
+
+  setStatusBarItem(statusBarItem: vscode.StatusBarItem): void {
+    this.statusBarItem = statusBarItem;
   }
 
   private updateBadge(): void {
@@ -257,6 +266,24 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
       };
     } else {
       this.treeView.badge = undefined;
+    }
+
+    // Also update status bar
+    this.updateStatusBar(staleCount, thresholdMinutes);
+  }
+
+  private updateStatusBar(staleCount: number, thresholdMinutes: number): void {
+    if (!this.statusBarItem) {
+      return;
+    }
+
+    if (staleCount > 0) {
+      this.statusBarItem.text = `$(warning) ${staleCount} stale task${staleCount !== 1 ? 's' : ''}`;
+      this.statusBarItem.tooltip = `${staleCount} task${staleCount !== 1 ? 's' : ''} in progress for more than ${thresholdMinutes} minutes. Click to view.`;
+      this.statusBarItem.command = 'beadsExplorer.focus';
+      this.statusBarItem.show();
+    } else {
+      this.statusBarItem.hide();
     }
   }
 
@@ -3111,6 +3138,11 @@ export function activate(context: vscode.ExtensionContext): void {
 
   // Set tree view reference for badge updates
   provider.setTreeView(treeView);
+
+  // Create and register status bar item for stale count
+  const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
+  provider.setStatusBarItem(statusBarItem);
+  context.subscriptions.push(statusBarItem);
 
   // Register provider disposal
   context.subscriptions.push({ dispose: () => provider.dispose() });
