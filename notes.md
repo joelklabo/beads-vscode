@@ -68,3 +68,10 @@ Remediation checklist for broken worktrees
 - Implement harness runner in scripts/agent-harness: temp repo, seed tasks, spawn N agents running claim-next/finish loops, export trace JSON, assert no deadlocks.
 - Add fixtures and malicious payload tests for Little Glen security alongside CSP docs (ties to vc9z/v7t8).
 - Add comparison table to this note (tool vs. pros/cons vs. CI support).
+## Ink TUI parity thoughts (beads-vscode-1u7)
+
+- Surfaces to align: list/search/sort, detail view, edit/update, dependency graph, stale/risk badges, worktree badges.
+- Worktree integration: show badge in status bar and list header; guard before mutations via shared wrapper (needs TUI hook).
+- Navigation/keymaps: map core actions to shortcuts; ensure focus management for pty-based runs.
+- Testing: ink-testing-library for component unit tests; pseudo-tty smoke via `script` or `expect` for end-to-end.
+- Next steps: scaffold TUI worktree helper mirroring VS Code one; add status bar badge; wire guard into create/update/delete commands.
