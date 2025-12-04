@@ -1,4 +1,5 @@
 import * as path from 'path';
+import sanitizeHtml, { Attributes, IOptions } from 'sanitize-html';
 
 export interface BeadItemData {
   id: string;
@@ -318,4 +319,101 @@ export function getStaleInfo(bead: BeadItemData): { hoursInProgress: number; for
   }
 
   return { hoursInProgress, formattedTime };
+}
+
+/**
+ * Shared Little Glen sanitization allowlist.
+ * Tags: headings, paragraphs/lists, emphasis, code, hr/br, spans/divs, images, links.
+ * Attributes:
+ *   - a: href, title, target, rel (rel/target normalized to prevent tab-nabbing)
+ *   - img: src, alt, title (src restricted to data: and vscode webview resources)
+ * Schemes:
+ *   - Links: http, https, mailto, tel, vscode-resource, vscode-webview-resource
+ *   - Images: data, vscode-resource, vscode-webview-resource (remote images blocked)
+ */
+const LITTLE_GLEN_SANITIZE_BASE: IOptions = {
+  allowedTags: [
+    'a',
+    'p',
+    'ul',
+    'ol',
+    'li',
+    'b',
+    'i',
+    'strong',
+    'em',
+    'code',
+    'pre',
+    'span',
+    'div',
+    'br',
+    'hr',
+    'img',
+    'h1',
+    'h2',
+    'h3',
+    'h4',
+    'h5',
+    'h6',
+    'blockquote'
+  ],
+  allowedAttributes: {
+    a: ['href', 'title', 'target', 'rel'],
+    img: ['src', 'alt', 'title']
+  },
+  allowedSchemes: ['http', 'https', 'mailto', 'tel', 'data', 'vscode-resource', 'vscode-webview-resource'],
+  allowedSchemesByTag: {
+    a: ['http', 'https', 'mailto', 'tel', 'vscode-resource', 'vscode-webview-resource'],
+    img: ['data', 'vscode-resource', 'vscode-webview-resource']
+  },
+  allowedSchemesAppliedToAttributes: ['href', 'src'],
+  allowProtocolRelative: false,
+  disallowedTagsMode: 'discard',
+  enforceHtmlBoundary: true,
+  transformTags: {
+    a: sanitizeHtml.simpleTransform(
+      'a',
+      { target: '_blank', rel: 'noopener noreferrer' },
+      true // merge with existing attributes
+    ),
+    img: (tagName: string, attribs: Attributes) => {
+      const src = attribs.src ?? '';
+      const lowerSrc = src.toLowerCase();
+      // Drop non-image data URIs to avoid svg/script payloads smuggled as images
+      if (lowerSrc.startsWith('data:') && !lowerSrc.startsWith('data:image/')) {
+        delete attribs.src;
+      }
+      return { tagName, attribs };
+    }
+  }
+};
+
+export interface MarkdownSanitizeOptions {
+  /** Allow http/https images (blocked by default). */
+  allowRemoteImages?: boolean;
+}
+
+/**
+ * Sanitize markdown/HTML produced for Little Glen surfaces (webview panel + hovers).
+ * - Removes script/iframe/object tags and inline event handlers
+ * - Normalizes links to open in a safe new tab with rel="noopener noreferrer"
+ * - Restricts image sources to data: and VS Code webview resource schemes by default
+ */
+export function sanitizeMarkdown(markdown: string, options: MarkdownSanitizeOptions = {}): string {
+  const baseSchemesByTag = LITTLE_GLEN_SANITIZE_BASE.allowedSchemesByTag as Record<string, string[]>;
+  const mergedOptions: IOptions = {
+    ...LITTLE_GLEN_SANITIZE_BASE,
+    allowedAttributes: { ...LITTLE_GLEN_SANITIZE_BASE.allowedAttributes },
+    allowedSchemesByTag: { ...baseSchemesByTag }
+  };
+
+  if (options.allowRemoteImages) {
+    const baseImgSchemes = baseSchemesByTag?.img ?? [];
+    mergedOptions.allowedSchemesByTag = {
+      ...(mergedOptions.allowedSchemesByTag as Record<string, string[]>),
+      img: Array.from(new Set([...baseImgSchemes, 'http', 'https']))
+    };
+  }
+
+  return sanitizeHtml(markdown ?? '', mergedOptions);
 }
