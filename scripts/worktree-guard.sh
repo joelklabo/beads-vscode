@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+GIT_COMMON_DIR=$(git rev-parse --git-common-dir 2>/dev/null || echo "$(pwd)/.git")
+if [[ "$GIT_COMMON_DIR" == ".git" ]]; then
+  REPO_ROOT=$(pwd)
+else
+  REPO_ROOT=$(echo "$GIT_COMMON_DIR" | sed 's/\/\.git$//')
+fi
+
 BEADS_DIR="${BEADS_DIR:-${REPO_ROOT}/.beads}"
 LOCK_FILE="${BEADS_DIR}/worktrees.lock"
 NODE_BIN=${NODE_BIN:-node}
@@ -12,19 +18,24 @@ err() { echo "$*" >&2; }
 
 acquire_lock() {
   if command -v flock >/dev/null 2>&1; then
-    flock -w 5 "$LOCK_FILE" "$@"
-  else
-    local start=$SECONDS
-    while ! mkdir "$LOCK_FILE.d" 2>/dev/null; do
-      if (( SECONDS - start > 5 )); then
-        err "worktree-guard: failed to acquire lock $LOCK_FILE"
-        exit 1
-      fi
-      sleep 0.1
-    done
-    "$@"
-    rmdir "$LOCK_FILE.d" 2>/dev/null || true
+    flock -w 5 "$LOCK_FILE" "$@" || {
+      err "worktree-guard: failed to acquire lock $LOCK_FILE"
+      exit 1
+    }
+    return
   fi
+
+  rm -rf "$LOCK_FILE.d" 2>/dev/null || true
+  local start=$SECONDS
+  while ! mkdir "$LOCK_FILE.d" 2>/dev/null; do
+    if (( SECONDS - start > 5 )); then
+      err "worktree-guard: failed to acquire lock $LOCK_FILE"
+      exit 1
+    fi
+    sleep 0.1
+  done
+  "$@"
+  rmdir "$LOCK_FILE.d" 2>/dev/null || true
 }
 
 run_guard() {
@@ -46,11 +57,18 @@ const registry = syncRegistry(repo);
 const issues = [];
 
 for (const entry of registry.entries) {
+  if (!/worktrees\//.test(entry.path)) {
+    continue; // ignore main repo entry
+  }
+
   const match = entry.path.match(/worktrees\/([^/]+)\/([^/]+)$/);
   const derivedId = match ? `${match[1]}/${match[2]}` : null;
   if (!derivedId) {
     issues.push(`Missing canonical id for path ${entry.path}`);
     continue;
+  }
+  if (entry.branch && entry.branch.startsWith('refs/heads/')) {
+    entry.branch = entry.branch.replace('refs/heads/', '');
   }
   if (entry.id && entry.id !== derivedId) {
     issues.push(`Id mismatch: entry.id=${entry.id} pathId=${derivedId}`);
