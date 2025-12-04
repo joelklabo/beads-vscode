@@ -62,8 +62,43 @@ interface BeadsDocument {
   beads: any[];
 }
 
-class BeadsTreeDataProvider implements vscode.TreeDataProvider<BeadTreeItem>, vscode.TreeDragAndDropController<BeadTreeItem> {
-  private readonly onDidChangeTreeDataEmitter = new vscode.EventEmitter<BeadTreeItem | undefined | null | void>();
+// Status section item for grouping beads by status
+class StatusSectionItem extends vscode.TreeItem {
+  public readonly status: string;
+  public readonly beads: BeadItemData[];
+  
+  constructor(status: string, beads: BeadItemData[], isCollapsed: boolean = false) {
+    const statusDisplay = status.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+    super(statusDisplay, isCollapsed ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.Expanded);
+    
+    this.status = status;
+    this.beads = beads;
+    this.contextValue = 'statusSection';
+    
+    // Show count as description
+    this.description = `${beads.length}`;
+    
+    // Status-specific icon and color
+    const iconConfig: Record<string, { icon: string; color: string }> = {
+      'open': { icon: 'circle-outline', color: 'charts.blue' },
+      'in_progress': { icon: 'clock', color: 'charts.yellow' },
+      'blocked': { icon: 'error', color: 'errorForeground' },
+      'closed': { icon: 'pass', color: 'testing.iconPassed' }
+    };
+    
+    const config = iconConfig[status] || { icon: 'folder', color: 'foreground' };
+    this.iconPath = new vscode.ThemeIcon(config.icon, new vscode.ThemeColor(config.color));
+    
+    // Tooltip
+    this.tooltip = `${statusDisplay}: ${beads.length} issue${beads.length !== 1 ? 's' : ''}`;
+  }
+}
+
+// Union type for tree items
+type TreeItemType = StatusSectionItem | BeadTreeItem;
+
+class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vscode.TreeDragAndDropController<TreeItemType> {
+  private readonly onDidChangeTreeDataEmitter = new vscode.EventEmitter<TreeItemType | undefined | null | void>();
   readonly onDidChangeTreeData = this.onDidChangeTreeDataEmitter.event;
 
   // Drag and drop support
@@ -86,30 +121,85 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<BeadTreeItem>, vs
 
   // Sort mode: 'id' (natural ID sort) or 'status' (group by status)
   private sortMode: 'id' | 'status' = 'id';
+  
+  // Collapsed state for status sections
+  private collapsedSections: Set<string> = new Set();
 
   constructor(private readonly context: vscode.ExtensionContext) {
     // Load persisted sort order
     this.loadSortOrder();
     // Load persisted sort mode
     this.loadSortMode();
+    // Load persisted collapsed sections
+    this.loadCollapsedSections();
   }
 
-  getTreeItem(element: BeadTreeItem): vscode.TreeItem {
+  getTreeItem(element: TreeItemType): vscode.TreeItem {
     return element;
   }
 
-  async getChildren(element?: BeadTreeItem): Promise<BeadTreeItem[]> {
-    if (element) {
+  async getChildren(element?: TreeItemType): Promise<TreeItemType[]> {
+    // If element is a StatusSectionItem, return its children (BeadTreeItems)
+    if (element instanceof StatusSectionItem) {
+      return element.beads.map((item) => this.createTreeItem(item));
+    }
+    
+    // If element is a BeadTreeItem, it has no children
+    if (element instanceof BeadTreeItem) {
       return [];
     }
 
+    // Root level
     if (this.items.length === 0) {
       await this.refresh();
     }
 
     const filteredItems = this.filterItems(this.items);
+    
+    // If in status mode, return status sections
+    if (this.sortMode === 'status') {
+      return this.createStatusSections(filteredItems);
+    }
+    
+    // Otherwise return flat list sorted by manual order or natural ID
     const sortedItems = this.applySortOrder(filteredItems);
     return sortedItems.map((item) => this.createTreeItem(item));
+  }
+  
+  private createStatusSections(items: BeadItemData[]): StatusSectionItem[] {
+    // Group items by status
+    const statusOrder = ['open', 'in_progress', 'blocked', 'closed'];
+    const grouped: Record<string, BeadItemData[]> = {};
+    
+    // Initialize all status groups
+    statusOrder.forEach(status => {
+      grouped[status] = [];
+    });
+    
+    // Sort items into groups
+    items.forEach(item => {
+      const status = item.status || 'open';
+      if (!grouped[status]) {
+        grouped[status] = [];
+      }
+      grouped[status].push(item);
+    });
+    
+    // Sort items within each group by natural ID
+    Object.values(grouped).forEach(group => {
+      group.sort(naturalSort);
+    });
+    
+    // Create section items for non-empty groups
+    const sections: StatusSectionItem[] = [];
+    statusOrder.forEach(status => {
+      if (grouped[status].length > 0) {
+        const isCollapsed = this.collapsedSections.has(status);
+        sections.push(new StatusSectionItem(status, grouped[status], isCollapsed));
+      }
+    });
+    
+    return sections;
   }
 
   async refresh(): Promise<void> {
@@ -399,12 +489,17 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<BeadTreeItem>, vs
   }
 
   // Drag and drop implementation
-  async handleDrag(source: readonly BeadTreeItem[], dataTransfer: vscode.DataTransfer, _token: vscode.CancellationToken): Promise<void> {
-    const items = source.map(item => item.bead);
+  async handleDrag(source: readonly TreeItemType[], dataTransfer: vscode.DataTransfer, _token: vscode.CancellationToken): Promise<void> {
+    // Only allow dragging BeadTreeItems, not StatusSectionItems
+    const beadItems = source.filter((item): item is BeadTreeItem => item instanceof BeadTreeItem);
+    if (beadItems.length === 0) {
+      return;
+    }
+    const items = beadItems.map(item => item.bead);
     dataTransfer.set('application/vnd.code.tree.beadsExplorer', new vscode.DataTransferItem(items));
   }
 
-  async handleDrop(target: BeadTreeItem | undefined, dataTransfer: vscode.DataTransfer, _token: vscode.CancellationToken): Promise<void> {
+  async handleDrop(target: TreeItemType | undefined, dataTransfer: vscode.DataTransfer, _token: vscode.CancellationToken): Promise<void> {
     const transferItem = dataTransfer.get('application/vnd.code.tree.beadsExplorer');
     if (!transferItem) {
       return;
@@ -414,13 +509,18 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<BeadTreeItem>, vs
     if (!draggedItems || draggedItems.length === 0) {
       return;
     }
+    
+    // Can't drop on status sections
+    if (target instanceof StatusSectionItem) {
+      return;
+    }
 
     // Get the current filtered and sorted items
     const currentItems = this.applySortOrder(this.filterItems(this.items));
 
     // Find the drop position
     let dropIndex: number;
-    if (target) {
+    if (target && target instanceof BeadTreeItem) {
       // Drop before the target item
       dropIndex = currentItems.findIndex(item => item.id === target.bead.id);
       if (dropIndex === -1) {
@@ -483,6 +583,27 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<BeadTreeItem>, vs
 
   private saveSortMode(): void {
     void this.context.workspaceState.update('beads.sortMode', this.sortMode);
+  }
+  
+  private loadCollapsedSections(): void {
+    const saved = this.context.workspaceState.get<string[]>('beads.collapsedSections');
+    if (saved) {
+      this.collapsedSections = new Set(saved);
+    }
+  }
+  
+  private saveCollapsedSections(): void {
+    void this.context.workspaceState.update('beads.collapsedSections', Array.from(this.collapsedSections));
+  }
+  
+  toggleSectionCollapse(status: string): void {
+    if (this.collapsedSections.has(status)) {
+      this.collapsedSections.delete(status);
+    } else {
+      this.collapsedSections.add(status);
+    }
+    this.saveCollapsedSections();
+    this.onDidChangeTreeDataEmitter.fire();
   }
 
   toggleSortMode(): void {
@@ -2472,15 +2593,22 @@ export function activate(context: vscode.ExtensionContext): void {
         void vscode.window.showWarningMessage('No beads selected');
         return;
       }
+      
+      // Filter for BeadTreeItems only (not StatusSectionItems)
+      const beadItems = selection.filter((item): item is BeadTreeItem => item instanceof BeadTreeItem);
+      if (beadItems.length === 0) {
+        void vscode.window.showWarningMessage('No beads selected (only status sections selected)');
+        return;
+      }
 
       // Build confirmation message with list of beads
-      const beadsList = selection
+      const beadsList = beadItems
         .map(item => `  • ${item.bead.id} - ${item.bead.title}`)
         .join('\n');
 
-      const message = selection.length === 1
+      const message = beadItems.length === 1
         ? `Are you sure you want to delete this bead?\n\n${beadsList}`
-        : `Are you sure you want to delete these ${selection.length} beads?\n\n${beadsList}`;
+        : `Are you sure you want to delete these ${beadItems.length} beads?\n\n${beadsList}`;
 
       // Show confirmation dialog
       const answer = await vscode.window.showWarningMessage(
@@ -2502,15 +2630,15 @@ export function activate(context: vscode.ExtensionContext): void {
         const commandPath = await findBdCommand(configPath);
 
         // Delete beads one by one
-        for (const item of selection) {
+        for (const item of beadItems) {
           await execFileAsync(commandPath, ['delete', item.bead.id, '--force'], { cwd: projectRoot });
         }
 
         await provider.refresh();
 
-        const successMessage = selection.length === 1
-          ? `Deleted bead: ${selection[0].bead.id}`
-          : `Deleted ${selection.length} beads`;
+        const successMessage = beadItems.length === 1
+          ? `Deleted bead: ${beadItems[0].bead.id}`
+          : `Deleted ${beadItems.length} beads`;
         void vscode.window.showInformationMessage(successMessage);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
