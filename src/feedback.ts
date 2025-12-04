@@ -1,6 +1,4 @@
 import { Octokit } from '@octokit/rest';
-import { Octokit } from '@octokit/rest';
-import { Octokit } from '@octokit/rest';
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import {
@@ -8,12 +6,8 @@ import {
   DEFAULT_LOG_LINE_LIMIT,
   limitLogPayload,
   redactLogContent,
-  tailLogLines
+  tailLogLines,
 } from './utils/fs';
-import { FeedbackConfig, FeedbackLabelMap } from './utils/config';
-import { collectEnvironmentInfo, EnvironmentInfo, formatEnvironmentMarkdown } from './utils/environment';
-import { FeedbackConfig, FeedbackLabelMap } from './utils/config';
-import { collectEnvironmentInfo, EnvironmentInfo, formatEnvironmentMarkdown } from './utils/environment';
 import { FeedbackConfig, FeedbackLabelMap } from './utils/config';
 import { collectEnvironmentInfo, EnvironmentInfo, formatEnvironmentMarkdown } from './utils/environment';
 

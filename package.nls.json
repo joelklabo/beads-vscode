@@ -7,6 +7,7 @@
   "command.beads.addDependency": "Beads: Add Dependency",
   "command.beads.editExternalReference": "Beads: Edit External Reference",
   "command.beads.visualizeDependencies": "Beads: Visualize Dependencies",
+  "command.beads.sendFeedback": "Beads: Send Feedback",
   "command.beads.clearSortOrder": "Beads: Clear Manual Sort Order",
   "command.beads.toggleSortMode": "Beads: Cycle Sort Mode (ID → Status → Epic)",
   "command.beads.refreshActivityFeed": "Beads: Refresh Activity Feed",

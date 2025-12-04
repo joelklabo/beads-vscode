@@ -178,9 +178,81 @@ npx bd --no-daemon stats --json
 # Search
 npx bd --no-daemon search "query" --json
 
-# Sync (manual)
+# Sync (manual) - ALWAYS run at end of session!
 npx bd --no-daemon sync
 ```
+
+### Labels
+
+Labels provide flexible categorization beyond status/priority/type:
+
+```bash
+# Add labels when creating
+npx bd --no-daemon create "Fix auth bug" -t bug -p 1 -l auth,backend,urgent --json
+
+# Add/remove labels on existing issues
+npx bd --no-daemon label add <issue-id> security --json
+npx bd --no-daemon label remove <issue-id> urgent --json
+
+# List labels on an issue
+npx bd --no-daemon label list <issue-id> --json
+
+# List all labels in database with counts
+npx bd --no-daemon label list-all --json
+
+# Filter by labels (AND - must have ALL)
+npx bd --no-daemon list --label backend,auth --json
+
+# Filter by labels (OR - has ANY)
+npx bd --no-daemon list --label-any frontend,backend --json
+```
+
+**Common label patterns:**
+- Technical: `backend`, `frontend`, `api`, `database`, `infrastructure`
+- Domain: `auth`, `payments`, `search`, `analytics`
+- Size: `small`, `medium`, `large`
+- Quality gates: `needs-review`, `needs-tests`, `needs-docs`
+- AI workflow: `auto-generated`, `ai-generated`, `needs-human-review`
+
+### Advanced Filtering
+
+```bash
+# Date range filters
+npx bd --no-daemon list --created-after 2024-01-01 --json
+npx bd --no-daemon list --updated-after 2024-06-01 --json
+
+# Empty/null checks
+npx bd --no-daemon list --empty-description --json  # Issues missing description
+npx bd --no-daemon list --no-assignee --json        # Unassigned issues
+npx bd --no-daemon list --no-labels --json          # Issues without labels
+
+# Priority ranges
+npx bd --no-daemon list --priority-min 0 --priority-max 1 --json  # P0 and P1 only
+
+# Combine multiple filters
+npx bd --no-daemon list --status open --priority 1 --label-any urgent,critical --no-assignee --json
+```
+
+---
+
+## Session Workflow Pattern
+
+**CRITICAL: Always run `bd sync` at end of agent sessions!**
+
+```bash
+# Start of session
+npx bd --no-daemon ready --json  # Find work
+
+# During session
+npx bd --no-daemon create "..." -p 1 --json
+npx bd --no-daemon update bd-42 --status in_progress --json
+# ... work ...
+
+# End of session (IMPORTANT!)
+npx bd --no-daemon sync  # Force immediate sync, bypass debounce
+```
+
+The `sync` command ensures changes are committed/pushed immediately rather than waiting for debounce.
 
 ---
 
@@ -388,6 +460,49 @@ cd /path/to/worktrees/<worker-name>/<task-id>
 2. **Always verify location** before editing: `./scripts/task-worktree.sh verify <task-id>`
 3. **Check for file conflicts** before starting a task - compare `## Files` sections of in_progress tasks
 4. **bd commands always point to main repo's `.beads`** - The script handles this
+
+### ⚠️ Preventing Worktree Accidents
+
+These rules prevent the most common worktree mistakes:
+
+1. **Always start and verify in worktree first**
+   ```bash
+   ./scripts/task-worktree.sh start <worker> <task-id>
+   ./scripts/task-worktree.sh verify <task-id>  # BEFORE any edit/test/commit
+   ```
+
+2. **Verify pwd and branch before every mutating command**
+   ```bash
+   # pwd must contain /worktrees/<worker>/<task-id>
+   pwd | grep -q "worktrees" || echo "ERROR: Not in worktree!"
+   
+   # Branch must NOT be main
+   git rev-parse --abbrev-ref HEAD | grep -q "^main$" && echo "ERROR: On main!"
+   ```
+
+3. **Ban tools that ignore workdir**
+   - Never use `apply_patch` or similar tools that may default to main repo
+   - Use shell commands with explicit paths, or run them from within the worktree
+   - Always `cd` into worktree before operations
+
+4. **If you accidentally touch main, stop immediately**
+   ```bash
+   # In the main repo:
+   git reset --hard
+   git clean -fd
+   # Then re-run task-worktree.sh start and redo work in worktree
+   ```
+
+5. **Before finishing, verify only task changes exist**
+   ```bash
+   cd /path/to/worktree
+   git status --short  # Must show ONLY your task's changes
+   # If main shows changes, clean it first before merging
+   ```
+
+6. **Never stash or copy between main and worktree**
+   - Redo work cleanly in the correct location
+   - Stashing/copying leads to state confusion
 
 ---
 

@@ -29,6 +29,7 @@ This Visual Studio Code extension provides a simple explorer view for [Beads](ht
 - **Delete Beads**: Remove beads with keyboard shortcuts (`Cmd+Backspace` on Mac, `Delete` on Windows/Linux) or via context menu.
 - **CLI Integration**: Create new beads directly from VS Code using the `bd` CLI.
 - **Natural Sorting**: Beads are sorted naturally by ID (handles numeric parts correctly).
+- **Feedback entry points**: When the feedback feature flag is enabled and configured, submit feedback from the command palette, the Beads explorer toolbar, bead context menu, or the status bar (when no stale warning is showing).
 
 The extension integrates with the Beads CLI (`bd`) and reads from the Beads database (`.beads/*.db`). Changes are automatically reflected in the UI through file system watchers.
 
@@ -43,6 +44,7 @@ The extension integrates with the Beads CLI (`bd`) and reads from the Beads data
 | `Beads: Edit External Reference` | Update the external reference identifier stored for the bead. |
 | `Beads: Create` | Create a new bead by prompting for a title and invoking `bd create`. |
 | `Beads: Visualize Dependencies` | Open an interactive dependency graph showing relationships between beads. |
+| `Beads: Send Feedback` | Open the configured feedback flow (command palette, Beads toolbar, bead context menu, or status bar when enabled). |
 | `Beads: Toggle Sort Mode` | Cycle through view modes: ID sort → Status grouping → Epic grouping. Epic mode shows tasks grouped under their parent epics. |
 | `Beads: Clear Manual Sort Order` | Reset manual drag-and-drop sorting and return to natural ID-based sorting. |
 | `Beads: Delete` | Delete selected bead(s) from the project. |

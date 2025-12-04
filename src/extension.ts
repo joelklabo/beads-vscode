@@ -29,6 +29,9 @@ import {
   naturalSort,
   saveBeadsDocument,
 } from './providers/beads/store';
+import { resolveProjectRoot } from './utils/workspace';
+import { computeFeedbackEnablement } from './feedback/enablement';
+import { registerSendFeedbackCommand } from './commands/sendFeedback';
 
 const execFileAsync = promisify(execFile);
 const t = vscode.l10n.t;
@@ -243,6 +246,9 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   private staleRefreshTimer: NodeJS.Timeout | undefined;
   private treeView: vscode.TreeView<TreeItemType> | undefined;
   private statusBarItem: vscode.StatusBarItem | undefined;
+  private feedbackEnabled: boolean = false;
+  private lastStaleCount: number = 0;
+  private lastThresholdMinutes: number = 10;
 
   // Manual sort order: Map<issueId, sortIndex>
   private manualSortOrder: Map<string, number> = new Map();
@@ -299,6 +305,11 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     this.statusBarItem = statusBarItem;
   }
 
+  setFeedbackEnabled(enabled: boolean): void {
+    this.feedbackEnabled = enabled;
+    this.updateStatusBar(this.lastStaleCount, this.lastThresholdMinutes);
+  }
+
   private updateBadge(): void {
     if (!this.treeView) {
       return;
@@ -326,6 +337,9 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   }
 
   private updateStatusBar(staleCount: number, thresholdMinutes: number): void {
+    this.lastStaleCount = staleCount;
+    this.lastThresholdMinutes = thresholdMinutes;
+
     if (!this.statusBarItem) {
       return;
     }
@@ -335,9 +349,18 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
       this.statusBarItem.tooltip = `${staleCount} task${staleCount !== 1 ? 's' : ''} in progress for more than ${thresholdMinutes} minutes. Click to view.`;
       this.statusBarItem.command = 'beadsExplorer.focus';
       this.statusBarItem.show();
-    } else {
-      this.statusBarItem.hide();
+      return;
     }
+
+    if (this.feedbackEnabled) {
+      this.statusBarItem.text = `$(comment-discussion) ${t('Send Feedback')}`;
+      this.statusBarItem.tooltip = t('Share feedback or report a bug');
+      this.statusBarItem.command = 'beads.sendFeedback';
+      this.statusBarItem.show();
+      return;
+    }
+
+    this.statusBarItem.hide();
   }
 
   getTreeItem(element: TreeItemType): vscode.TreeItem {
@@ -1088,34 +1111,6 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
       return naturalSort(a, b);
     });
   }
-}
-
-function resolveProjectRoot(config: vscode.WorkspaceConfiguration, workspaceFolder?: vscode.WorkspaceFolder): string | undefined {
-  const projectRootConfig = config.get<string>('projectRoot');
-  if (projectRootConfig && projectRootConfig.trim().length > 0) {
-    if (path.isAbsolute(projectRootConfig)) {
-      return projectRootConfig;
-    }
-    if (workspaceFolder) {
-      return path.join(workspaceFolder.uri.fsPath, projectRootConfig);
-    }
-    const firstFolder = vscode.workspace.workspaceFolders?.[0];
-    if (firstFolder) {
-      return path.join(firstFolder.uri.fsPath, projectRootConfig);
-    }
-    return projectRootConfig;
-  }
-
-  if (workspaceFolder) {
-    return workspaceFolder.uri.fsPath;
-  }
-
-  const workspaceFolders = vscode.workspace.workspaceFolders;
-  if (workspaceFolders && workspaceFolders.length > 0) {
-    return workspaceFolders[0].uri.fsPath;
-  }
-
-  return undefined;
 }
 
 interface DependencyTreeNode {
@@ -3178,6 +3173,14 @@ export function activate(context: vscode.ExtensionContext): void {
   provider.setStatusBarItem(statusBarItem);
   context.subscriptions.push(statusBarItem);
 
+  const applyFeedbackContext = (): void => {
+    const enablement = computeFeedbackEnablement();
+    provider.setFeedbackEnabled(enablement.enabled);
+    void vscode.commands.executeCommand('setContext', 'beads.feedbackEnabled', enablement.enabled);
+  };
+
+  applyFeedbackContext();
+
   // Register provider disposal
   context.subscriptions.push({ dispose: () => provider.dispose() });
 
@@ -3358,6 +3361,7 @@ export function activate(context: vscode.ExtensionContext): void {
         void vscode.window.showErrorMessage(t('Failed to delete beads: {0}', errorMessage));
       }
     }),
+    registerSendFeedbackCommand(context),
   );
 
   // If dependency editing is enabled, warn early when the bd CLI is too old
@@ -3366,16 +3370,22 @@ export function activate(context: vscode.ExtensionContext): void {
     void warnIfDependencyEditingUnsupported(workspaceFolder);
   });
 
-  context.subscriptions.push(
-    vscode.workspace.onDidChangeConfiguration((event) => {
-      if (event.affectsConfiguration('beads.enableDependencyEditing')) {
-        const folders = vscode.workspace.workspaceFolders ?? [];
-        folders.forEach((workspaceFolder) => {
-          void warnIfDependencyEditingUnsupported(workspaceFolder);
-        });
-      }
-    }),
-  );
+  const configurationWatcher = vscode.workspace.onDidChangeConfiguration((event) => {
+    if (event.affectsConfiguration('beads.enableDependencyEditing')) {
+      const folders = vscode.workspace.workspaceFolders ?? [];
+      folders.forEach((workspaceFolder) => {
+        void warnIfDependencyEditingUnsupported(workspaceFolder);
+      });
+    }
+
+    if (event.affectsConfiguration('beads.feedback') || event.affectsConfiguration('beads.projectRoot')) {
+      applyFeedbackContext();
+    }
+  });
+
+  const workspaceWatcher = vscode.workspace.onDidChangeWorkspaceFolders(() => applyFeedbackContext());
+
+  context.subscriptions.push(configurationWatcher, workspaceWatcher);
 
   void provider.refresh();
 }

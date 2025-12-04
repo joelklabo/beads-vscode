@@ -2,14 +2,36 @@ import * as assert from 'assert';
 import * as fs from 'fs/promises';
 import * as os from 'os';
 import * as path from 'path';
+import Module = require('module');
 import {
   DEFAULT_LOG_BYTES_LIMIT,
   limitLogPayload,
   redactLogContent
 } from '../utils/fs';
-import { buildFeedbackBody } from '../feedback';
+
+const moduleAny = Module as any;
+const originalLoad = moduleAny._load;
+const vscodeStub = {
+  l10n: { t: (message: string, ...args: any[]) => message.replace(/\{(\d+)\}/g, (_m, i) => String(args[Number(i)] ?? `{${i}}`)) },
+  env: { language: 'en' },
+  extensions: { getExtension: () => undefined },
+};
+
+moduleAny._load = (request: string, parent: any, isMain: boolean) => {
+  if (request === 'vscode') {
+    return vscodeStub;
+  }
+  return originalLoad(request, parent, isMain);
+};
+
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { buildFeedbackBody } = require('../feedback');
 
 describe('Log redaction & capture', () => {
+  after(() => {
+    moduleAny._load = originalLoad;
+  });
+
   it('redacts tokens, emails, and absolute paths', () => {
     const raw = [
       'token ghp_abcdefghijklmnopqrstuvwxyz1234567890',

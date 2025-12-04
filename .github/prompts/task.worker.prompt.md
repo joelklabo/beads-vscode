@@ -36,6 +36,14 @@ npx bd --no-daemon close <task-id> --reason "Implemented" --json
 npx bd ready --json
 ```
 
+**Alternative:** Set environment variable for entire session:
+```bash
+export BEADS_NO_DAEMON=1
+npx bd ready --json  # Now uses direct mode automatically
+```
+
+**Session End:** ALWAYS run `npx bd --no-daemon sync` at end of sessions.
+
 ---
 
 ## RULES
@@ -88,6 +96,28 @@ The script handles:
 - ✅ Orphaned worktree detection and cleanup
 - ✅ **Cleaning up worktrees AND branches after merge**
 - ✅ Updating task status in bd
+
+### ⚠️ Preventing Worktree Accidents
+
+1. **Always start and verify first:**
+   ```bash
+   ./scripts/task-worktree.sh start <worker> <task-id>
+   ./scripts/task-worktree.sh verify <task-id>  # BEFORE any edit/test/commit
+   ```
+
+2. **Verify pwd and branch before every mutating command:**
+   ```bash
+   pwd | grep -q "worktrees" || echo "ERROR: Not in worktree!"
+   git rev-parse --abbrev-ref HEAD | grep -q "^main$" && echo "ERROR: On main!"
+   ```
+
+3. **Ban tools that ignore workdir:** Never use `apply_patch` or similar that may default to main repo.
+
+4. **If you accidentally touch main:** Stop immediately, run `git reset --hard && git clean -fd`, then redo in worktree.
+
+5. **Before finishing:** Run `git status --short` in worktree - must show ONLY your task's changes.
+
+6. **Never stash/copy between main and worktree:** Redo work cleanly in the correct location.
 
 ---
 
