@@ -93,11 +93,11 @@ export class ActivityEventItem extends vscode.TreeItem {
     // Rich tooltip
     this.tooltip = this.buildTooltip(event, worktreeId);
 
-    // Command to navigate to the issue
+    // Command to navigate to the issue (opens via extension handler)
     this.command = {
-      command: 'beads.openBead',
+      command: 'beads.activityFeed.openEvent',
       title: 'Open Issue',
-      arguments: [{ id: event.issueId }],
+      arguments: [event.issueId],
     };
   }
 

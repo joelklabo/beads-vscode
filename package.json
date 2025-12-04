@@ -87,6 +87,14 @@
         "icon": "$(clear-all)"
       },
       {
+        "command": "beads.activityFeed.openEvent",
+        "title": "Beads: Open Activity Feed Item"
+      },
+      {
+        "command": "beads.activityFeed.openSelected",
+        "title": "Beads: Open Selected Activity Feed Item"
+      },
+      {
         "command": "beads.openActivityFeedPanel",
         "title": "Beads: Open Activity Feed Panel",
         "icon": "$(timeline-open)"
@@ -237,6 +245,11 @@
         "command": "beads.deleteBeads",
         "key": "backspace",
         "when": "focusedView == beadsExplorer && listHasSelectionOrFocus && !inputFocus"
+      },
+      {
+        "command": "beads.activityFeed.openSelected",
+        "key": "space",
+        "when": "focusedView == activityFeed && listHasSelectionOrFocus && !inputFocus"
       }
     ]
   },

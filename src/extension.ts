@@ -16,9 +16,8 @@ import {
   isStale,
   getStaleInfo
 } from './utils';
-import { ActivityFeedTreeDataProvider } from './activityFeedProvider';
+import { ActivityFeedTreeDataProvider, ActivityEventItem } from './activityFeedProvider';
 import { EventType } from './activityFeed';
-import { currentWorktreeId } from './worktree';
 import { validateLittleGlenMessage, AllowedLittleGlenCommand } from './littleGlen/validation';
 
 const execFileAsync = promisify(execFile);
@@ -2928,6 +2927,34 @@ async function openBead(item: BeadItemData, provider: BeadsTreeDataProvider): Pr
   });
 }
 
+/**
+ * Open a bead from the activity feed by ID, with graceful fallback if missing.
+ * Returns true when a bead was opened successfully.
+ */
+async function openBeadFromFeed(
+  issueId: string,
+  beadsProvider: BeadsTreeDataProvider,
+  opener: (item: BeadItemData, provider: BeadsTreeDataProvider) => Promise<void> = openBead
+): Promise<boolean> {
+  const items = beadsProvider['items'] as BeadItemData[] | undefined;
+  const target = items?.find((i) => i.id === issueId);
+
+  if (!target) {
+    console.warn(`[ActivityFeed] Issue ${issueId} not found when opening from feed`);
+    void vscode.window.showWarningMessage(`Issue ${issueId} no longer exists or is not loaded.`);
+    return false;
+  }
+
+  try {
+    await opener(target, beadsProvider);
+    return true;
+  } catch (error) {
+    console.error(`[ActivityFeed] Failed to open issue ${issueId} from feed:`, error);
+    void vscode.window.showErrorMessage(formatError('Failed to open issue from activity feed', error));
+    return false;
+  }
+}
+
 async function createBead(): Promise<void> {
   const name = await vscode.window.showInputBox({
     prompt: 'Enter a title for the new bead',
@@ -3301,6 +3328,20 @@ export function activate(context: vscode.ExtensionContext): void {
     treeDataProvider: activityFeedProvider,
   });
 
+  const openActivityFeedEvent = async (issueId?: string): Promise<void> => {
+    const selectedId =
+      issueId ||
+      activityFeedView.selection.find(
+        (item): item is ActivityEventItem => item instanceof ActivityEventItem
+      )?.event.issueId;
+
+    if (!selectedId) {
+      return;
+    }
+
+    await openBeadFromFeed(selectedId, provider);
+  };
+
   context.subscriptions.push(
     treeView,
     expandListener,
@@ -3368,6 +3409,8 @@ export function activate(context: vscode.ExtensionContext): void {
       activityFeedProvider.clearFilters();
       void vscode.window.showInformationMessage('Activity feed filter cleared');
     }),
+    vscode.commands.registerCommand('beads.activityFeed.openEvent', (issueId?: string) => openActivityFeedEvent(issueId)),
+    vscode.commands.registerCommand('beads.activityFeed.openSelected', () => openActivityFeedEvent()),
     vscode.commands.registerCommand('beads.openActivityFeedPanel', () => 
       openActivityFeedPanel(activityFeedProvider, provider)
     ),
@@ -3463,4 +3506,10 @@ export function deactivate(): void {
 }
 
 // Expose core classes for unit testing
-export { BeadsTreeDataProvider, BeadTreeItem, EpicTreeItem, UngroupedSectionItem };
+export {
+  BeadsTreeDataProvider,
+  BeadTreeItem,
+  EpicTreeItem,
+  UngroupedSectionItem,
+  openBeadFromFeed,
+};
