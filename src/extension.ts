@@ -2,107 +2,44 @@ import * as vscode from 'vscode';
 import { execFile } from 'child_process';
 import { promises as fs } from 'fs';
 import * as path from 'path';
-import * as os from 'os';
-import { randomUUID } from 'crypto';
 import { promisify } from 'util';
-import { BeadItemData, normalizeBead, extractBeads, stripBeadIdPrefix } from './utils/beads';
-import { resolveDataFilePath } from './utils/fs';
-import { formatError, escapeHtml, sanitizeTooltipText, linkifyText, formatRelativeTime, buildPreviewSnippet } from './utils/format';
-import { getStaleInfo, isStale } from './utils/stale';
+import {
+  BeadItemData,
+  formatError,
+  escapeHtml,
+  linkifyText,
+  isStale,
+  warnIfDependencyEditingUnsupported as warnIfDependencyEditingUnsupportedCli,
+} from './utils';
 import { ActivityFeedTreeDataProvider, ActivityEventItem } from './activityFeedProvider';
 import { EventType } from './activityFeed';
-import { validateLittleGlenMessage, AllowedLittleGlenCommand, isValidBeadId } from './littleGlen/validation';
+import { validateLittleGlenMessage, AllowedLittleGlenCommand } from './littleGlen/validation';
+import {
+  BeadTreeItem,
+  EpicTreeItem,
+  StatusSectionItem,
+  UngroupedSectionItem,
+  WarningSectionItem,
+} from './providers/beads/items';
+import {
+  BeadsDocument,
+  findBdCommand,
+  loadBeads,
+  naturalSort,
+  saveBeadsDocument,
+} from './providers/beads/store';
+import { isCliVersionAtLeast, warnIfDependencyEditingUnsupported as warnIfDependencyEditingUnsupportedCli } from './utils';
 
 const execFileAsync = promisify(execFile);
 
 function createNonce(): string {
-  return randomUUID().replace(/-/g, '');
-}
-
-function serializeForScript(value: unknown): string {
-  return JSON.stringify(value)
-    .replace(/</g, '\u003c')
-    .replace(/\u2028/g, '\u2028')
-    .replace(/\u2029/g, '\u2029');
-}
-
-function buildLittleGlenCsp(webview: vscode.Webview, nonce: string): string {
-  const cspSource = webview.cspSource;
-  return [
-    "default-src 'none';",
-    `img-src ${cspSource} https: data:;`,
-    `style-src 'nonce-${nonce}' 'unsafe-inline' ${cspSource};`,
-    `font-src ${cspSource} https: data:;`,
-    `script-src 'nonce-${nonce}';`,
-    "connect-src 'none';",
-    "frame-src 'none';",
-    "object-src 'none';",
-    "base-uri 'none';",
-    "form-action 'none';"
-  ].join(' ');
-}
-
-function sanitizeExternalHref(url: string | undefined): string {
-  if (!url) {
-    return '';
-  }
-
-  try {
-    const parsed = new URL(url);
-    if (parsed.protocol === 'https:' || parsed.protocol === 'http:') {
-      return url;
-    }
-  } catch {
-    // swallow
-  }
-
-  return '';
-}
-
-function sanitizeDependencyType(input: unknown): string {
-  return typeof input === 'string' && /^[a-zA-Z0-9_-]{1,32}$/.test(input) ? input : 'related';
-}
-
-async function findBdCommand(configPath: string): Promise<string> {
-  // If user specified a path other than default, try to use it
-  if (configPath && configPath !== 'bd') {
-    try {
-      await fs.access(configPath);
-      return configPath;
-    } catch {
-      throw new Error(`Configured bd path not found: ${configPath}`);
-    }
-  }
-
-  // Try 'bd' in PATH first
-  try {
-    await execFileAsync('bd', ['--version']);
-    return 'bd';
-  } catch {
-    // Fall through to try common locations
-  }
-
-  // Try common installation locations
-  const commonPaths = [
-    '/opt/homebrew/bin/bd',
-    '/usr/local/bin/bd',
-    path.join(os.homedir(), '.local/bin/bd'),
-    path.join(os.homedir(), 'go/bin/bd'),
-  ];
-
-  for (const p of commonPaths) {
-    try {
-      await fs.access(p);
-      return p;
-    } catch {
-      continue;
-    }
-  }
-
-  throw new Error('bd command not found. Please install beads CLI: https://github.com/steveyegge/beads');
+  return Math.random().toString(36).slice(2, 15) + Math.random().toString(36).slice(2, 15);
 }
 
 let guardWarningShown = false;
+let dependencyVersionWarned = false;
+
+const MIN_DEPENDENCY_CLI = '0.29.0';
 
 async function runWorktreeGuard(projectRoot: string): Promise<void> {
   const config = vscode.workspace.getConfiguration('beads');
@@ -123,6 +60,160 @@ async function runWorktreeGuard(projectRoot: string): Promise<void> {
   }
 
   await execFileAsync(guardPath, { cwd: projectRoot });
+}
+
+async function warnIfDependencyEditingUnsupported(workspaceFolder?: vscode.WorkspaceFolder): Promise<void> {
+  const config = vscode.workspace.getConfiguration('beads', workspaceFolder);
+  if (!config.get<boolean>('enableDependencyEditing', false) || dependencyVersionWarned) {
+    return;
+  }
+
+  const commandPathSetting = config.get<string>('commandPath', 'bd');
+  try {
+    const commandPath = await findBdCommand(commandPathSetting);
+    await warnIfDependencyEditingUnsupportedCli(commandPath, MIN_DEPENDENCY_CLI, workspaceFolder?.uri.fsPath, (message) => {
+      dependencyVersionWarned = true;
+      void vscode.window.showWarningMessage(message);
+    });
+  } catch (error) {
+    dependencyVersionWarned = true;
+    void vscode.window.showWarningMessage(
+      'Could not determine bd version; dependency editing may be unsupported. Ensure bd is installed and on your PATH.'
+    );
+  }
+}
+
+async function warnIfDependencyEditingUnsupported(workspaceFolder?: vscode.WorkspaceFolder): Promise<void> {
+  const config = vscode.workspace.getConfiguration('beads', workspaceFolder);
+  if (!config.get<boolean>('enableDependencyEditing', false) || dependencyVersionWarned) {
+    return;
+  }
+
+  const commandPathSetting = config.get<string>('commandPath', 'bd');
+  try {
+    const commandPath = await findBdCommand(commandPathSetting);
+    await warnIfDependencyEditingUnsupportedCli(commandPath, MIN_DEPENDENCY_CLI, workspaceFolder?.uri.fsPath, (message) => {
+      dependencyVersionWarned = true;
+      void vscode.window.showWarningMessage(message);
+    });
+  } catch (error) {
+    dependencyVersionWarned = true;
+    void vscode.window.showWarningMessage(
+      'Could not determine bd version; dependency editing may be unsupported. Ensure bd is installed and on your PATH.'
+    );
+  }
+}
+
+async function warnIfDependencyEditingUnsupported(workspaceFolder?: vscode.WorkspaceFolder): Promise<void> {
+  const config = vscode.workspace.getConfiguration('beads', workspaceFolder);
+  if (!config.get<boolean>('enableDependencyEditing', false) || dependencyVersionWarned) {
+    return;
+  }
+
+  const commandPathSetting = config.get<string>('commandPath', 'bd');
+  try {
+    const commandPath = await findBdCommand(commandPathSetting);
+    const { stdout } = await execFileAsync(commandPath, ['--version'], {
+      cwd: workspaceFolder?.uri.fsPath,
+    });
+    const version = stdout.toString().trim().split(/\s+/).pop() ?? stdout.toString().trim();
+
+    if (!isCliVersionAtLeast(version, MIN_DEPENDENCY_CLI)) {
+      dependencyVersionWarned = true;
+      void vscode.window.showWarningMessage(
+        `Dependency editing requires bd >= ${MIN_DEPENDENCY_CLI} (found ${version || 'unknown'}). Update with npm i -g @beads/bd.`
+      );
+    }
+  } catch (error) {
+    dependencyVersionWarned = true;
+    void vscode.window.showWarningMessage(
+      'Could not determine bd version; dependency editing may be unsupported. Ensure bd is installed and on your PATH.'
+    );
+  }
+}
+
+async function warnIfDependencyEditingUnsupported(workspaceFolder?: vscode.WorkspaceFolder): Promise<void> {
+  const config = vscode.workspace.getConfiguration('beads', workspaceFolder);
+  if (!config.get<boolean>('enableDependencyEditing', false) || dependencyVersionWarned) {
+    return;
+  }
+
+  const commandPathSetting = config.get<string>('commandPath', 'bd');
+  try {
+    const commandPath = await findBdCommand(commandPathSetting);
+    const { stdout } = await execFileAsync(commandPath, ['--version'], {
+      cwd: workspaceFolder?.uri.fsPath,
+    });
+    const version = stdout.toString().trim().split(/\s+/).pop() ?? stdout.toString().trim();
+
+    if (!isCliVersionAtLeast(version, MIN_DEPENDENCY_CLI)) {
+      dependencyVersionWarned = true;
+      void vscode.window.showWarningMessage(
+        `Dependency editing requires bd >= ${MIN_DEPENDENCY_CLI} (found ${version || 'unknown'}). Update with npm i -g @beads/bd.`
+      );
+    }
+  } catch (error) {
+    dependencyVersionWarned = true;
+    void vscode.window.showWarningMessage(
+      'Could not determine bd version; dependency editing may be unsupported. Ensure bd is installed and on your PATH.'
+    );
+  }
+}
+
+async function warnIfDependencyEditingUnsupported(workspaceFolder?: vscode.WorkspaceFolder): Promise<void> {
+  const config = vscode.workspace.getConfiguration('beads', workspaceFolder);
+  if (!config.get<boolean>('enableDependencyEditing', false) || dependencyVersionWarned) {
+    return;
+  }
+
+  const commandPathSetting = config.get<string>('commandPath', 'bd');
+  try {
+    const commandPath = await findBdCommand(commandPathSetting);
+    const { stdout } = await execFileAsync(commandPath, ['--version'], {
+      cwd: workspaceFolder?.uri.fsPath,
+    });
+    const version = stdout.toString().trim().split(/\s+/).pop() ?? stdout.toString().trim();
+
+    if (!isCliVersionAtLeast(version, MIN_DEPENDENCY_CLI)) {
+      dependencyVersionWarned = true;
+      void vscode.window.showWarningMessage(
+        `Dependency editing requires bd >= ${MIN_DEPENDENCY_CLI} (found ${version || 'unknown'}). Update with npm i -g @beads/bd.`
+      );
+    }
+  } catch (error) {
+    dependencyVersionWarned = true;
+    void vscode.window.showWarningMessage(
+      'Could not determine bd version; dependency editing may be unsupported. Ensure bd is installed and on your PATH.'
+    );
+  }
+}
+
+async function warnIfDependencyEditingUnsupported(workspaceFolder?: vscode.WorkspaceFolder): Promise<void> {
+  const config = vscode.workspace.getConfiguration('beads', workspaceFolder);
+  if (!config.get<boolean>('enableDependencyEditing', false) || dependencyVersionWarned) {
+    return;
+  }
+
+  const commandPathSetting = config.get<string>('commandPath', 'bd');
+  try {
+    const commandPath = await findBdCommand(commandPathSetting);
+    const { stdout } = await execFileAsync(commandPath, ['--version'], {
+      cwd: workspaceFolder?.uri.fsPath,
+    });
+    const version = stdout.toString().trim().split(/\s+/).pop() ?? stdout.toString().trim();
+
+    if (!isCliVersionAtLeast(version, MIN_DEPENDENCY_CLI)) {
+      dependencyVersionWarned = true;
+      void vscode.window.showWarningMessage(
+        `Dependency editing requires bd >= ${MIN_DEPENDENCY_CLI} (found ${version || 'unknown'}). Update with npm i -g @beads/bd.`
+      );
+    }
+  } catch (error) {
+    dependencyVersionWarned = true;
+    void vscode.window.showWarningMessage(
+      'Could not determine bd version; dependency editing may be unsupported. Ensure bd is installed and on your PATH.'
+    );
+  }
 }
 
 interface BdCommandOptions {
@@ -149,150 +240,6 @@ async function runBdCommand(args: string[], projectRoot: string, options: BdComm
   await execFileAsync(commandPath, args, { cwd: projectRoot });
 }
 
-interface BeadsDocument {
-  filePath: string;
-  root: unknown;
-  beads: any[];
-}
-
-// Status section item for grouping beads by status
-class StatusSectionItem extends vscode.TreeItem {
-  public readonly status: string;
-  public readonly beads: BeadItemData[];
-  
-  constructor(status: string, beads: BeadItemData[], isCollapsed: boolean = false) {
-    const statusDisplay = status.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-    super(statusDisplay, isCollapsed ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.Expanded);
-    
-    this.status = status;
-    this.beads = beads;
-    this.contextValue = 'statusSection';
-    
-    // Show count as description
-    this.description = `${beads.length}`;
-    
-    // Status-specific icon and color
-    const iconConfig: Record<string, { icon: string; color: string }> = {
-      'open': { icon: 'circle-outline', color: 'charts.blue' },
-      'in_progress': { icon: 'clock', color: 'charts.yellow' },
-      'blocked': { icon: 'error', color: 'errorForeground' },
-      'closed': { icon: 'pass', color: 'testing.iconPassed' }
-    };
-    
-    const config = iconConfig[status] || { icon: 'folder', color: 'foreground' };
-    this.iconPath = new vscode.ThemeIcon(config.icon, new vscode.ThemeColor(config.color));
-    
-    // Tooltip
-    this.tooltip = `${statusDisplay}: ${beads.length} issue${beads.length !== 1 ? 's' : ''}`;
-  }
-}
-
-// Warning section item for stale in_progress tasks
-class WarningSectionItem extends vscode.TreeItem {
-  public readonly beads: BeadItemData[];
-  public readonly thresholdMinutes: number;
-  
-  constructor(beads: BeadItemData[], thresholdMinutes: number, isCollapsed: boolean = false) {
-    super('⚠️ Stale Tasks', isCollapsed ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.Expanded);
-    
-    this.beads = beads;
-    this.thresholdMinutes = thresholdMinutes;
-    this.contextValue = 'warningSection';
-    
-    // Show count as description
-    this.description = `${beads.length}`;
-    
-    // Warning icon with orange color
-    this.iconPath = new vscode.ThemeIcon('warning', new vscode.ThemeColor('charts.orange'));
-    
-    // Tooltip explaining what stale tasks are
-    this.tooltip = new vscode.MarkdownString();
-    this.tooltip.appendMarkdown(`**Stale Tasks:** ${beads.length} issue${beads.length !== 1 ? 's' : ''}\n\n`);
-    this.tooltip.appendMarkdown(`These tasks have been in progress for more than ${thresholdMinutes} minutes and may need attention.`);
-  }
-}
-
-// Epic tree item for grouping tasks under their parent epic (folder-style)
-class EpicTreeItem extends vscode.TreeItem {
-  public readonly epic: BeadItemData | null;
-  public readonly children: BeadItemData[];
-  
-  private setEpicIcon(status: string | undefined, isCollapsed: boolean): void {
-    const statusColors: Record<string, string> = {
-      'open': 'charts.blue',
-      'in_progress': 'charts.yellow',
-      'blocked': 'errorForeground',
-      'closed': 'testing.iconPassed',
-    };
-    const iconColor = statusColors[status || 'open'] || 'charts.blue';
-    const iconName = isCollapsed ? 'folder-library' : 'folder-opened';
-    this.iconPath = new vscode.ThemeIcon(iconName, new vscode.ThemeColor(iconColor));
-  }
-  
-  updateIcon(isCollapsed: boolean): void {
-    if (this.epic) {
-      this.setEpicIcon(this.epic.status, isCollapsed);
-    }
-  }
-  
-  constructor(epic: BeadItemData | null, children: BeadItemData[], isCollapsed: boolean = false) {
-    // Label is just the epic title (like a folder name), or 'Ungrouped' for orphans
-    const label = epic ? epic.title : 'Ungrouped';
-    super(label, isCollapsed ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.Expanded);
-    
-    this.epic = epic;
-    this.children = children;
-    this.contextValue = epic ? 'epicItem' : 'ungroupedSection';
-    
-    if (epic) {
-      // ID shown in description like other items (folder-style: "id · X items")
-      this.description = `${epic.id} · ${children.length} item${children.length !== 1 ? 's' : ''}`;
-      
-      // Use folder-style icons with status tint, changing based on collapse state
-      this.setEpicIcon(epic.status, isCollapsed);
-      
-      // Make it clickable to open epic detail view (like double-clicking a folder)
-      this.command = {
-        command: 'beads.openBead',
-        title: 'Open Epic',
-        arguments: [epic],
-      };
-      
-      // Rich tooltip with epic details
-      const tooltip = new vscode.MarkdownString();
-      tooltip.isTrusted = true;
-      const statusDisplay = (epic.status || 'open').split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-      tooltip.appendMarkdown(`### 🚀 ${epic.id}\n\n`);
-      tooltip.appendMarkdown(`**${epic.title}**\n\n`);
-      tooltip.appendMarkdown(`Status: ${statusDisplay}\n\n`);
-      tooltip.appendMarkdown(`Children: ${children.length} item${children.length !== 1 ? 's' : ''}\n\n`);
-      tooltip.appendMarkdown(`*Click to open epic details*`);
-      this.tooltip = tooltip;
-    } else {
-      // Ungrouped section styling (items without a parent epic)
-      this.description = `${children.length} item${children.length !== 1 ? 's' : ''}`;
-      this.iconPath = new vscode.ThemeIcon('inbox', new vscode.ThemeColor('charts.blue'));
-      this.tooltip = `Items without a parent epic: ${children.length}`;
-    }
-  }
-}
-
-// Ungrouped section item for beads without a parent epic
-class UngroupedSectionItem extends vscode.TreeItem {
-  public readonly children: BeadItemData[];
-
-  constructor(children: BeadItemData[], isCollapsed: boolean = false) {
-    super('Ungrouped', isCollapsed ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.Expanded);
-
-    this.children = children;
-    this.contextValue = 'ungroupedSection';
-    this.description = `${children.length} item${children.length !== 1 ? 's' : ''}`;
-    this.iconPath = new vscode.ThemeIcon('inbox', new vscode.ThemeColor('charts.blue'));
-    this.tooltip = `Items without a parent epic: ${children.length}`;
-  }
-}
-
-// Union type for tree items
 type TreeItemType = StatusSectionItem | WarningSectionItem | EpicTreeItem | UngroupedSectionItem | BeadTreeItem;
 
 class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vscode.TreeDragAndDropController<TreeItemType> {
@@ -586,7 +533,16 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
 
     this.refreshInProgress = true;
     try {
-      const result = await loadBeads();
+      const config = vscode.workspace.getConfiguration('beads');
+      const projectRoot = resolveProjectRoot(config);
+      if (!projectRoot) {
+        this.items = [];
+        this.document = undefined;
+        this.onDidChangeTreeDataEmitter.fire();
+        return;
+      }
+
+      const result = await loadBeads(projectRoot, config);
       this.items = result.items;
       this.document = result.document;
       console.log('[Provider DEBUG] After loadBeads, items count:', this.items.length);
@@ -1121,183 +1077,6 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   }
 }
 
-class BeadTreeItem extends vscode.TreeItem {
-  constructor(public readonly bead: BeadItemData, private readonly worktreeId?: string) {
-    const cleanTitle = stripBeadIdPrefix(bead.title || bead.id, bead.id);
-    const label = cleanTitle || bead.title || bead.id;
-    super(label, vscode.TreeItemCollapsibleState.None);
-
-    // Get stale threshold from config
-    const config = vscode.workspace.getConfiguration('beads');
-    const thresholdMinutes = config.get<number>('staleThresholdMinutes', 10);
-    const thresholdHours = thresholdMinutes / 60;
-    const staleInfo = getStaleInfo(bead);
-    const isTaskStale = isStale(bead, thresholdHours);
-
-    // Build rich description with multiple pieces of info
-    const descParts: string[] = [bead.id];
-    
-    // Add stale indicator at the beginning for visibility
-    if (isTaskStale && staleInfo) {
-      descParts.push(`⚠️ ${staleInfo.formattedTime}`);
-    }
-
-    const preview = buildPreviewSnippet(bead.description, 60);
-    if (preview) {
-      descParts.push(preview);
-    }
-    
-    // Add relative timestamp
-    if (bead.updatedAt) {
-      const relTime = formatRelativeTime(bead.updatedAt);
-      if (relTime) {
-        descParts.push(relTime);
-      }
-    }
-    
-    // Add blocking dependency indicator
-    if (bead.blockingDepsCount && bead.blockingDepsCount > 0) {
-      descParts.push(`⏳ ${bead.blockingDepsCount} blocker${bead.blockingDepsCount > 1 ? 's' : ''}`);
-    }
-    
-    // Add tags if present (moved to the end)
-    if (bead.tags && bead.tags.length > 0) {
-      descParts.push(`[${bead.tags.join(', ')}]`);
-    }
-    
-    // Add external reference if present
-    if (bead.externalReferenceId) {
-      if (bead.externalReferenceDescription) {
-        descParts.push(`↗ ${bead.externalReferenceDescription}`);
-      } else {
-        descParts.push(`↗ ${bead.externalReferenceId}`);
-      }
-    }
-    
-    if (descParts.length > 0) {
-      this.description = descParts.join(' · ');
-    }
-
-    // Build rich tooltip with all details
-    this.tooltip = this.buildRichTooltip(bead, isTaskStale, staleInfo);
-
-    // Icon mapping for issue types - creative, memorable icons
-    const typeIcons: Record<string, string> = {
-      'epic': 'rocket',        // Big initiative/goal
-      'task': 'tasklist',      // Work item checklist
-      'bug': 'bug',            // Problem (keep existing)
-      'feature': 'sparkle',    // New/shiny capability
-      'chore': 'wrench',       // Tool/maintenance
-      'spike': 'telescope',    // Research/exploration
-    };
-
-    // Determine icon color based on status
-    const statusColors: Record<string, string> = {
-      'open': 'charts.blue',
-      'in_progress': isTaskStale ? 'charts.orange' : 'charts.yellow',
-      'blocked': 'errorForeground',
-      'closed': 'testing.iconPassed',
-    };
-
-    // Closed items always show checkmark regardless of type
-    if (bead.status === 'closed') {
-      this.iconPath = new vscode.ThemeIcon('pass', new vscode.ThemeColor('testing.iconPassed'));
-    } else {
-      // Use issue type icon with status color
-      const iconName = typeIcons[bead.issueType || ''] || 'symbol-event';
-      const iconColor = statusColors[bead.status || 'open'] || 'charts.blue';
-      this.iconPath = new vscode.ThemeIcon(iconName, new vscode.ThemeColor(iconColor));
-    }
-  }
-  
-  private buildRichTooltip(bead: BeadItemData, isTaskStale: boolean, staleInfo: { hoursInProgress: number; formattedTime: string } | undefined): vscode.MarkdownString {
-    const md = new vscode.MarkdownString();
-    md.isTrusted = false;
-    md.supportHtml = false;
-
-    const safeId = sanitizeTooltipText(bead.id);
-    const safeTitle = sanitizeTooltipText(bead.title);
-    
-    // Title and ID
-    md.appendMarkdown(`### ${safeId}\n\n`);
-    md.appendMarkdown(`**${safeTitle}**\n\n`);
-    
-    // Status with colored indicator
-    const statusEmoji: Record<string, string> = {
-      'open': '🔵',
-      'in_progress': '🟡',
-      'blocked': '🔴',
-      'closed': '🟢'
-    };
-    const statusDisplay = (bead.status || 'open').split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-    md.appendMarkdown(`${statusEmoji[bead.status || 'open'] || '⚪'} **Status:** ${statusDisplay}\n\n`);
-    
-    // Stale warning for in_progress tasks
-    if (isTaskStale && staleInfo) {
-      md.appendMarkdown(`⚠️ **Stale:** In progress for ${staleInfo.formattedTime} (may need attention)\n\n`);
-    }
-    
-    // Issue type with emoji
-    if (bead.issueType) {
-      const typeEmoji: Record<string, string> = {
-        'epic': '🚀',
-        'task': '📋',
-        'bug': '🐛',
-        'feature': '✨',
-        'spike': '🔭',
-        'chore': '🔧',
-      };
-      const typeDisplay = bead.issueType.charAt(0).toUpperCase() + bead.issueType.slice(1);
-      md.appendMarkdown(`${typeEmoji[bead.issueType] || '📄'} **Type:** ${typeDisplay}`);
-      
-      // Add child count for epics
-      if (bead.issueType === 'epic' && bead.childCount !== undefined && bead.childCount > 0) {
-        md.appendMarkdown(` (${bead.childCount} child${bead.childCount !== 1 ? 'ren' : ''})`);
-      }
-      md.appendMarkdown(`\n\n`);
-    }
-    
-    // Description preview
-    if (bead.description) {
-      const preview = bead.description.substring(0, 200).replace(/\n/g, ' ').trim();
-      md.appendMarkdown(`📝 ${sanitizeTooltipText(preview)}${bead.description.length > 200 ? '…' : ''}\n\n`);
-    }
-    
-    // Tags
-    if (bead.tags && bead.tags.length > 0) {
-      md.appendMarkdown(`🏷️ ${bead.tags.map(sanitizeTooltipText).join(', ')}\n\n`);
-    }
-    
-    // Blocking dependencies
-    if (bead.blockingDepsCount && bead.blockingDepsCount > 0) {
-      md.appendMarkdown(`⏳ **Waiting on ${bead.blockingDepsCount} blocker${bead.blockingDepsCount > 1 ? 's' : ''}**\n\n`);
-    }
-    
-    // Timestamps
-    if (bead.updatedAt) {
-      const relTime = formatRelativeTime(bead.updatedAt);
-      md.appendMarkdown(`🕐 Updated ${relTime}\n\n`);
-    }
-    
-    // External reference
-    if (bead.externalReferenceId) {
-      const displayText = bead.externalReferenceDescription || bead.externalReferenceId;
-      md.appendMarkdown(`↗️ **External:** ${sanitizeTooltipText(displayText)}\n\n`);
-    }
-
-    if (this.worktreeId) {
-      md.appendMarkdown(`🏷️ Worktree: ${sanitizeTooltipText(this.worktreeId)}\n\n`);
-    }
-    
-    // File path
-    if (bead.filePath) {
-      md.appendMarkdown(`📁 ${sanitizeTooltipText(bead.filePath)}\n`);
-    }
-
-    return md;
-  }
-}
-
 function resolveProjectRoot(config: vscode.WorkspaceConfiguration, workspaceFolder?: vscode.WorkspaceFolder): string | undefined {
   const projectRootConfig = config.get<string>('projectRoot');
   if (projectRootConfig && projectRootConfig.trim().length > 0) {
@@ -1324,150 +1103,6 @@ function resolveProjectRoot(config: vscode.WorkspaceConfiguration, workspaceFold
   }
 
   return undefined;
-}
-
-function naturalSort(a: BeadItemData, b: BeadItemData): number {
-  // Split IDs into parts (text and numbers)
-  const aParts = a.id.split(/(\d+)/);
-  const bParts = b.id.split(/(\d+)/);
-
-  for (let i = 0; i < Math.min(aParts.length, bParts.length); i++) {
-    const aPart = aParts[i];
-    const bPart = bParts[i];
-
-    // Check if both parts are numeric
-    const aNum = parseInt(aPart, 10);
-    const bNum = parseInt(bPart, 10);
-
-    if (!isNaN(aNum) && !isNaN(bNum)) {
-      // Compare as numbers
-      if (aNum !== bNum) {
-        return aNum - bNum;
-      }
-    } else {
-      // Compare as strings
-      if (aPart !== bPart) {
-        return aPart.localeCompare(bPart);
-      }
-    }
-  }
-
-  // If all parts are equal, shorter ID comes first
-  return aParts.length - bParts.length;
-}
-
-async function loadBeads(): Promise<{ items: BeadItemData[]; document: BeadsDocument; }> {
-  const config = vscode.workspace.getConfiguration('beads');
-  const projectRoot = resolveProjectRoot(config);
-  const configPath = config.get<string>('commandPath', 'bd');
-
-  console.log('[loadBeads DEBUG] Starting loadBeads, projectRoot:', projectRoot);
-
-  if (!projectRoot) {
-    throw new Error('Unable to resolve project root. Set "beads.projectRoot" or open a workspace folder.');
-  }
-
-  try {
-    // Find the bd command
-    const commandPath = await findBdCommand(configPath);
-    console.log('[loadBeads DEBUG] Found bd command at:', commandPath);
-
-    // Use bd export to get issues with dependencies (JSONL format)
-    const { stdout } = await execFileAsync(commandPath, ['export'], {
-      cwd: projectRoot,
-      maxBuffer: 10 * 1024 * 1024 // 10MB buffer for large issue lists
-    });
-
-    console.log('[loadBeads DEBUG] bd export stdout length:', stdout?.length ?? 0);
-    console.log('[loadBeads DEBUG] bd export stdout preview:', stdout?.substring(0, 500));
-
-    // Parse JSONL output (one JSON object per line)
-    let beads: any[] = [];
-    if (stdout && stdout.trim()) {
-      const lines = stdout.trim().split('\n');
-      console.log('[loadBeads DEBUG] Number of JSONL lines:', lines.length);
-      beads = lines.map(line => JSON.parse(line));
-      console.log('[loadBeads DEBUG] Parsed beads count:', beads.length);
-      if (beads.length > 0) {
-        console.log('[loadBeads DEBUG] First bead raw:', JSON.stringify(beads[0], null, 2));
-      }
-    } else {
-      console.log('[loadBeads DEBUG] No stdout from bd export');
-    }
-
-    // Create a document structure for compatibility
-    // Use the database path for file watching instead of JSONL
-    const dbPath = path.join(projectRoot, '.beads');
-    const document: BeadsDocument = {
-      filePath: dbPath, // Watch the .beads directory for any db changes
-      root: beads,
-      beads
-    };
-
-    const items = beads.map((entry, index) => normalizeBead(entry, index));
-    console.log('[loadBeads DEBUG] Normalized items count:', items.length);
-
-    // Sort items using natural sort (handles numeric parts correctly)
-    items.sort(naturalSort);
-
-    return { items, document };
-  } catch (error: any) {
-    // Fallback to reading JSON file if CLI command fails
-    console.warn('Failed to load beads via CLI, falling back to file reading:', error.message);
-    console.error('[loadBeads DEBUG] Full error:', error);
-    return loadBeadsFromFile(projectRoot, config);
-  }
-}
-
-async function loadBeadsFromFile(projectRoot: string, config: vscode.WorkspaceConfiguration): Promise<{ items: BeadItemData[]; document: BeadsDocument; }> {
-  const dataFileConfig = config.get<string>('dataFile', '.beads/issues.jsonl');
-  const resolvedDataFile = resolveDataFilePath(dataFileConfig, projectRoot);
-
-  if (!resolvedDataFile) {
-    throw new Error('Unable to resolve beads data file. Set "beads.projectRoot" or provide an absolute "beads.dataFile" path.');
-  }
-
-  const document = await readBeadsDocument(resolvedDataFile);
-  const items = document.beads.map((entry, index) => normalizeBead(entry, index));
-
-  // Sort items using natural sort (handles numeric parts correctly)
-  items.sort(naturalSort);
-
-  return { items, document };
-}
-
-async function readBeadsDocument(filePath: string): Promise<BeadsDocument> {
-  const rawContent = await fs.readFile(filePath, 'utf8');
-
-  // Check if it's JSONL format (each line is a JSON object)
-  if (filePath.endsWith('.jsonl')) {
-    const lines = rawContent.trim().split('\n').filter(line => line.trim().length > 0);
-    const beads = lines.map(line => JSON.parse(line));
-    return { filePath, root: beads, beads };
-  }
-
-  // Otherwise assume it's JSON format
-  const root = JSON.parse(rawContent);
-  const beads = extractBeads(root);
-
-  if (!Array.isArray(beads)) {
-    throw new Error('Beads data file does not contain a beads array.');
-  }
-
-  return { filePath, root, beads };
-}
-
-async function saveBeadsDocument(document: BeadsDocument): Promise<void> {
-  // Check if it's JSONL format
-  if (document.filePath.endsWith('.jsonl')) {
-    const lines = document.beads.map(bead => JSON.stringify(bead)).join('\n');
-    const content = lines.endsWith('\n') ? lines : `${lines}\n`;
-    await fs.writeFile(document.filePath, content, 'utf8');
-  } else {
-    const serialized = JSON.stringify(document.root, null, 2);
-    const content = serialized.endsWith('\n') ? serialized : `${serialized}\n`;
-    await fs.writeFile(document.filePath, content, 'utf8');
-  }
 }
 
 interface DependencyTreeNode {
@@ -1581,8 +1216,6 @@ function getBeadDetailHtml(
   const dependencies = raw?.dependencies || [];
   const assignee = raw?.assignee || '';
   const labels = raw?.labels || [];
-  const externalReference = sanitizeExternalHref(item.externalReferenceId);
-  const externalReferenceLabel = item.externalReferenceDescription || item.externalReferenceId || '';
 
   // Build dependency trees for visualization
   let dependencyTreeHtml = '';
@@ -1623,17 +1256,13 @@ function getBeadDetailHtml(
   // Process outgoing dependencies from this issue
   dependencies.forEach((dep: any) => {
     const targetId = dep.depends_on_id || dep.id || dep.issue_id;
-    const beadId = typeof targetId === 'string' ? targetId : String(targetId ?? '');
-    if (!isValidBeadId(beadId)) {
-      return;
-    }
-    const depType = sanitizeDependencyType(dep.dep_type || dep.type);
+    const depType = dep.dep_type || dep.type || 'related';
 
     // Find the target issue to get its details
-    const targetIssue = allItems?.find((i: BeadItemData) => i.id === beadId);
+    const targetIssue = allItems?.find((i: BeadItemData) => i.id === targetId);
 
     dependsOn.push({
-      id: beadId,
+      id: targetId,
       title: targetIssue?.title || '',
       status: targetIssue?.status || '',
       type: depType,
@@ -1649,12 +1278,8 @@ function getBeadDetailHtml(
 
       otherDeps.forEach((dep: any) => {
         const targetId = dep.depends_on_id || dep.id || dep.issue_id;
-        const beadId = typeof targetId === 'string' ? targetId : String(targetId ?? '');
-        if (beadId === item.id && isValidBeadId(beadId)) {
-          if (!isValidBeadId(otherItem.id)) {
-            return;
-          }
-          const depType = sanitizeDependencyType(dep.dep_type || dep.type);
+        if (targetId === item.id) {
+          const depType = dep.dep_type || dep.type || 'related';
           blocks.push({
             id: otherItem.id,
             title: otherItem.title,
@@ -1680,15 +1305,24 @@ function getBeadDetailHtml(
   const statusDisplay = item.status
     ? item.status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
     : '';
-  const csp = buildLittleGlenCsp(webview, nonce);
+
+  const csp = [
+    "default-src 'none'",
+    `img-src ${webview.cspSource} https: data:`,
+    `style-src 'nonce-${nonce}' ${webview.cspSource}`,
+    `script-src 'nonce-${nonce}'`,
+    `font-src ${webview.cspSource}`,
+    "connect-src 'none'",
+    "frame-src 'none'"
+  ].join('; ');
 
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="${csp}">
     <title>${item.id}</title>
+    <meta http-equiv="Content-Security-Policy" content="${csp}">
     <style nonce="${nonce}">
         body {
             font-family: var(--vscode-font-family);
@@ -2048,7 +1682,7 @@ function getBeadDetailHtml(
     <div class="section">
         <div class="section-title">Details</div>
         ${assignee ? `<div class="meta-item"><span class="meta-label">Assignee:</span><span class="meta-value">${escapeHtml(assignee)}</span></div>` : ''}
-        ${externalReference ? `<div class="meta-item"><span class="meta-label">External Ref:</span><span class="meta-value"><a href="${escapeHtml(externalReference)}" class="external-link" target="_blank">${escapeHtml(externalReferenceLabel)}</a></span></div>` : ''}
+        ${item.externalReferenceId ? `<div class="meta-item"><span class="meta-label">External Ref:</span><span class="meta-value"><a href="${escapeHtml(item.externalReferenceId)}" class="external-link" target="_blank">${escapeHtml(item.externalReferenceDescription || item.externalReferenceId)}</a></span></div>` : ''}
         ${createdAt ? `<div class="meta-item"><span class="meta-label">Created:</span><span class="meta-value">${createdAt}</span></div>` : ''}
         ${updatedAt ? `<div class="meta-item"><span class="meta-label">Updated:</span><span class="meta-value">${updatedAt}</span></div>` : ''}
         ${closedAt ? `<div class="meta-item"><span class="meta-label">Closed:</span><span class="meta-value">${closedAt}</span></div>` : ''}
@@ -2072,7 +1706,7 @@ function getBeadDetailHtml(
         <div class="section-title">Depends On</div>
         ${dependsOn.map((dep: any) => `
             <div class="dependency-item" data-issue-id="${dep.id}">
-                <div class="dependency-type">${escapeHtml(dep.type)}</div>
+                <div class="dependency-type">${dep.type}</div>
                 <strong>${dep.id}</strong>
                 ${dep.title ? `<div style="margin-top: 4px;">${escapeHtml(dep.title)}</div>` : ''}
                 ${dep.status ? `<span class="badge status-badge" style="margin-top: 4px; display: inline-block;">${dep.status.split('_').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}</span>` : ''}
@@ -2086,7 +1720,7 @@ function getBeadDetailHtml(
         <div class="section-title">Blocks</div>
         ${blocks.map((dep: any) => `
             <div class="dependency-item" data-issue-id="${dep.id}">
-                <div class="dependency-type">${escapeHtml(dep.type)}</div>
+                <div class="dependency-type">${dep.type}</div>
                 <strong>${dep.id}</strong>
                 ${dep.title ? `<div style="margin-top: 4px;">${escapeHtml(dep.title)}</div>` : ''}
                 ${dep.status ? `<span class="badge status-badge" style="margin-top: 4px; display: inline-block;">${dep.status.split('_').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}</span>` : ''}
@@ -2143,7 +1777,7 @@ function getBeadDetailHtml(
         console.log('DEBUG: labelActions element:', labelActions);
         console.log('DEBUG: addInReviewButton element:', addInReviewButton);
 
-        const currentLabels = ${serializeForScript(labels || [])};
+        const currentLabels = ${JSON.stringify(labels || [])};
         const hasInReview = currentLabels.includes('in-review');
 
         if (hasInReview) {
@@ -2308,7 +1942,7 @@ function getBeadDetailHtml(
 </html>`;
 }
 
-function getDependencyTreeHtml(items: BeadItemData[], webview: vscode.Webview, nonce: string): string {
+function getDependencyTreeHtml(items: BeadItemData[]): string {
   // DEBUG: Log input to HTML generator
   console.log('[getDependencyTreeHtml DEBUG] Received items count:', items?.length ?? 'undefined/null');
 
@@ -2323,36 +1957,39 @@ function getDependencyTreeHtml(items: BeadItemData[], webview: vscode.Webview, n
   }
 
   items.forEach((item, idx) => {
-    if (!isValidBeadId(item.id)) {
-      return;
-    }
     nodeMap.set(item.id, item);
     const raw = item.raw as any;
     const dependencies = raw?.dependencies || [];
 
     // DEBUG: Log dependency info for first few items
     if (idx < 3) {
-      console.log(`[getDependencyTreeHtml DEBUG] Item ${idx} (${item.id}) deps:`, dependencies.length);
+      console.log(`[getDependencyTreeHtml DEBUG] Item ${idx} (${item.id}):`, {
+        title: item.title,
+        status: item.status,
+        hasDependencies: dependencies.length > 0,
+        dependenciesCount: dependencies.length,
+        dependencies: dependencies
+      });
     }
 
     dependencies.forEach((dep: any) => {
-      const depType = sanitizeDependencyType(dep.dep_type || dep.type);
+      const depType = dep.dep_type || dep.type || 'related';
       const targetId = dep.id || dep.depends_on_id || dep.issue_id;
-      const toId = typeof targetId === 'string' ? targetId : String(targetId ?? '');
-      if (isValidBeadId(toId) && isValidBeadId(item.id)) {
+      if (targetId) {
         edges.push({
           from: item.id,
-          to: toId,
+          to: targetId,
           type: depType
         });
       }
     });
   });
 
-  // DEBUG: Log final graph data without payload contents
+  // DEBUG: Log final graph data
   console.log('[getDependencyTreeHtml DEBUG] Built graph:', {
     nodeCount: nodeMap.size,
-    edgeCount: edges.length
+    edgeCount: edges.length,
+    edges: edges.slice(0, 5)
   });
 
   // Serialize data for JavaScript, sorted by ID (descending order naturally)
@@ -2363,31 +2000,22 @@ function getDependencyTreeHtml(items: BeadItemData[], webview: vscode.Webview, n
       const numB = parseInt(idB.match(/\d+/)?.[0] || '0', 10);
       return numA - numB;
     })
-    .map(([id, item]) => {
-      const status = ['open', 'in_progress', 'blocked', 'closed'].includes(item.status ?? '')
-        ? item.status!
-        : 'open';
+    .map(([id, item]) => ({
+      id,
+      title: item.title,
+      status: item.status || 'open'
+    }));
 
-      return {
-        id,
-        title: escapeHtml(item.title),
-        status
-      };
-    });
-
-  const nodesJson = serializeForScript(sortedNodes);
-  const edgesJson = serializeForScript(edges);
-
-  const csp = buildLittleGlenCsp(webview, nonce);
+  const nodesJson = JSON.stringify(sortedNodes);
+  const edgesJson = JSON.stringify(edges);
 
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="${csp}">
     <title>Beads Dependency Tree</title>
-    <style nonce="${nonce}">
+    <style>
         body {
             font-family: var(--vscode-font-family);
             font-size: var(--vscode-font-size);
@@ -2573,8 +2201,8 @@ function getDependencyTreeHtml(items: BeadItemData[], webview: vscode.Webview, n
 </head>
 <body>
     <div class="controls">
-        <button class="control-button" id="resetViewButton">Reset View</button>
-        <button class="control-button" id="autoLayoutButton">Auto Layout</button>
+        <button class="control-button" onclick="resetZoom()">Reset View</button>
+        <button class="control-button" onclick="autoLayout()">Auto Layout</button>
     </div>
 
     <div class="legend">
@@ -2601,7 +2229,7 @@ function getDependencyTreeHtml(items: BeadItemData[], webview: vscode.Webview, n
         <div id="canvas"></div>
     </div>
 
-    <script nonce="${nonce}">
+    <script>
         const vscode = acquireVsCodeApi();
         const nodes = ${nodesJson};
         const edges = ${edgesJson};
@@ -2629,8 +2257,6 @@ function getDependencyTreeHtml(items: BeadItemData[], webview: vscode.Webview, n
         let dragOffset = {x: 0, y: 0};
         let isDragging = false;
         let mouseDownPos = null;
-        const resetViewButton = document.getElementById('resetViewButton');
-        const autoLayoutButton = document.getElementById('autoLayoutButton');
 
         // Simple tree layout algorithm
         function calculateLayout() {
@@ -2879,14 +2505,6 @@ function getDependencyTreeHtml(items: BeadItemData[], webview: vscode.Webview, n
             render();
         }
 
-        if (resetViewButton) {
-            resetViewButton.addEventListener('click', resetZoom);
-        }
-
-        if (autoLayoutButton) {
-            autoLayoutButton.addEventListener('click', autoLayout);
-        }
-
         function redrawEdges() {
             const svg = document.getElementById('svg');
             const edgePaths = edges.map(edge =>
@@ -2970,7 +2588,6 @@ function getDependencyTreeHtml(items: BeadItemData[], webview: vscode.Webview, n
 
 async function openBead(item: BeadItemData, provider: BeadsTreeDataProvider): Promise<void> {
   const nonce = createNonce();
-  const resourceRoots = provider['context']?.extensionUri ? [provider['context'].extensionUri] : [];
   const panel = vscode.window.createWebviewPanel(
     'beadDetail',
     item.id,
@@ -2978,7 +2595,7 @@ async function openBead(item: BeadItemData, provider: BeadsTreeDataProvider): Pr
     {
       enableScripts: true,
       retainContextWhenHidden: true,
-      localResourceRoots: resourceRoots,
+      localResourceRoots: [vscode.Uri.joinPath(vscode.workspace.workspaceFolders?.[0]?.uri ?? vscode.Uri.file(process.cwd())), provider['context']?.extensionUri ?? vscode.Uri.file(process.cwd())],
     }
   );
 
@@ -3094,7 +2711,6 @@ async function visualizeDependencies(provider: BeadsTreeDataProvider): Promise<v
     {
       enableScripts: true,
       retainContextWhenHidden: true,
-      localResourceRoots: [],
     }
   );
 
@@ -3103,10 +2719,12 @@ async function visualizeDependencies(provider: BeadsTreeDataProvider): Promise<v
 
   // DEBUG: Log the items being passed to the visualizer
   console.log('[Visualizer DEBUG] Number of items from provider:', items?.length ?? 'undefined');
-  console.log('[Visualizer DEBUG] Example IDs:', items?.slice(0, 3).map(item => item.id));
+  console.log('[Visualizer DEBUG] Items array:', JSON.stringify(items?.slice(0, 3), null, 2)); // First 3 items
+  if (items && items.length > 0) {
+    console.log('[Visualizer DEBUG] First item raw data:', JSON.stringify(items[0]?.raw, null, 2));
+  }
 
-  const nonce = createNonce();
-  panel.webview.html = getDependencyTreeHtml(items, panel.webview, nonce);
+  panel.webview.html = getDependencyTreeHtml(items);
 
   // Handle messages from the webview
   panel.webview.onDidReceiveMessage(async (message) => {
@@ -3127,12 +2745,7 @@ async function visualizeDependencies(provider: BeadsTreeDataProvider): Promise<v
   });
 }
 
-function getActivityFeedPanelHtml(
-  events: import('./activityFeed').EventData[],
-  webview: vscode.Webview,
-  nonce: string
-): string {
-  const csp = buildLittleGlenCsp(webview, nonce);
+function getActivityFeedPanelHtml(events: import('./activityFeed').EventData[]): string {
   const eventCards = events.map(event => {
     const iconMap: Record<string, string> = {
       'sparkle': '✨',
@@ -3186,9 +2799,8 @@ function getActivityFeedPanelHtml(
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="${csp}">
     <title>Activity Feed</title>
-    <style nonce="${nonce}">
+    <style>
         body {
             font-family: var(--vscode-font-family);
             font-size: var(--vscode-font-size);
@@ -3348,9 +2960,9 @@ function getActivityFeedPanelHtml(
     </div>
     `}
     
-    <script nonce="${nonce}">
+    <script>
         const vscode = acquireVsCodeApi();
-
+        
         document.querySelectorAll('.event-card').forEach(card => {
             card.addEventListener('click', () => {
                 const issueId = card.getAttribute('data-issue-id');
@@ -3375,7 +2987,6 @@ async function openActivityFeedPanel(activityFeedProvider: ActivityFeedTreeDataP
     {
       enableScripts: true,
       retainContextWhenHidden: true,
-      localResourceRoots: [],
     }
   );
 
@@ -3387,8 +2998,7 @@ async function openActivityFeedPanel(activityFeedProvider: ActivityFeedTreeDataP
   const result = await fetchEvents(projectRoot, { limit: 100 });
 
   // 
-  const nonce = createNonce();
-  panel.webview.html = getActivityFeedPanelHtml(result.events, panel.webview, nonce);
+  panel.webview.html = getActivityFeedPanelHtml(result.events);
 
   // Handle messages from the webview
   panel.webview.onDidReceiveMessage(async (message) => {
@@ -3601,15 +3211,32 @@ export function activate(context: vscode.ExtensionContext): void {
           await runBdCommand(['delete', item.bead.id, '--force'], projectRoot!);
         }
 
-        await provider.refresh();
+        await state.beadsProvider.refresh();
 
         const successMessage = beadItems.length === 1
           ? `Deleted bead: ${beadItems[0].bead.id}`
           : `Deleted ${beadItems.length} beads`;
         void vscode.window.showInformationMessage(successMessage);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        void vscode.window.showErrorMessage(`Failed to delete beads: ${errorMessage}`);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      void vscode.window.showErrorMessage(`Failed to delete beads: ${errorMessage}`);
+    }
+  }),
+  );
+
+  // If dependency editing is enabled, warn early when the bd CLI is too old
+  const workspaces = vscode.workspace.workspaceFolders ?? [];
+  workspaces.forEach((workspaceFolder) => {
+    void warnIfDependencyEditingUnsupported(workspaceFolder);
+  });
+
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration((event) => {
+      if (event.affectsConfiguration('beads.enableDependencyEditing')) {
+        const folders = vscode.workspace.workspaceFolders ?? [];
+        folders.forEach((workspaceFolder) => {
+          void warnIfDependencyEditingUnsupported(workspaceFolder);
+        });
       }
     }),
   );

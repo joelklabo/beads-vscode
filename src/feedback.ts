@@ -1,3 +1,6 @@
+import { Octokit } from '@octokit/rest';
+import { Octokit } from '@octokit/rest';
+import { Octokit } from '@octokit/rest';
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import {
@@ -7,6 +10,12 @@ import {
   redactLogContent,
   tailLogLines
 } from './utils/fs';
+import { FeedbackConfig, FeedbackLabelMap } from './utils/config';
+import { collectEnvironmentInfo, EnvironmentInfo, formatEnvironmentMarkdown } from './utils/environment';
+import { FeedbackConfig, FeedbackLabelMap } from './utils/config';
+import { collectEnvironmentInfo, EnvironmentInfo, formatEnvironmentMarkdown } from './utils/environment';
+import { FeedbackConfig, FeedbackLabelMap } from './utils/config';
+import { collectEnvironmentInfo, EnvironmentInfo, formatEnvironmentMarkdown } from './utils/environment';
 
 export interface LogCaptureOptions {
   /** Explicit path to a log file to attach. */
@@ -158,4 +167,157 @@ export async function buildFeedbackBody(options: FeedbackBodyOptions): Promise<s
 
   composed += `\n\n---\n${descriptor}\n\n\`\`\`\n${result.content}\n\`\`\``;
   return composed;
+}
+
+export type FeedbackType = 'bug' | 'feature' | 'question' | 'other' | string;
+
+export interface FeedbackIssueInput extends LogCaptureOptions {
+  summary: string;
+  type?: FeedbackType;
+  steps?: string;
+  context?: string;
+  expected?: string;
+  actual?: string;
+  labels?: string[];
+  workspacePaths?: string[];
+  environment?: Partial<EnvironmentInfo>;
+  extensionId?: string;
+  bdCommandPath?: string;
+}
+
+export interface FeedbackIssueResult {
+  id?: string;
+  url?: string;
+  number?: number;
+}
+
+interface OctokitLike {
+  issues: { create: (params: any) => Promise<{ data: any }> };
+}
+
+export interface CreateFeedbackIssueOptions {
+  octokit?: OctokitLike;
+  environmentResolver?: () => Promise<EnvironmentInfo>;
+}
+
+function normalizeLabel(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed && trimmed.length > 0 ? trimmed : undefined;
+}
+
+function buildFeedbackLabels(
+  type: string | undefined,
+  labels: FeedbackLabelMap,
+  extras: string[] = []
+): string[] {
+  const resolved: string[] = [];
+  const normalizedType = type?.toLowerCase?.() ?? undefined;
+  const mapped = normalizedType ? normalizeLabel(labels?.[normalizedType]) : undefined;
+  if (mapped) {
+    resolved.push(mapped);
+  } else {
+    const fallback = normalizeLabel(labels?.other ?? labels?.feedback);
+    if (fallback) {
+      resolved.push(fallback);
+    }
+  }
+
+  for (const extra of extras) {
+    const normalized = normalizeLabel(extra);
+    if (normalized) {
+      resolved.push(normalized);
+    }
+  }
+
+  return Array.from(new Set(resolved));
+}
+
+function renderSection(title: string, content?: string): string {
+  const body = content?.trim();
+  return `## ${title}\n${body && body.length > 0 ? body : '_Not provided._'}`;
+}
+
+function buildIssueTemplate(input: FeedbackIssueInput, env: EnvironmentInfo): string {
+  const blocks: string[] = [];
+  blocks.push(renderSection('Summary', input.summary));
+  const context = input.context ?? input.steps;
+  blocks.push(renderSection('Steps / Context', context));
+
+  const isBug = (input.type ?? '').toLowerCase() === 'bug';
+  if (isBug || input.expected || input.actual) {
+    blocks.push(renderSection('Expected', input.expected));
+    blocks.push(renderSection('Actual', input.actual));
+  }
+
+  blocks.push(`## Environment\n${formatEnvironmentMarkdown(env, { type: input.type })}`);
+
+  return blocks.join('\n\n');
+}
+
+export async function createFeedbackIssue(
+  input: FeedbackIssueInput,
+  authToken: string,
+  config: FeedbackConfig,
+  options: CreateFeedbackIssueOptions = {}
+): Promise<FeedbackIssueResult> {
+  if (!config?.owner || !config?.repo) {
+    const reason = config?.validationError ?? 'feedback repository not configured';
+    throw new Error(`Feedback configuration invalid: ${reason}`);
+  }
+
+  const resolveEnv =
+    options.environmentResolver ??
+    (() =>
+      collectEnvironmentInfo({
+        extensionId: input.extensionId,
+        bdCommandPath: input.bdCommandPath,
+        skipCliVersion: Boolean(input.environment?.beadsCli)
+      }));
+
+  const capturedEnv = await resolveEnv();
+  const env: EnvironmentInfo = { ...capturedEnv, ...(input.environment ?? {}) };
+
+  const baseBody = buildIssueTemplate(input, env);
+  const includeLogs = Boolean(input.includeLogs && config.includeAnonymizedLogs !== false);
+  const body = await buildFeedbackBody({
+    baseBody,
+    includeLogs,
+    logPath: input.logPath,
+    logDir: input.logDir,
+    workspacePaths: input.workspacePaths,
+    maxBytes: input.maxBytes,
+    maxLines: input.maxLines,
+    privacyNotice: input.privacyNotice
+  });
+
+  const labels = buildFeedbackLabels(input.type, config.labels, input.labels ?? []);
+  const title = (input.summary ?? 'Feedback').split(/\r?\n/, 1)[0].trim() || 'Feedback';
+
+  const octokit: OctokitLike =
+    options.octokit ??
+    new Octokit({
+      auth: authToken,
+      userAgent: 'beads-vscode-feedback'
+    });
+
+  try {
+    const response = await octokit.issues.create({
+      owner: config.owner!,
+      repo: config.repo!,
+      title,
+      body,
+      labels: labels.length > 0 ? labels : undefined
+    });
+
+    const data = response?.data ?? {};
+    return {
+      id: data.id?.toString?.() ?? data.node_id,
+      number: data.number,
+      url: data.html_url
+    };
+  } catch (error) {
+    const friendly = formatFeedbackError(error, { workspacePaths: input.workspacePaths });
+    console.error(friendly);
+    throw new Error(friendly);
+  }
 }

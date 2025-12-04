@@ -5,3 +5,4 @@ export * from './utils/worktree';
 export * from './utils/config';
 export * from './utils/stale';
 export * from './utils/sanitize';
+export * from './utils/environment';
