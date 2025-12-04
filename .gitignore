@@ -2,7 +2,10 @@ node_modules
 out
 .vscode-test
 *.vsix
+.beads
 .beads/
+# Explicitly ignore claim lock created at runtime
+.beads/claim.lock
 DISTRIBUTION.md
 AGENTS.md
 .gitattributes
