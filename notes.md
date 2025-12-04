@@ -39,3 +39,32 @@ Remediation checklist for broken worktrees
 - For in_progress without worktree: `bd update <task> --status open --assignee ""` under claim lock (or rely on stale sweep), then prune worktrees (`git worktree prune`).
 - For stale heartbeats: delete the hb file and rerun `status` (sweep), or `cleanup` the worker.
 - For stuck merge queue: identify process holding `.beads/merge.lock`; if none, remove lock and rerun `finish`.
+## Multi-agent & UI testing research (beads-vscode-arh)
+
+### Tooling survey
+- VS Code extension UI: @vscode/test-electron (official), Playwright w/ VS Code Server (experimental), vscode-extension-tester (Selenium-based, heavier).
+- Ink TUI: ink-testing-library + react-test-renderer for component tests; for end-to-end, use `node-pty` or `expect`/`script` to drive a pseudo-TTY.
+- Multi-agent concurrency: bash/node harness spawning task-worktree.sh + bd with temp repos; use file locks + timeouts; collect JSON traces.
+- Web (future): Playwright headless Chromium with fixtures; disable by default to keep CI time manageable.
+
+### Deadlock / race mitigations
+- File locks: always use per-task and merge locks (already in task-worktree.sh); ensure harness respects lock timeouts and reports wait reasons.
+- WAL for sqlite (done) + busy_timeout.
+- Heartbeats with stale detection (existing) — harness should simulate missed heartbeats and verify recovery.
+- Merge queue serialization (existing) — include in harness scenarios.
+
+### CI considerations
+- Headless VS Code via @vscode/test-electron; cache VS Code download to speed runs.
+- Use smaller fixture data; cap events/tasks per run to keep under ~3-4 minutes.
+- Matrix for different surfaces but allow `TEST_SURFACE` env to select subset.
+
+### Sample commands/config
+- VS Code integration: `npm run test:integration` (already set).
+- Harness (to build): `npm run test:harness -- --agents 5 --iterations 50 --seed 42` (placeholder; to be implemented in scripts/agent-harness).
+- TUI smoke (future): `npm run test:tui:smoke` using pty-based runner.
+- Web skeleton (future): `npm run test:web:skeleton` behind env flag.
+
+### Next steps (suggested)
+- Implement harness runner in scripts/agent-harness: temp repo, seed tasks, spawn N agents running claim-next/finish loops, export trace JSON, assert no deadlocks.
+- Add fixtures and malicious payload tests for Little Glen security alongside CSP docs (ties to vc9z/v7t8).
+- Add comparison table to this note (tool vs. pros/cons vs. CI support).
