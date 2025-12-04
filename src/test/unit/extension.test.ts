@@ -54,6 +54,7 @@ function createVscodeStub() {
 
   const vscodeStub = {
     l10n: { t },
+    env: { language: 'en', openExternal: () => undefined },
     TreeItem,
     ThemeIcon,
     ThemeColor,

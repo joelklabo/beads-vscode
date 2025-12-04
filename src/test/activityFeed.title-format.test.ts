@@ -38,6 +38,7 @@ function createVscodeStub() {
 
   return {
     l10n: { t },
+    env: { language: 'en', openExternal: () => undefined },
     TreeItem,
     MarkdownString,
     ThemeIcon,

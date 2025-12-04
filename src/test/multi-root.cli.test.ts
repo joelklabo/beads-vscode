@@ -66,6 +66,7 @@ describe('Multi-root bd command resolution', () => {
 
     const vscodeStub = {
       l10n: { t },
+      env: { language: 'en', openExternal: () => undefined },
       workspace: {
         workspaceFolders,
         getWorkspaceFolder: (uri: any) => workspaceFolders.find((wf) => uri.fsPath.startsWith(wf.uri.fsPath)),
