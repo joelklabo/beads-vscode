@@ -9,6 +9,7 @@ import {
   escapeHtml,
   linkifyText,
   isStale,
+  validateDependencyAdd,
   warnIfDependencyEditingUnsupported as warnIfDependencyEditingUnsupportedCli,
 } from './utils';
 import { ActivityFeedTreeDataProvider, ActivityEventItem } from './activityFeedProvider';
@@ -139,6 +140,7 @@ interface BeadDetailStrings {
   markInReviewLabel: string;
   removeInReviewLabel: string;
   addLabelLabel: string;
+  addDependencyLabel: string;
   dependsOnLabel: string;
   blocksLabel: string;
   labelPrompt: string;
@@ -193,6 +195,7 @@ const buildBeadDetailStrings = (statusLabels: StatusLabelMap): BeadDetailStrings
   markInReviewLabel: t('Mark as In Review'),
   removeInReviewLabel: t('Remove In Review'),
   addLabelLabel: t('Add Label'),
+  addDependencyLabel: t('Add Dependency'),
   dependsOnLabel: t('Depends On'),
   blocksLabel: t('Blocks'),
   labelPrompt: t('Enter label name:'),
@@ -709,6 +712,36 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     }
   }
 
+  async addDependency(item: BeadItemData, targetId: string): Promise<void> {
+    const config = vscode.workspace.getConfiguration('beads');
+    const dependencyEditingEnabled = config.get<boolean>('enableDependencyEditing', false);
+    if (!dependencyEditingEnabled) {
+      void vscode.window.showWarningMessage(t('Enable dependency editing in settings to add dependencies.'));
+      return;
+    }
+
+    const projectRoot = resolveProjectRoot(config);
+    if (!projectRoot) {
+      void vscode.window.showErrorMessage(PROJECT_ROOT_ERROR);
+      return;
+    }
+
+    const validationError = validateDependencyAdd(this.items, item.id, targetId);
+    if (validationError) {
+      void vscode.window.showWarningMessage(t(validationError));
+      return;
+    }
+
+    try {
+      await runBdCommand(['dep', 'add', item.id, targetId], projectRoot);
+      await this.refresh();
+      void vscode.window.showInformationMessage(t('Added dependency: {0} → {1}', item.id, targetId));
+    } catch (error) {
+      console.error('Failed to add dependency', error);
+      void vscode.window.showErrorMessage(formatError(t('Failed to add dependency'), error));
+    }
+  }
+
   async removeLabel(item: BeadItemData, label: string): Promise<void> {
     const config = vscode.workspace.getConfiguration('beads');
     const projectRoot = resolveProjectRoot(config);
@@ -1198,6 +1231,7 @@ function getBeadDetailHtml(
   const dependencies = raw?.dependencies || [];
   const assignee = raw?.assignee || '';
   const labels = raw?.labels || [];
+  const dependencyEditingEnabled = vscode.workspace.getConfiguration('beads').get<boolean>('enableDependencyEditing', false);
 
   // Build dependency trees for visualization
   let dependencyTreeHtml = '';
@@ -1688,6 +1722,12 @@ function getBeadDetailHtml(
         </div>
     </div>
 
+    ${dependencyEditingEnabled ? `
+    <div class="section">
+        <button class="edit-button" id="addDependencyButton">${escapeHtml(strings.addDependencyLabel)}</button>
+    </div>
+    ` : ''}
+
     ${dependsOn.length > 0 ? `
     <div class="section">
         <div class="section-title">${escapeHtml(strings.dependsOnLabel)}</div>
@@ -1730,6 +1770,7 @@ function getBeadDetailHtml(
         const labelActions = document.getElementById('labelActions');
         const addInReviewButton = document.getElementById('addInReviewButton');
         const addLabelButton = document.getElementById('addLabelButton');
+        const addDependencyButton = document.getElementById('addDependencyButton');
         const inReviewButtonText = document.getElementById('inReviewButtonText');
         const labelsContainer = document.getElementById('labelsContainer');
 
@@ -1898,6 +1939,15 @@ function getBeadDetailHtml(
                 });
             }
         });
+
+        if (addDependencyButton) {
+            addDependencyButton.addEventListener('click', () => {
+                vscode.postMessage({
+                    command: 'addDependency',
+                    issueId: '${item.id}'
+                });
+            });
+        }
 
         // Handle label removal
         document.addEventListener('click', (e) => {
@@ -2625,6 +2675,7 @@ async function openBead(item: BeadItemData, provider: BeadsTreeDataProvider): Pr
     'updateTitle',
     'addLabel',
     'removeLabel',
+    'addDependency',
     'openBead',
     'openExternalUrl'
   ];
@@ -2650,6 +2701,10 @@ async function openBead(item: BeadItemData, provider: BeadsTreeDataProvider): Pr
       case 'removeLabel':
         await provider.removeLabel(item, validated.label);
         return;
+      case 'addDependency': {
+        await addDependencyCommand(provider, item);
+        return;
+      }
       case 'openBead': {
         const targetBead = allItems.find((i) => i.id === validated.beadId);
         if (targetBead) {
@@ -2714,6 +2769,65 @@ async function createBead(): Promise<void> {
   } catch (error) {
     void vscode.window.showErrorMessage(formatError(t('Failed to create bead'), error));
   }
+}
+
+async function pickBeadQuick(
+  items: BeadItemData[] | undefined,
+  placeHolder: string,
+  excludeId?: string
+): Promise<BeadItemData | undefined> {
+  if (!items || items.length === 0) {
+    void vscode.window.showWarningMessage(t('No beads are loaded.'));
+    return undefined;
+  }
+
+  const picks = items
+    .filter((i) => i.id !== excludeId)
+    .map((i) => ({
+      label: i.id,
+      description: i.title,
+      detail: i.status ? t('Status: {0}', i.status) : undefined,
+      bead: i,
+    }));
+
+  const selection = await vscode.window.showQuickPick(picks, { placeHolder });
+  return selection?.bead;
+}
+
+async function addDependencyCommand(provider: BeadsTreeDataProvider, sourceItem?: BeadItemData): Promise<void> {
+  const config = vscode.workspace.getConfiguration('beads');
+  const dependencyEditingEnabled = config.get<boolean>('enableDependencyEditing', false);
+  if (!dependencyEditingEnabled) {
+    void vscode.window.showWarningMessage(t('Enable dependency editing in settings to add dependencies.'));
+    return;
+  }
+
+  const items = (provider as any)['items'] as BeadItemData[] | undefined;
+  const source =
+    sourceItem ??
+    (await pickBeadQuick(items, t('Select the issue that depends on another item')));
+
+  if (!source) {
+    return;
+  }
+
+  const target = await pickBeadQuick(
+    items,
+    t('Select the issue {0} depends on', source.id),
+    source.id,
+  );
+
+  if (!target) {
+    return;
+  }
+
+  const validationError = validateDependencyAdd(items ?? [], source.id, target.id);
+  if (validationError) {
+    void vscode.window.showWarningMessage(t(validationError));
+    return;
+  }
+
+  await provider.addDependency(source, target.id);
 }
 
 async function visualizeDependencies(provider: BeadsTreeDataProvider): Promise<void> {
@@ -3099,6 +3213,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('beads.toggleSortMode', () => provider.toggleSortMode()),
     vscode.commands.registerCommand('beads.openBead', (item: BeadItemData) => openBead(item, provider)),
     vscode.commands.registerCommand('beads.createBead', () => createBead()),
+    vscode.commands.registerCommand('beads.addDependency', (item?: BeadItemData) => addDependencyCommand(provider, item)),
     vscode.commands.registerCommand('beads.visualizeDependencies', () => visualizeDependencies(provider)),
     
     // Activity Feed commands

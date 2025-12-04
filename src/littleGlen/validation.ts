@@ -9,7 +9,8 @@ export type LittleGlenCommand =
   | { command: 'openExternalUrl'; url: string }
   | { command: 'updateStatus'; status: string }
   | { command: 'updateTitle'; title: string }
-  | { command: 'addLabel' | 'removeLabel'; label: string };
+  | { command: 'addLabel' | 'removeLabel'; label: string }
+  | { command: 'addDependency'; issueId?: string };
 
 export type AllowedLittleGlenCommand = LittleGlenCommand['command'];
 
@@ -91,6 +92,13 @@ export function validateLittleGlenMessage(
       const label = message.label;
       if (isSafeString(label, MAX_LABEL_LENGTH)) {
         return { command, label: label.trim() };
+      }
+      return undefined;
+    }
+    case 'addDependency': {
+      const issueId = message.issueId;
+      if (issueId === undefined || isValidBeadId(issueId)) {
+        return { command, issueId };
       }
       return undefined;
     }

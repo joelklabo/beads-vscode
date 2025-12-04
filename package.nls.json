@@ -4,6 +4,7 @@
   "command.beads.clearSearch": "Beads: Clear Search",
   "command.beads.openBead": "Beads: Open",
   "command.beads.createBead": "Beads: Create",
+  "command.beads.addDependency": "Beads: Add Dependency",
   "command.beads.editExternalReference": "Beads: Edit External Reference",
   "command.beads.visualizeDependencies": "Beads: Visualize Dependencies",
   "command.beads.clearSortOrder": "Beads: Clear Manual Sort Order",
@@ -31,6 +32,7 @@
   "webview.beadDetail.inReview": "Mark as In Review",
   "webview.beadDetail.removeInReview": "Remove In Review",
   "webview.beadDetail.addLabel": "Add Label",
+  "webview.beadDetail.addDependency": "Add Dependency",
   "viewContainer.beads.title": "Beads",
   "view.beadsExplorer.name": "Issues",
   "view.activityFeed.name": "Activity Feed"
