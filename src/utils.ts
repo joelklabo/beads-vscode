@@ -18,6 +18,8 @@ export interface BeadItemData {
   inProgressSince?: string;
   /** Issue type (epic, task, bug, feature, chore, spike) */
   issueType?: string;
+  /** Parent issue ID for parent-child relationships (used for epic grouping) */
+  parentId?: string;
 }
 
 export function pickValue(entry: any, keys: string[], fallback?: string): string | undefined {
@@ -107,13 +109,18 @@ export function normalizeBead(entry: any, index = 0): BeadItemData {
   }
 
   // Count blocking dependencies (those not closed)
+  // Also extract parentId from parent-child dependencies
   let blockingDepsCount = 0;
+  let parentId: string | undefined;
   const dependencies = entry?.dependencies || [];
   for (const dep of dependencies) {
     const depType = dep.dep_type || dep.type || 'related';
     if (depType === 'blocks') {
       // We'll count it - the actual status check happens in extension.ts with all items
       blockingDepsCount++;
+    } else if (depType === 'parent-child') {
+      // For parent-child relationships, depends_on_id is the parent
+      parentId = dep.depends_on_id;
     }
   }
 
@@ -137,6 +144,7 @@ export function normalizeBead(entry: any, index = 0): BeadItemData {
     blockingDepsCount,
     inProgressSince,
     issueType,
+    parentId,
   };
 }
 

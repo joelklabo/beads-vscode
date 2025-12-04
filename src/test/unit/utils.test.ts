@@ -222,6 +222,76 @@ describe('Utility Functions', () => {
       const result = normalizeBead(entry, 0);
       assert.strictEqual(result.issueType, undefined);
     });
+
+    it('should extract parentId from parent-child dependencies', () => {
+      const entry = {
+        id: 'TASK-1',
+        title: 'Child Task',
+        dependencies: [
+          { issue_id: 'TASK-1', depends_on_id: 'EPIC-1', type: 'parent-child' }
+        ]
+      };
+      const result = normalizeBead(entry, 0);
+      assert.strictEqual(result.parentId, 'EPIC-1');
+    });
+
+    it('should handle items with no dependencies', () => {
+      const entry = {
+        id: 'TASK-1',
+        title: 'Standalone Task'
+      };
+      const result = normalizeBead(entry, 0);
+      assert.strictEqual(result.parentId, undefined);
+    });
+
+    it('should handle items with empty dependencies array', () => {
+      const entry = {
+        id: 'TASK-1',
+        title: 'Standalone Task',
+        dependencies: []
+      };
+      const result = normalizeBead(entry, 0);
+      assert.strictEqual(result.parentId, undefined);
+    });
+
+    it('should handle items with only blocking deps (no parent)', () => {
+      const entry = {
+        id: 'TASK-1',
+        title: 'Blocked Task',
+        dependencies: [
+          { issue_id: 'TASK-1', depends_on_id: 'TASK-2', type: 'blocks' }
+        ]
+      };
+      const result = normalizeBead(entry, 0);
+      assert.strictEqual(result.parentId, undefined);
+      assert.strictEqual(result.blockingDepsCount, 1);
+    });
+
+    it('should handle items with both blocking and parent-child deps', () => {
+      const entry = {
+        id: 'TASK-1',
+        title: 'Task with Both',
+        dependencies: [
+          { issue_id: 'TASK-1', depends_on_id: 'EPIC-1', type: 'parent-child' },
+          { issue_id: 'TASK-1', depends_on_id: 'TASK-2', type: 'blocks' }
+        ]
+      };
+      const result = normalizeBead(entry, 0);
+      assert.strictEqual(result.parentId, 'EPIC-1');
+      assert.strictEqual(result.blockingDepsCount, 1);
+    });
+
+    it('should extract parentId using dep_type field alternative', () => {
+      const entry = {
+        id: 'TASK-1',
+        title: 'Child Task',
+        dependencies: [
+          { issue_id: 'TASK-1', depends_on_id: 'EPIC-1', dep_type: 'parent-child' }
+        ]
+      };
+      const result = normalizeBead(entry, 0);
+      assert.strictEqual(result.parentId, 'EPIC-1');
+    });
   });
 
   describe('extractBeads', () => {

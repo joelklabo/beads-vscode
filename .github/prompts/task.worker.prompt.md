@@ -59,6 +59,7 @@ Read the description, understand what needs to be done.
 - Read relevant code files
 - Make the necessary changes
 - Follow existing code patterns and style
+- **TRACK every file you modify** - you'll need this list for committing
 
 ### 5. TEST
 - Run `npm run compile` to check for TypeScript errors
@@ -71,7 +72,7 @@ Read the description, understand what needs to be done.
 npx bd close <id> --reason "Implemented: <brief summary>" --actor "<your-worker-name>"
 ```
 
-### 7. COMMIT AND PUSH (WITH CONFLICT HANDLING)
+### 7. COMMIT AND PUSH (ONLY YOUR FILES)
 ```bash
 # Pull latest changes first
 git pull --rebase origin main
@@ -82,18 +83,26 @@ git pull --rebase origin main
 # 3. git rebase --continue
 # 4. If too complex, git rebase --abort and re-implement on fresh main
 
-# Stage and commit
-git add -A
+# IMPORTANT: Only stage files YOU modified, not all changes!
+# Do NOT use 'git add -A' - another agent may have uncommitted work
+git add <file1> <file2> <file3>  # List ONLY the files you touched
+
+# Verify you're only committing your files
+git status  # Should only show your files as staged
+
 git commit -m "<id>: <title>
 
 <brief description of changes>
 
+Files: <list of files modified>
 Worked-by: <your-worker-name>"
 
 # Push (may need to force after rebase)
 git push origin main
 # If rejected: git push --force-with-lease origin main
 ```
+
+**Why not `git add -A`?** Another agent may have uncommitted changes in their working directory. By only staging your specific files, you avoid accidentally committing their work-in-progress.
 
 ### 8. CONTINUE
 Go back to step 1. Pick the next ready task. Keep going until ALL tasks are done.

@@ -815,17 +815,32 @@ class BeadTreeItem extends vscode.TreeItem {
     // Build rich tooltip with all details
     this.tooltip = this.buildRichTooltip(bead, isTaskStale, staleInfo);
 
-    // Use different icons based on status (stale tasks use warning color)
+    // Icon mapping for issue types
+    const typeIcons: Record<string, string> = {
+      'epic': 'symbol-package',
+      'task': 'checklist',
+      'bug': 'bug',
+      'feature': 'lightbulb',
+      'chore': 'tools',
+      'spike': 'beaker',
+    };
+
+    // Determine icon color based on status
+    const statusColors: Record<string, string> = {
+      'open': 'charts.blue',
+      'in_progress': isTaskStale ? 'charts.orange' : 'charts.yellow',
+      'blocked': 'errorForeground',
+      'closed': 'testing.iconPassed',
+    };
+
+    // Closed items always show checkmark regardless of type
     if (bead.status === 'closed') {
       this.iconPath = new vscode.ThemeIcon('pass', new vscode.ThemeColor('testing.iconPassed'));
-    } else if (bead.status === 'in_progress') {
-      // Use warning/orange color for stale tasks
-      const iconColor = isTaskStale ? 'charts.orange' : 'charts.yellow';
-      this.iconPath = new vscode.ThemeIcon('clock', new vscode.ThemeColor(iconColor));
-    } else if (bead.status === 'blocked') {
-      this.iconPath = new vscode.ThemeIcon('error', new vscode.ThemeColor('errorForeground'));
     } else {
-      this.iconPath = new vscode.ThemeIcon('symbol-event');
+      // Use issue type icon with status color
+      const iconName = typeIcons[bead.issueType || ''] || 'symbol-event';
+      const iconColor = statusColors[bead.status || 'open'] || 'charts.blue';
+      this.iconPath = new vscode.ThemeIcon(iconName, new vscode.ThemeColor(iconColor));
     }
   }
   

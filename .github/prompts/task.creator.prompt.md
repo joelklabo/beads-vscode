@@ -39,6 +39,7 @@ Break down the work into atomic, well-defined tasks following these principles:
 - Each task should have a single, clear outcome
 - Each task should be independently testable
 - No task should have more than 3 dependencies
+- **Each task MUST list specific files to be modified** (for parallel worker coordination)
 
 **Required Task Categories (include ALL that apply):**
 
@@ -121,16 +122,27 @@ npx bd create "Epic: [Feature Name]" \
 - Item 2"
 
 # Then create child tasks with dependencies
+# IMPORTANT: Always include a ## Files section for worker coordination!
 npx bd create "[Task Title]" \
   -t task \
   -p [1-3] \
   -d "[Detailed description including:
 - What exactly to implement
-- Which files to modify
 - Acceptance criteria
-- Edge cases to handle]" \
+- Edge cases to handle]
+
+## Files
+- path/to/file1.ts (modify: add X function)
+- path/to/file2.ts (modify: update Y interface)
+- path/to/file3.test.ts (create: new test file)" \
   --deps "blocks:bd-[parent-id]"
 ```
+
+**Why the Files section is critical:**
+- Multiple AI agents may work on tasks in parallel
+- Agents check in_progress tasks to avoid file conflicts
+- Tasks touching the same files should have blocking dependencies
+- This enables safe parallel development
 
 ### PRIORITY GUIDELINES
 
@@ -178,6 +190,8 @@ bd-001 Epic: [Feature]
 
 Before finishing, verify:
 - [ ] Every task has clear acceptance criteria
+- [ ] **Every task has a ## Files section listing files to modify**
+- [ ] **Tasks modifying same files have blocking dependencies (not parallel)**
 - [ ] Dependencies form a valid DAG (no cycles)
 - [ ] Testing tasks exist for all implementation tasks
 - [ ] Security considerations are addressed
