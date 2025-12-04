@@ -108,58 +108,60 @@ async updateSomething(item: BeadItemData, value: string): Promise<void> {
 
 ## Using bd for Issue Tracking
 
-This project uses [Beads](https://github.com/steveyegge/beads) (`bd`) for issue tracking. The CLI is installed as a dev dependency.
+This project uses [Beads](https://github.com/steveyegge/beads) (`bd`) for issue tracking. CLI installed as dev dependency.
 
-### Common Commands
+### Quick Reference
 
 ```bash
-# List all issues
-npx bd list
+# List & filter
+npx bd list                          # All issues
+npx bd list --status open            # By status: open, in_progress, closed
+npx bd ready                         # Issues with no blockers (start here!)
 
-# List issues by status
-npx bd list --status open
-npx bd list --status in_progress
+# Create issues
+npx bd create "Title" -p 1 -t task   # -p: priority 1-4, -t: task|bug|feature|epic
+npx bd create "Title" -d "Details"   # -d: description
 
-# Show ready work (no blockers)
-npx bd ready
+# Update & close
+npx bd update bd-xyz --status in_progress
+npx bd close bd-xyz --reason "Done"
 
-# Create an issue
-npx bd create "Fix bug in tree view" -p 1 -t bug
-npx bd create "Add feature" -d "Description here" -p 2 -t feature
+# Dependencies (critical for task ordering)
+npx bd dep add <child> <parent> --type blocks       # child blocked by parent
+npx bd dep add <child> <parent> --type parent-child # hierarchy (epic→task)
+npx bd dep add <a> <b> --type related               # informational link
+npx bd dep tree bd-xyz                              # visualize deps
 
-# Create with dependencies
-npx bd create "Child task" --deps "blocks:bd-abc"
-
-# View issue details
-npx bd show bd-abc
-
-# Update issue
-npx bd update bd-abc --status in_progress
-npx bd close bd-abc --reason "Completed"
-
-# Manage dependencies
-npx bd dep add bd-child bd-parent --type blocks
-npx bd dep tree bd-abc
-
-# Search issues
-npx bd search "tree view"
-
-# Show statistics
-npx bd stats
+# Other
+npx bd show bd-xyz                   # Issue details
+npx bd search "query"                # Full-text search
+npx bd stats                         # Project statistics
 ```
 
-### Issue Workflow
+### Dependency Types
 
-1. **Create issues** for new work: `npx bd create "Title" -t task -p 2`
-2. **Add dependencies** if needed: `npx bd dep add <child> <parent>`
-3. **Start work**: `npx bd update <id> --status in_progress`
-4. **Complete work**: `npx bd close <id> --reason "Done"`
+| Type | Use Case | Effect |
+|------|----------|--------|
+| `blocks` | Task A must complete before B | B won't appear in `bd ready` |
+| `parent-child` | Epic contains tasks | Hierarchy only, no blocking |
+| `related` | Cross-reference issues | Informational link |
+
+**Note**: `child` type doesn't exist—use `parent-child` for hierarchy.
+
+### Workflow
+
+1. `npx bd create "Epic" -t epic -p 1` → Create epic
+2. `npx bd create "Task" -t task -p 2` → Create tasks  
+3. `npx bd dep add <task> <epic> --type parent-child` → Link to epic
+4. `npx bd dep add <task2> <task1> --type blocks` → Set execution order
+5. `npx bd ready` → See what's unblocked
+6. `npx bd update <id> --status in_progress` → Start work
+7. `npx bd close <id> --reason "Done"` → Complete
 
 ### JSON Output
 
 All commands support `--json` for programmatic access:
 ```bash
-npx bd list --json
-npx bd show bd-abc --json
-npx bd dep tree bd-abc --json
+npx bd list --json | jq '.[] | select(.status=="open")'
+npx bd show bd-xyz --json
 ```
