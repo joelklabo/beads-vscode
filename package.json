@@ -87,6 +87,11 @@
         "icon": "$(clear-all)"
       },
       {
+        "command": "beads.openActivityFeedPanel",
+        "title": "Beads: Open Activity Feed Panel",
+        "icon": "$(timeline-open)"
+      },
+      {
         "command": "beads.deleteBeads",
         "title": "Beads: Delete",
         "icon": "$(trash)"
@@ -185,6 +190,11 @@
           "command": "beads.refreshActivityFeed",
           "when": "view == activityFeed",
           "group": "navigation@3"
+        },
+        {
+          "command": "beads.openActivityFeedPanel",
+          "when": "view == activityFeed",
+          "group": "navigation@4"
         }
       ],
       "view/item/context": [
