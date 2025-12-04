@@ -191,6 +191,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   private debounceTimer: NodeJS.Timeout | undefined;
   private staleRefreshTimer: NodeJS.Timeout | undefined;
   private treeView: vscode.TreeView<TreeItemType> | undefined;
+  private treeView: vscode.TreeView<TreeItemType> | undefined;
 
   // Manual sort order: Map<issueId, sortIndex>
   private manualSortOrder: Map<string, number> = new Map();
@@ -426,7 +427,10 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
         sections.push(new EpicSectionItem(epic, children, isCollapsed));
       }
     });
-    
+    // Update badge with stale count
+      this.updateBadge();
+
+      
     // Add ungrouped section at the end if there are ungrouped items
     if (ungrouped.length > 0) {
       const isCollapsed = this.collapsedSections.has('ungrouped');
@@ -3074,7 +3078,10 @@ async function openActivityFeedPanel(activityFeedProvider: ActivityFeedTreeDataP
   
   const { fetchEvents } = await import('./activityFeed');
   const result = await fetchEvents(projectRoot, { limit: 100 });
-  
+  Set tree view reference for badge updates
+  provider.setTreeView(treeView);
+
+  // 
   panel.webview.html = getActivityFeedPanelHtml(result.events);
 
   // Handle messages from the webview
