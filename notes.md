@@ -100,6 +100,35 @@ Context (2025-12-04): VS Code 1.104 adds auto model selection and a custom OpenA
 - Copilot participant: **GO** (primary).
 - Pure `vscode.lm` path: **GO** (fallback/offline).
 - Server-side Copilot Extension (GitHub App): **NO-GO** (sunset 2025-11-10).
+
+## Ink TUI & worktree research (beads-vscode-op4)
+
+### Toolkit comparison
+| Stack | Pros | Cons | Verdict |
+| --- | --- | --- | --- |
+| Ink v4 | React mental model, hooks, flexbox-ish layout, good TypeScript; community widgets (select, text input), reconciler handles stdout quirks | Focus management manual; needs `ink-testing-library` for tests; reflow cost with huge lists | **Chosen** |
+| blessed / neo-blessed | Mature, low-level, rich widgets, fast rendering | Callback-heavy API, less TS, brittle styling; harder composition | Skip |
+| term-kit / inkjet | Lightweight rendering abstractions | Small ecosystem, fewer widgets, docs sparse | Skip |
+
+### Worktree detection & guard hooks
+- Primary: `git worktree list --porcelain` + match cwd prefix (already in `src/worktree.ts` / `tui/src/lib/worktree.ts`); fallback to env `BEADS_WORKTREE_ID`.
+- Badge: `worktreeLabel(cwd)` → `wt:<worker/task>` displayed in status bar and list headers.
+- Guard: wrap mutating commands with `guardAndRun(cwd, action)` that shells `scripts/worktree-guard.sh`; bubble errors to a toast: “Worktree guard blocked action—run ./scripts/task-worktree.sh status”.
+
+### Focus/keymap strategy (Ink)
+- Use a central focus ring (array of focusable ids) with hotkeys: `tab`/`shift+tab` to cycle, `j/k` to move lists, `/` to focus filter input, `g/G` to jump top/bottom. Keep global key listener in app root; pass focused id via context.
+- List virtualization: prefer windowing for >200 rows to avoid reflow stalls; keep per-row keys stable (issue id + worktree).
+
+### Graph/rendering libs for CLI
+- Text charts: `asciichart` for sparkline-style burnups; `cli-boxes` for framed panels; `cli-spinners` for async states; `chalk` for color (already in deps).
+- Optional: `ink-big-text` for hero headers; `ansi-escapes` for cursor save/restore during guard prompts.
+- Input widgets: `ink-select-input`, `ink-multi-select`, `ink-text-input` cover core needs; wrap them to inject worktree badge per item.
+
+### Risks / open questions
+- Focus drift when panels mount/unmount; mitigate with focus ring + restoring last focused id per view.
+- Guard latency: shelling to `worktree-guard.sh` on every mutation may add ~50–150ms; cache “last ok” per worktree for N seconds while keeping explicit hook for force refresh.
+- Multi-worktree concurrency: need dedupe of activity rows by `(worktreeId,id,timestamp)` to avoid double rendering (helper added in `tui/src/lib/worktree.ts`).
+- Accessibility: screen reader coverage for Ink is limited; keep keymaps discoverable in help modal.
 ## Ink TUI parity thoughts (beads-vscode-1u7)
 
 - Surfaces to align: list/search/sort, detail view, edit/update, dependency graph, stale/risk badges, worktree badges.
