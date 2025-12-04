@@ -114,6 +114,52 @@ export const syncRegistry = (repoRoot: string, staleAfterMs = 5 * 60 * 1000) => 
   return fresh;
 };
 
+export type AuditIssue =
+  | { type: 'missing_path'; path: string; id?: string }
+  | { type: 'duplicate'; id: string; paths: string[] }
+  | { type: 'unknown_id'; path: string };
+
+export const auditWorktrees = (repoRoot: string, staleAfterMs = 5 * 60 * 1000) => {
+  const now = Date.now();
+  const fresh = buildRegistryFromGit(repoRoot, now);
+  const issues: AuditIssue[] = [];
+
+  const byId: Record<string, WorktreeEntry[]> = {};
+  for (const entry of fresh.entries) {
+    const match = entry.path.match(/worktrees\/([^/]+)\/([^/]+)$/);
+    const derivedId = match ? `${match[1]}/${match[2]}` : null;
+    const id = derivedId || entry.id || entry.branch;
+    if (!id) {
+      issues.push({ type: 'unknown_id', path: entry.path });
+      continue;
+    }
+    entry.id = id;
+    byId[id] = byId[id] || [];
+    byId[id].push(entry);
+  }
+
+  for (const [id, list] of Object.entries(byId)) {
+    if (list.length > 1) {
+      issues.push({ type: 'duplicate', id, paths: list.map((e) => e.path) });
+    }
+  }
+
+  const registry = readRegistry(repoRoot);
+  if (registry) {
+    const currentPaths = new Set(fresh.entries.map((e) => e.path));
+    for (const entry of registry.entries) {
+      if (!currentPaths.has(entry.path)) {
+        issues.push({ type: 'missing_path', path: entry.path, id: entry.id });
+      }
+    }
+  }
+
+  const filtered = filterStaleEntries(fresh.entries, staleAfterMs);
+  writeRegistry(repoRoot, { ...fresh, entries: filtered, generatedAt: now });
+
+  return { issues, registry: { ...fresh, entries: filtered } };
+};
+
 export default {
   makeWorktreeId,
   isCanonicalWorktreePath,

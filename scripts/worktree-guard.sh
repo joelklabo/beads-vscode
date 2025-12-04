@@ -99,6 +99,15 @@ if (issues.length) {
   for (const msg of issues) {
     console.error(msg);
   }
+  if (process.env.WORKTREE_GUARD_METRICS === '1') {
+    try {
+      const metricsPath = path.join(process.env.BEADS_DIR || '', 'guard-metrics.log');
+      const payload = { ts: Date.now(), issues };
+      fs.appendFileSync(metricsPath, JSON.stringify(payload) + '\n');
+    } catch (err) {
+      // best effort
+    }
+  }
   process.exit(1);
 }
 
