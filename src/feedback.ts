@@ -34,7 +34,7 @@ export interface LogCaptureResult {
 }
 
 export const FEEDBACK_PRIVACY_NOTICE =
-  'Privacy: Logs are optional and sanitized to remove tokens, emails, and absolute paths. Size capped at 64KB.';
+  'Privacy: Log sharing is OFF unless you opt in. When enabled, logs are sanitized (tokens/emails/paths removed) and capped at 64KB.';
 
 async function pickLatestLog(logDir: string): Promise<string | undefined> {
   try {
@@ -109,6 +109,32 @@ export async function captureLogs(options: LogCaptureOptions): Promise<LogCaptur
 export interface FeedbackBodyOptions extends LogCaptureOptions {
   /** Base body entered by the user. */
   baseBody: string;
+}
+
+export interface FeedbackErrorOptions {
+  workspacePaths?: string[];
+}
+
+/**
+ * Produce a user-safe error message for feedback submission. Redacts secrets and
+ * replaces rate-limit/permission errors with friendly guidance.
+ */
+export function formatFeedbackError(error: unknown, options: FeedbackErrorOptions = {}): string {
+  const rawMessage = error instanceof Error ? error.message : String(error ?? 'Unknown error');
+  const sanitized = redactLogContent(rawMessage, { workspacePaths: options.workspacePaths });
+
+  const status = (error as any)?.status as number | undefined;
+  if (status === 401 || /unauthorized/i.test(sanitized)) {
+    return 'Feedback failed: unauthorized. Check your token or sign-in state.';
+  }
+  if (status === 403) {
+    return 'Feedback failed: permission denied. Ensure you have access to the target repo/project.';
+  }
+  if (status === 429 || /rate limit/i.test(sanitized)) {
+    return 'Feedback delayed: rate limit hit. Please wait and retry in a few minutes.';
+  }
+
+  return `Feedback failed: ${sanitized}`;
 }
 
 export async function buildFeedbackBody(options: FeedbackBodyOptions): Promise<string> {
