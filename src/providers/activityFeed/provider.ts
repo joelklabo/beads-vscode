@@ -12,19 +12,50 @@ import {
 } from './items';
 import ActivityFeedStore, { TimeRange } from './store';
 
+export interface ActivityFeedProviderOptions {
+  baseIntervalMs?: number;
+  maxIntervalMs?: number;
+  idleBackoffStepMs?: number;
+  enableAutoRefresh?: boolean;
+}
+
+export type ActivityFeedHealth =
+  | { state: 'ok'; intervalMs: number }
+  | { state: 'idle'; intervalMs: number }
+  | { state: 'error'; intervalMs: number; message?: string };
+
 export class ActivityFeedTreeDataProvider implements vscode.TreeDataProvider<ActivityTreeItem> {
   private readonly onDidChangeTreeDataEmitter = new vscode.EventEmitter<ActivityTreeItem | undefined | null | void>();
   readonly onDidChangeTreeData = this.onDidChangeTreeDataEmitter.event;
+
+  private readonly onHealthChangedEmitter = new vscode.EventEmitter<ActivityFeedHealth>();
+  readonly onHealthChanged = this.onHealthChangedEmitter.event;
 
   private readonly store = new ActivityFeedStore();
   private debounceTimer: NodeJS.Timeout | undefined;
   private fileWatcher: vscode.FileSystemWatcher | undefined;
   private watcherSubscriptions: vscode.Disposable[] = [];
   private collapsedGroups: Set<string> = new Set();
+  private refreshTimer: NodeJS.Timeout | undefined;
+  private readonly baseIntervalMs: number;
+  private readonly maxIntervalMs: number;
+  private readonly idleBackoffStepMs: number;
+  private currentIntervalMs: number;
+  private lastEventCount = 0;
+  private lastNewestTimestamp = 0;
+  private autoRefreshEnabled: boolean;
 
-  constructor(private readonly context: vscode.ExtensionContext) {
+  constructor(private readonly context: vscode.ExtensionContext, options: ActivityFeedProviderOptions = {}) {
+    this.baseIntervalMs = options.baseIntervalMs ?? 30000;
+    this.maxIntervalMs = options.maxIntervalMs ?? 120000;
+    this.idleBackoffStepMs = options.idleBackoffStepMs ?? 15000;
+    this.currentIntervalMs = this.baseIntervalMs;
+    this.autoRefreshEnabled = options.enableAutoRefresh !== false;
     this.loadSettings();
     this.setupFileWatcher();
+    if (this.autoRefreshEnabled) {
+      this.scheduleNextRefresh(0);
+    }
   }
 
   getTreeItem(element: ActivityTreeItem): vscode.TreeItem {
@@ -60,15 +91,35 @@ export class ActivityFeedTreeDataProvider implements vscode.TreeDataProvider<Act
     return items;
   }
 
-  async refresh(): Promise<void> {
+  async refresh(reason: 'manual' | 'auto' = 'manual'): Promise<void> {
     try {
       const projectRoot = this.resolveProjectRoot();
+      if (reason === 'manual') {
+        this.currentIntervalMs = this.baseIntervalMs;
+      }
+
       this.store.setWorktreeId(currentWorktreeId(projectRoot || ''));
       await this.store.refresh(projectRoot);
+
+      const events = this.store.getEvents();
+      const newest = events[0]?.createdAt?.getTime() ?? 0;
+      const eventsChanged = events.length !== this.lastEventCount || newest !== this.lastNewestTimestamp;
+
+      this.lastEventCount = events.length;
+      this.lastNewestTimestamp = newest;
+
       this.onDidChangeTreeDataEmitter.fire();
+      this.handleRefreshSuccess(eventsChanged);
     } catch (error) {
       console.error('Failed to refresh activity feed:', error);
-      void vscode.window.showErrorMessage(formatError('Failed to load activity feed', error));
+      if (reason === 'manual') {
+        void vscode.window.showErrorMessage(formatError('Failed to load activity feed', error));
+      }
+      this.handleRefreshFailure(error);
+    } finally {
+      if (reason === 'auto' || this.autoRefreshEnabled) {
+        this.scheduleNextRefresh();
+      }
     }
   }
 
@@ -122,6 +173,9 @@ export class ActivityFeedTreeDataProvider implements vscode.TreeDataProvider<Act
     if (this.debounceTimer) {
       clearTimeout(this.debounceTimer);
     }
+    if (this.refreshTimer) {
+      clearTimeout(this.refreshTimer);
+    }
   }
 
   private debouncedRefresh(): void {
@@ -131,6 +185,42 @@ export class ActivityFeedTreeDataProvider implements vscode.TreeDataProvider<Act
     this.debounceTimer = setTimeout(() => {
       void this.refresh();
     }, 500);
+  }
+
+  private scheduleNextRefresh(delay?: number): void {
+    if (!this.autoRefreshEnabled) {
+      return;
+    }
+    if (this.refreshTimer) {
+      clearTimeout(this.refreshTimer);
+    }
+    const waitMs = delay ?? this.currentIntervalMs;
+    this.refreshTimer = setTimeout(() => {
+      void this.refresh('auto');
+    }, waitMs);
+  }
+
+  private handleRefreshSuccess(eventsChanged: boolean): void {
+    this.currentIntervalMs = eventsChanged
+      ? this.baseIntervalMs
+      : Math.min(this.maxIntervalMs, this.currentIntervalMs + this.idleBackoffStepMs);
+
+    this.onHealthChangedEmitter.fire({
+      state: eventsChanged ? 'ok' : 'idle',
+      intervalMs: this.currentIntervalMs,
+    });
+  }
+
+  private handleRefreshFailure(error: unknown): void {
+    this.currentIntervalMs = Math.min(this.maxIntervalMs, Math.max(this.baseIntervalMs, this.currentIntervalMs * 2));
+    const message = formatError('Failed to load activity feed', error);
+    console.warn(message);
+    this.onHealthChangedEmitter.fire({
+      state: 'error',
+      intervalMs: this.currentIntervalMs,
+      message,
+    });
+    void vscode.window.setStatusBarMessage(message, 5000);
   }
 
   private setupFileWatcher(): void {

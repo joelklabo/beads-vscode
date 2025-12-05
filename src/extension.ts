@@ -5135,6 +5135,15 @@ export function activate(context: vscode.ExtensionContext): void {
   const activityFeedView = vscode.window.createTreeView('activityFeed', {
     treeDataProvider: activityFeedProvider,
   });
+  const activityFeedStatus = activityFeedProvider.onHealthChanged((status) => {
+    if (status.state === 'error') {
+      activityFeedView.message = status.message ?? t('Activity feed refresh failed; retrying…');
+    } else if (status.state === 'idle') {
+      activityFeedView.message = t('Activity feed idle (polling every {0}s)', Math.max(1, Math.round(status.intervalMs / 1000)));
+    } else {
+      activityFeedView.message = undefined;
+    }
+  });
 
   const openActivityFeedEvent = async (issueId?: string): Promise<void> => {
     const selectedId =
@@ -5155,6 +5164,7 @@ export function activate(context: vscode.ExtensionContext): void {
     expandListener,
     collapseListener,
     activityFeedView,
+    activityFeedStatus,
     vscode.commands.registerCommand('beads.refresh', () => provider.refresh()),
     vscode.commands.registerCommand('beads.search', () => provider.search()),
     vscode.commands.registerCommand('beads.clearSearch', () => provider.clearSearch()),
@@ -5179,7 +5189,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('beads.inlineEditLabels', () => inlineEditLabels(provider, treeView)),
     
     // Activity Feed commands
-    vscode.commands.registerCommand('beads.refreshActivityFeed', () => activityFeedProvider.refresh()),
+    vscode.commands.registerCommand('beads.refreshActivityFeed', () => activityFeedProvider.refresh('manual')),
     vscode.commands.registerCommand('beads.filterActivityFeed', async () => {
       const options: Array<vscode.QuickPickItem & { value: string }> = [
         { label: t('All Events'), description: t('Show all event types'), value: 'all' },
