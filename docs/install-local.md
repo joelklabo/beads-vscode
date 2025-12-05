@@ -2,8 +2,16 @@
 
 Purpose: ensure `npm run install-local` installs the VSIX and then reloads the active VS Code window so the updated extension is loaded immediately.
 
+Recommended entry point:
+
+```bash
+npm run install-local
+```
+
+The npm script packages the extension first, then delegates to the helper below.
+
 ## Steps
-1) Build/package the VSIX (existing install-local behavior).
+1) Build/package the VSIX (handled automatically by `npm run install-local`).
 2) Resolve VS Code CLI binary:
    - Use `VSCODE_BIN` if set.
    - Else try `code-insiders`, then `code`.
@@ -18,7 +26,7 @@ Purpose: ensure `npm run install-local` installs the VSIX and then reloads the a
 - `NO_RELOAD_AFTER_INSTALL_LOCAL`: set to `1` to skip the reload step.
 
 ## Failure handling
-- Missing CLI: print a warning and exit success after install.
+- Missing CLI: print a warning, leave the VSIX on disk, and exit success so you can install manually.
 - Reload failure: print a warning; do not change install exit code.
 
 ## Notes
