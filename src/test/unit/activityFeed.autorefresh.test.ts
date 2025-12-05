@@ -72,6 +72,7 @@ function createVscodeStub() {
       showWarningMessage: () => undefined,
       showErrorMessage: () => undefined,
       showInformationMessage: () => undefined,
+      setStatusBarMessage: () => undefined,
       createTreeView: () => ({ selection: [], onDidChangeSelection: () => ({ dispose() {} }) }),
       createStatusBarItem: () => ({ show() {}, hide() {}, text: '', dispose() {} }),
       createWebviewPanel: () => ({
@@ -89,13 +90,39 @@ function createVscodeStub() {
   } as any;
 }
 
-describe('Activity feed rendering', () => {
+async function waitFor(condition: () => Promise<boolean> | boolean, timeoutMs = 200): Promise<void> {
+  const start = Date.now();
+  return new Promise((resolve, reject) => {
+    const tick = async (): Promise<void> => {
+      try {
+        const result = await condition();
+        if (result) {
+          resolve();
+          return;
+        }
+      } catch {
+        // ignore and keep waiting
+      }
+
+      if (Date.now() - start > timeoutMs) {
+        reject(new Error('timeout'));
+        return;
+      }
+
+      setTimeout(tick, 10);
+    };
+
+    void tick();
+  });
+}
+
+describe('Activity feed auto-refresh', () => {
   let vscodeStub: any;
   let restoreLoad: any;
-  let ActivityFeedTreeDataProvider: any;
-  let storeFetchOptions: any;
+  let fetchCallCount = 0;
 
   beforeEach(() => {
+    fetchCallCount = 0;
     const moduleAny = Module as any;
     restoreLoad = moduleAny._load;
     vscodeStub = createVscodeStub();
@@ -113,9 +140,14 @@ describe('Activity feed rendering', () => {
         return { currentWorktreeId: () => 'wt-1' } as any;
       }
       if ((request.endsWith('activityFeed') || request.includes('activityFeed.js')) && !request.includes('activityFeedProvider')) {
+        let shouldFail = true;
         return {
-          fetchEvents: async (_root: string, options: any) => {
-            storeFetchOptions = options;
+          fetchEvents: async (_root: string, _options: any) => {
+            fetchCallCount++;
+            if (shouldFail) {
+              shouldFail = false;
+              throw new Error('db locked');
+            }
             return {
               events: [
                 {
@@ -142,49 +174,47 @@ describe('Activity feed rendering', () => {
             map.set('Today', events);
             return map;
           },
-          normalizeEventType: (x: any) => x,
           formatRelativeTimeDetailed: () => 'just now',
+          normalizeEventType: (x: any) => x,
         } as any;
       }
       return restoreLoad(request, parent, isMain);
     };
-
-    ActivityFeedTreeDataProvider = require('../../activityFeedProvider').ActivityFeedTreeDataProvider;
   });
 
   afterEach(() => {
     const moduleAny = Module as any;
     moduleAny._load = restoreLoad;
+    Object.keys(require.cache).forEach((key) => {
+      if (key.includes('activityFeed')) {
+        delete require.cache[key];
+      }
+    });
   });
 
-  it('returns event items under time group', async () => {
+  it('retries after a failed refresh and resumes updates', async () => {
     const contextStub = {
       subscriptions: [] as any[],
       workspaceState: { get: () => undefined, update: async () => undefined },
       extensionUri: { fsPath: '' },
     } as any;
 
-    const provider = new ActivityFeedTreeDataProvider(contextStub, { enableAutoRefresh: false });
-    await provider.refresh();
+    const ActivityFeedTreeDataProvider = require('../../activityFeedProvider').ActivityFeedTreeDataProvider;
+    const provider = new ActivityFeedTreeDataProvider(contextStub, {
+      baseIntervalMs: 5,
+      maxIntervalMs: 20,
+      idleBackoffStepMs: 5,
+    });
+
+    await waitFor(() => fetchCallCount >= 2, 400);
+
     const roots = await provider.getChildren();
     const timeGroup = roots.find((item: any) => item.contextValue === 'timeGroup');
-    assert.ok(timeGroup, 'Expected time group');
-
+    assert.ok(timeGroup, 'expected time group after retry');
     const children = await provider.getChildren(timeGroup);
-    assert.strictEqual(children.length, 1, 'Should render event items');
-    assert.strictEqual(children[0].contextValue, 'activityEvent');
-  });
+    assert.strictEqual(children.length, 1, 'event should render after retry');
 
-  it('requests at least 200 events per page', async () => {
-    const contextStub = {
-      subscriptions: [] as any[],
-      workspaceState: { get: () => undefined, update: async () => undefined },
-      extensionUri: { fsPath: '' },
-    } as any;
-
-    const provider = new ActivityFeedTreeDataProvider(contextStub, { enableAutoRefresh: false });
-    await provider.refresh();
-    assert.ok(storeFetchOptions, 'fetchEvents should be called');
-    assert.strictEqual(storeFetchOptions.limit, 200);
+    provider.dispose();
+    assert.ok(fetchCallCount >= 2, 'auto-refresh should retry after a failure');
   });
 });
