@@ -68,6 +68,13 @@ Please be respectful and constructive in all interactions with the project. We a
 
 ### Testing
 
+- Install VS Code Stable; keep Insiders available if you need to exercise channel-specific behaviors.
+- Prefer headless scripts for integration tests:
+  - Linux: `npm run test:integration:headless` (wraps `xvfb-run -a`).
+  - macOS/Windows: `npm run test:integration:stable` (or `...:insiders`).
+- Set `VSCODE_TEST_INSTANCE_ID` when running multiple terminals/worktrees to isolate temp data; temp dirs are created under `tmp/` in the repo.
+- Full suite: `npm run lint && npm run compile && npm run test:unit && npm run test:integration`.
+
 - Write unit tests for new utility functions in `src/test/unit/`
 - Add integration tests for VSCode-specific features in `src/test/suite/`
 - Ensure all tests pass: `npm run test:unit`
