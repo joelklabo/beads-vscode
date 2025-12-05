@@ -451,6 +451,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
 
   setTreeView(treeView: vscode.TreeView<TreeItemType>): void {
     this.treeView = treeView;
+    this.updateQuickFilterUi();
   }
 
   setStatusBarItem(statusBarItem: vscode.StatusBarItem): void {
@@ -881,39 +882,103 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   }
 
   async applyQuickFilterPreset(): Promise<void> {
-    const presets: Array<{ id: string; label: string; preset: QuickFilterPreset; description?: string }> = [
-      { id: 'open', label: t('Open'), preset: { kind: 'status', value: 'open' } },
-      { id: 'in_progress', label: t('In Progress'), preset: { kind: 'status', value: 'in_progress' } },
-      { id: 'blocked', label: t('Blocked'), preset: { kind: 'status', value: 'blocked' } },
-      { id: 'closed', label: t('Closed'), preset: { kind: 'status', value: 'closed' } },
-      { id: 'stale', label: t('Stale'), preset: { kind: 'stale' }, description: t('Tasks marked stale by threshold') },
-      { id: 'labeled', label: t('Labeled'), preset: { kind: 'label' }, description: t('Tasks that have one or more labels') },
+    type QuickFilterPick = vscode.QuickPickItem & { preset?: QuickFilterPreset; key: string };
+
+    const activeKey = this.getQuickFilterKey() ?? '';
+    const items: QuickFilterPick[] = [
+      {
+        kind: vscode.QuickPickItemKind.Separator,
+        label: t('Status filters'),
+        key: 'separator-status'
+      },
+      {
+        label: t('Open'),
+        description: this.getQuickFilterDescription({ kind: 'status', value: 'open' }),
+        detail: t('Hides In Progress, Blocked, and Closed items'),
+        key: 'status:open',
+        preset: { kind: 'status', value: 'open' },
+        picked: activeKey === 'status:open'
+      },
+      {
+        label: t('In Progress'),
+        description: this.getQuickFilterDescription({ kind: 'status', value: 'in_progress' }),
+        detail: t('Active work across issues and epics'),
+        key: 'status:in_progress',
+        preset: { kind: 'status', value: 'in_progress' },
+        picked: activeKey === 'status:in_progress'
+      },
+      {
+        label: t('Blocked'),
+        description: this.getQuickFilterDescription({ kind: 'status', value: 'blocked' }),
+        detail: t('Issues and epics with blocking dependencies'),
+        key: 'status:blocked',
+        preset: { kind: 'status', value: 'blocked' },
+        picked: activeKey === 'status:blocked'
+      },
+      {
+        label: t('Closed'),
+        description: this.getQuickFilterDescription({ kind: 'status', value: 'closed' }),
+        detail: t('Completed or archived work'),
+        key: 'status:closed',
+        preset: { kind: 'status', value: 'closed' },
+        picked: activeKey === 'status:closed'
+      },
+      {
+        kind: vscode.QuickPickItemKind.Separator,
+        label: t('Signals & hygiene'),
+        key: 'separator-signals'
+      },
+      {
+        label: t('Stale in progress'),
+        description: this.getQuickFilterDescription({ kind: 'stale' }),
+        detail: t('Uses the beads.staleThresholdMinutes setting'),
+        key: 'stale',
+        preset: { kind: 'stale' },
+        picked: activeKey === 'stale'
+      },
+      {
+        label: t('Has labels'),
+        description: this.getQuickFilterDescription({ kind: 'label' }),
+        detail: t('Good for triage and tag hygiene'),
+        key: 'label',
+        preset: { kind: 'label' },
+        picked: activeKey === 'label'
+      },
+      {
+        kind: vscode.QuickPickItemKind.Separator,
+        label: t('Reset'),
+        key: 'separator-reset'
+      },
+      {
+        label: t('Show everything'),
+        description: this.getQuickFilterDescription(undefined),
+        detail: t('Lists all issues and epics'),
+        key: '',
+        picked: activeKey === ''
+      }
     ];
 
-    const active = this.quickFilter;
-    const getValue = (preset: QuickFilterPreset): string | undefined => ('value' in preset ? preset.value : undefined);
-    const selection = await vscode.window.showQuickPick(
-      presets.map((option) => ({
-        label: option.label,
-        description: option.description,
-        id: option.id,
-        picked:
-          !!active &&
-          active.kind === option.preset.kind &&
-          getValue(active) === getValue(option.preset),
-        preset: option.preset,
-      })),
-      { placeHolder: t('Apply a quick filter preset') }
-    );
+    const selection = await vscode.window.showQuickPick<QuickFilterPick>(items, {
+      placeHolder: t('Filter mode (current: {0})', this.getQuickFilterLabel(this.quickFilter)),
+      matchOnDetail: true,
+      matchOnDescription: true
+    });
 
     if (!selection) {
       return;
     }
 
-    const next = toggleQuickFilter(active, selection.preset);
+    if (!selection.preset) {
+      this.clearQuickFilter();
+      return;
+    }
+
+    const next = toggleQuickFilter(this.quickFilter, selection.preset);
     this.setQuickFilter(next);
+
+    const nextLabel = this.getQuickFilterLabel(next);
     void vscode.window.showInformationMessage(
-      next ? t('Applied quick filter: {0}', selection.label) : t('Quick filters cleared')
+      next ? t('Applied filter: {0}', nextLabel) : t('Quick filters cleared')
     );
   }
 
@@ -1424,9 +1489,79 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     this.syncQuickFilterContext();
   }
 
+  private getQuickFilterLabel(preset?: QuickFilterPreset): string {
+    if (!preset) {
+      return t('All items');
+    }
+
+    if (preset.kind === 'status') {
+      switch (preset.value) {
+        case 'in_progress':
+          return t('In Progress');
+        case 'blocked':
+          return t('Blocked');
+        case 'closed':
+          return t('Closed');
+        default:
+          return t('Open');
+      }
+    }
+
+    if (preset.kind === 'label') {
+      return t('Has labels');
+    }
+
+    if (preset.kind === 'stale') {
+      return t('Stale in progress');
+    }
+
+    return t('All items');
+  }
+
+  private getQuickFilterDescription(preset?: QuickFilterPreset): string {
+    if (!preset) {
+      return t('Showing issues and epics without additional filtering');
+    }
+
+    if (preset.kind === 'status') {
+      switch (preset.value) {
+        case 'in_progress':
+          return t('Only issues and epics that are currently in progress');
+        case 'blocked':
+          return t('Only items whose status is Blocked');
+        case 'closed':
+          return t('Closed or completed items');
+        default:
+          return t('Open items (issues and epics)');
+      }
+    }
+
+    if (preset.kind === 'label') {
+      return t('Items that have one or more labels');
+    }
+
+    if (preset.kind === 'stale') {
+      return t('In-progress items past the stale threshold');
+    }
+
+    return t('Showing issues and epics without additional filtering');
+  }
+
   syncQuickFilterContext(): void {
-    const key = this.getQuickFilterKey();
-    void vscode.commands.executeCommand('setContext', 'beads.activeQuickFilter', key ?? '');
+    this.updateQuickFilterUi();
+  }
+
+  private updateQuickFilterUi(): void {
+    const quickFiltersEnabled = vscode.workspace.getConfiguration('beads').get<boolean>('quickFilters.enabled', false);
+    const key = quickFiltersEnabled ? this.getQuickFilterKey() ?? '' : '';
+    const label = quickFiltersEnabled ? this.getQuickFilterLabel(this.quickFilter) : '';
+    void vscode.commands.executeCommand('setContext', 'beads.activeQuickFilter', key);
+    void vscode.commands.executeCommand('setContext', 'beads.activeQuickFilterLabel', label);
+    void vscode.commands.executeCommand('setContext', 'beads.quickFilterActive', !!key);
+
+    if (this.treeView) {
+      this.treeView.description = quickFiltersEnabled ? t('Filter: {0}', label || t('All items')) : undefined;
+    }
   }
 
   private getQuickFilterKey(): string | undefined {
@@ -1440,7 +1575,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   setQuickFilter(preset: QuickFilterPreset | undefined): void {
     this.quickFilter = preset;
     void this.context.workspaceState.update('beads.quickFilterPreset', preset);
-    this.syncQuickFilterContext();
+    this.updateQuickFilterUi();
     this.onDidChangeTreeDataEmitter.fire();
   }
 

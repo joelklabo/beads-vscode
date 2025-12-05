@@ -55,8 +55,8 @@
   "command.beads.bulkAddLabel": "Beads: Bulk Add Label",
   "command.beads.bulkRemoveLabel": "Beads: Bulk Remove Label",
   "command.beads.toggleFavorite": "Beads: Toggle Favorite",
-  "command.beads.applyQuickFilterPreset": "Beads: Apply Quick Filter Preset",
-  "command.beads.clearQuickFilters": "Beads: Clear Quick Filters",
+  "command.beads.applyQuickFilterPreset": "Beads: Switch Filter Mode",
+  "command.beads.clearQuickFilters": "Beads: Clear Filter",
   "command.beads.openInProgressPanel": "Beads: Open In-Progress Spotlight",
   "command.beads.inlineEditTitle": "Beads: Rename (Inline)",
   "command.beads.inlineEditLabels": "Beads: Edit Labels (Inline)"
