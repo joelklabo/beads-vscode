@@ -117,6 +117,11 @@
         "command": "beads.bulkUpdateStatus",
         "title": "%command.beads.bulkUpdateStatus%",
         "icon": "$(checklist)"
+      },
+      {
+        "command": "beads.toggleFavorite",
+        "title": "%command.beads.toggleFavorite%",
+        "icon": "$(star)"
       }
     ],
     "viewsContainers": {
@@ -251,6 +256,21 @@
           "maximum": 200,
           "markdownDescription": "Maximum number of items allowed in a bulk action selection. Values outside 1-200 are ignored and the default is used."
         },
+        "beads.favorites.enabled": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Enable experimental favorites toggling. When disabled, favorite commands and menus are hidden."
+        },
+        "beads.favorites.useLabelStorage": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Store favorites using bd labels. When disabled, favorites are stored locally in workspaceState only."
+        },
+        "beads.favorites.label": {
+          "type": "string",
+          "default": "favorite",
+          "markdownDescription": "Label name used when storing favorites via the bd CLI."
+        },
         "beads.cli.timeoutMs": {
           "type": "number",
           "default": 15000,
@@ -346,6 +366,11 @@
           "command": "beads.bulkUpdateStatus",
           "when": "view == beadsExplorer && beads.bulkActionsEnabled",
           "group": "navigation@8"
+        },
+        {
+          "command": "beads.toggleFavorite",
+          "when": "view == beadsExplorer && beads.favoritesEnabled",
+          "group": "navigation@9"
         }
       ],
       "view/item/context": [
@@ -373,12 +398,21 @@
           "command": "beads.bulkUpdateStatus",
           "when": "view == beadsExplorer && viewItem == bead && beads.bulkActionsEnabled",
           "group": "7_modification@2"
+        },
+        {
+          "command": "beads.toggleFavorite",
+          "when": "view == beadsExplorer && viewItem == bead && beads.favoritesEnabled",
+          "group": "7_modification@3"
         }
       ],
       "commandPalette": [
         {
           "command": "beads.bulkUpdateStatus",
           "when": "beads.bulkActionsEnabled"
+        },
+        {
+          "command": "beads.toggleFavorite",
+          "when": "beads.favoritesEnabled"
         }
       ]
     },
@@ -408,7 +442,7 @@
     "watch": "tsc -watch -p ./",
     "lint": "eslint . --ext ts",
     "test": "npm run test:unit",
-    "test:unit": "npm run compile && mocha ./out/test/unit/**/*.test.js ./out/test/deps.add.test.js ./out/test/sanitization.test.js ./out/test/littleGlen.command-validation.test.js ./out/test/log-redaction.test.js ./out/test/activityFeed.timestamps.test.js ./out/test/title-format.test.js ./out/test/activityFeed.title-format.test.js ./out/test/multi-root.cli.test.js ./out/test/tooltips.security.test.js ./out/test/export.markdown.test.js ./out/test/bulk.status.test.js",
+    "test:unit": "npm run compile && mocha ./out/test/unit/**/*.test.js ./out/test/deps.add.test.js ./out/test/sanitization.test.js ./out/test/littleGlen.command-validation.test.js ./out/test/log-redaction.test.js ./out/test/activityFeed.timestamps.test.js ./out/test/title-format.test.js ./out/test/activityFeed.title-format.test.js ./out/test/multi-root.cli.test.js ./out/test/tooltips.security.test.js ./out/test/export.markdown.test.js ./out/test/bulk.status.test.js ./out/test/favorites.toggle.test.js",
     "test:bd-cli": "npm run compile && mocha ./out/test/bd-cli.test.js",
     "test:integration": "npm run compile && node ./out/test/runTest.js",
     "test:stress": "./scripts/stress-test.sh",

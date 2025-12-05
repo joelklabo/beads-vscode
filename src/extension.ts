@@ -17,6 +17,10 @@ import {
   MarkdownExportHeaders,
   buildBulkSelection,
   executeBulkStatusUpdate,
+  BulkOperationFailure,
+  getFavoriteLabel,
+  getLocalFavorites,
+  saveLocalFavorites,
 } from './utils';
 import { ActivityFeedTreeDataProvider, ActivityEventItem } from './activityFeedProvider';
 import { EventType } from './activityFeed';
@@ -3601,6 +3605,104 @@ async function bulkUpdateStatus(
   );
 }
 
+type RunBdCommandFn = (args: string[], projectRoot: string, options?: BdCommandOptions) => Promise<void>;
+
+async function toggleFavorites(
+  provider: BeadsTreeDataProvider,
+  treeView: vscode.TreeView<TreeItemType>,
+  context: vscode.ExtensionContext,
+  runCommand: RunBdCommandFn = runBdCommand
+): Promise<void> {
+  const config = vscode.workspace.getConfiguration('beads');
+  const favoritesEnabled = config.get<boolean>('favorites.enabled', false);
+  if (!favoritesEnabled) {
+    void vscode.window.showWarningMessage(t('Enable "beads.favorites.enabled" to toggle favorites.'));
+    return;
+  }
+
+  const useLabelStorage = config.get<boolean>('favorites.useLabelStorage', true);
+  const favoriteLabel = getFavoriteLabel(config);
+
+  const selection = treeView.selection.filter((item): item is BeadTreeItem => item instanceof BeadTreeItem);
+  if (selection.length === 0) {
+    void vscode.window.showWarningMessage(t('Select one or more beads to toggle favorites.'));
+    return;
+  }
+
+  const projectRoot = resolveProjectRoot(config);
+  if (useLabelStorage && !projectRoot) {
+    void vscode.window.showErrorMessage(PROJECT_ROOT_ERROR);
+    return;
+  }
+
+  const localFavorites = getLocalFavorites(context);
+  const successes: string[] = [];
+  const failures: BulkOperationFailure[] = [];
+  let toggledOn = 0;
+  let toggledOff = 0;
+
+  for (const item of selection) {
+    const bead = item.bead;
+    const labels: string[] = Array.isArray((bead.raw as any)?.labels) ? (bead.raw as any).labels : [];
+    const hasLabel = labels.includes(favoriteLabel);
+    const isFavorite = hasLabel || localFavorites.has(bead.id);
+    const targetFavorite = !isFavorite;
+
+    const applyLocal = (): void => {
+      if (targetFavorite) {
+        localFavorites.add(bead.id);
+        toggledOn += 1;
+      } else {
+        localFavorites.delete(bead.id);
+        toggledOff += 1;
+      }
+    };
+
+    try {
+      if (useLabelStorage) {
+        const action = targetFavorite ? 'add' : 'remove';
+        await runCommand(['label', action, bead.id, favoriteLabel], projectRoot!);
+      }
+
+      applyLocal();
+      successes.push(bead.id);
+    } catch (error) {
+      applyLocal();
+      const message = error instanceof Error ? error.message : String(error);
+      failures.push({ id: bead.id, error: message });
+    }
+  }
+
+  await saveLocalFavorites(context, localFavorites);
+  await provider.refresh();
+
+  if (failures.length === 0) {
+    if (toggledOn || toggledOff) {
+      if (toggledOn && toggledOff) {
+        void vscode.window.showInformationMessage(
+          t('Updated favorites: {0} added, {1} removed.', toggledOn, toggledOff)
+        );
+      } else if (toggledOn) {
+        void vscode.window.showInformationMessage(t('Marked {0} bead(s) as favorite', toggledOn));
+      } else {
+        void vscode.window.showInformationMessage(t('Removed favorite from {0} bead(s)', toggledOff));
+      }
+    }
+    return;
+  }
+
+  const failureList = failures.map((failure) => `${failure.id}: ${failure.error}`).join('; ');
+  if (successes.length === 0) {
+    void vscode.window.showErrorMessage(
+      t('Failed to update favorites for {0} bead(s): {1}', failures.length, failureList)
+    );
+  } else {
+    void vscode.window.showWarningMessage(
+      t('Updated {0} bead(s); failed for {1}: {2}', successes.length, failures.length, failureList)
+    );
+  }
+}
+
 export function activate(context: vscode.ExtensionContext): void {
   const provider = new BeadsTreeDataProvider(context);
   const treeView = vscode.window.createTreeView('beadsExplorer', {
@@ -3631,6 +3733,11 @@ export function activate(context: vscode.ExtensionContext): void {
     void vscode.commands.executeCommand('setContext', 'beads.bulkActionsMaxSelection', bulkConfig.maxSelection);
   };
 
+  const applyFavoritesContext = (): void => {
+    const favoritesEnabled = vscode.workspace.getConfiguration('beads').get<boolean>('favorites.enabled', false);
+    void vscode.commands.executeCommand('setContext', 'beads.favoritesEnabled', favoritesEnabled);
+  };
+
   const applyFeedbackContext = (): void => {
     const enablement = computeFeedbackEnablement();
     provider.setFeedbackEnabled(enablement.enabled);
@@ -3638,6 +3745,7 @@ export function activate(context: vscode.ExtensionContext): void {
   };
 
   applyBulkActionsContext();
+  applyFavoritesContext();
   applyFeedbackContext();
 
   // Register provider disposal
@@ -3680,6 +3788,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('beads.visualizeDependencies', () => visualizeDependencies(provider)),
     vscode.commands.registerCommand('beads.exportMarkdown', () => exportBeadsMarkdown(provider, treeView)),
     vscode.commands.registerCommand('beads.bulkUpdateStatus', () => bulkUpdateStatus(provider, treeView)),
+    vscode.commands.registerCommand('beads.toggleFavorite', () => toggleFavorites(provider, treeView, context)),
     
     // Activity Feed commands
     vscode.commands.registerCommand('beads.refreshActivityFeed', () => activityFeedProvider.refresh()),
@@ -3844,6 +3953,10 @@ export function activate(context: vscode.ExtensionContext): void {
       applyBulkActionsContext();
     }
 
+    if (event.affectsConfiguration('beads.favorites')) {
+      applyFavoritesContext();
+    }
+
     if (event.affectsConfiguration('beads.feedback') || event.affectsConfiguration('beads.projectRoot')) {
       applyFeedbackContext();
     }
@@ -3870,6 +3983,7 @@ export {
   EpicTreeItem,
   UngroupedSectionItem,
   openBeadFromFeed,
+  toggleFavorites,
   runBdCommand,
   findBdCommand,
   collectDependencyEdges,
