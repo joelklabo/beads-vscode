@@ -9,7 +9,7 @@
   "command.beads.visualizeDependencies": "Beads: Visualize Dependencies",
   "command.beads.sendFeedback": "Beads: Send Feedback",
   "command.beads.clearSortOrder": "Beads: Clear Manual Sort Order",
-  "command.beads.toggleSortMode": "Beads: Cycle Sort Mode (ID \u2192 Status \u2192 Epic)",
+  "command.beads.toggleSortMode": "Beads: Cycle Sort Mode (ID → Status → Epic)",
   "command.beads.refreshActivityFeed": "Beads: Refresh Activity Feed",
   "command.beads.filterActivityFeed": "Beads: Filter Activity Feed",
   "command.beads.clearActivityFeedFilter": "Beads: Clear Activity Feed Filter",
@@ -44,5 +44,7 @@
   "command.beads.bulkAddLabel": "Beads: Bulk Add Label",
   "command.beads.bulkRemoveLabel": "Beads: Bulk Remove Label",
   "command.beads.toggleFavorite": "Beads: Toggle Favorite",
-  "command.beads.selectWorkspace": "Beads: Select Workspace"
+  "command.beads.openInProgressPanel": "Beads: Open In-Progress Spotlight",
+  "command.beads.inlineEditTitle": "Beads: Rename (Inline)",
+  "command.beads.inlineEditLabels": "Beads: Edit Labels (Inline)"
 }

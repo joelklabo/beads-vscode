@@ -39,6 +39,7 @@ import {
   validateTitleInput,
   validateLabelInput,
   validateStatusInput,
+  sanitizeErrorMessage,
   collectDependencyEdges,
   mapBeadsToGraphNodes,
   GraphEdgeData,
@@ -884,6 +885,30 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
 
   getVisibleBeads(): BeadItemData[] {
     return this.applySortOrder(this.filterItems(this.items));
+  }
+
+  async findTreeItemById(id: string): Promise<BeadTreeItem | undefined> {
+    const traverse = async (elements: TreeItemType[]): Promise<BeadTreeItem | undefined> => {
+      for (const element of elements) {
+        if (element instanceof BeadTreeItem && element.bead.id === id) {
+          return element;
+        }
+        const children = await this.getChildren(element);
+        if (children && children.length > 0) {
+          const found = await traverse(children);
+          if (found) {
+            return found;
+          }
+        }
+      }
+      return undefined;
+    };
+
+    const roots = await this.getChildren();
+    if (!roots || roots.length === 0) {
+      return undefined;
+    }
+    return traverse(roots);
   }
 
   async updateExternalReference(item: BeadItemData, newValue: string | undefined): Promise<void> {
@@ -4830,6 +4855,113 @@ function collectSelectedBeads(
   });
 }
 
+async function restoreFocus(treeView: vscode.TreeView<TreeItemType>, provider: BeadsTreeDataProvider, beadId: string): Promise<void> {
+  if (!treeView) {
+    return;
+  }
+  try {
+    const element = await provider.findTreeItemById(beadId);
+    if (element) {
+      await treeView.reveal(element, { select: true, focus: true });
+    }
+  } catch (error) {
+    console.warn('[InlineEdit] Failed to restore selection', error);
+  }
+}
+
+async function inlineEditTitle(provider: BeadsTreeDataProvider, treeView: vscode.TreeView<TreeItemType>): Promise<void> {
+  const config = vscode.workspace.getConfiguration('beads');
+  const featureEnabled = config.get<boolean>('inlineStatusChange.enabled', false);
+  if (!featureEnabled) {
+    void vscode.window.showInformationMessage(
+      t('Enable the "beads.inlineStatusChange.enabled" setting to rename items inline.')
+    );
+    return;
+  }
+
+  const beads = collectSelectedBeads(provider, treeView);
+  if (!beads || beads.length !== 1) {
+    void vscode.window.showWarningMessage(t('Select exactly one bead to rename.'));
+    return;
+  }
+
+  const bead = beads[0];
+  const newTitle = await vscode.window.showInputBox({
+    prompt: t('Enter a new title'),
+    value: bead.title,
+    ignoreFocusOut: true,
+  });
+
+  if (newTitle === undefined || newTitle.trim() === '' || newTitle.trim() === bead.title) {
+    return;
+  }
+
+  await provider.updateTitle(bead, newTitle.trim());
+  await restoreFocus(treeView, provider, bead.id);
+}
+
+async function inlineEditLabels(provider: BeadsTreeDataProvider, treeView: vscode.TreeView<TreeItemType>): Promise<void> {
+  const config = vscode.workspace.getConfiguration('beads');
+  const featureEnabled = config.get<boolean>('inlineStatusChange.enabled', false);
+  if (!featureEnabled) {
+    void vscode.window.showInformationMessage(
+      t('Enable the "beads.inlineStatusChange.enabled" setting to edit labels inline.')
+    );
+    return;
+  }
+
+  const beads = collectSelectedBeads(provider, treeView);
+  if (!beads || beads.length !== 1) {
+    void vscode.window.showWarningMessage(t('Select exactly one bead to edit labels.'));
+    return;
+  }
+
+  const bead = beads[0];
+  const raw = bead.raw as any;
+  const labels = Array.isArray(raw?.labels) ? raw.labels.map((l: any) => String(l)) : bead.tags ?? [];
+  const action = await vscode.window.showQuickPick(
+    [
+      { label: t('Add label'), value: 'add' },
+      { label: t('Remove label'), value: 'remove', description: labels.length === 0 ? t('No labels to remove') : undefined, alwaysShow: true }
+    ],
+    { placeHolder: t('Edit labels'), canPickMany: false }
+  );
+
+  if (!action) {
+    return;
+  }
+
+  if (action.value === 'add') {
+    const label = await vscode.window.showInputBox({
+      prompt: t('Enter a label to add'),
+      ignoreFocusOut: true,
+    });
+    if (!label || label.trim() === '') {
+      return;
+    }
+    await provider.addLabel(bead, label.trim());
+    await restoreFocus(treeView, provider, bead.id);
+    return;
+  }
+
+  if (labels.length === 0) {
+    void vscode.window.showWarningMessage(t('This bead has no labels to remove.'));
+    return;
+  }
+
+  const labelPick = await vscode.window.showQuickPick<{ label: string }>(labels.map((l: string) => ({ label: l })), {
+    placeHolder: t('Select a label to remove'),
+    canPickMany: false,
+  });
+
+  if (!labelPick) {
+    return;
+  }
+
+  await provider.removeLabel(bead, labelPick.label);
+  await restoreFocus(treeView, provider, bead.id);
+}
+
 async function inlineStatusQuickChange(
   provider: BeadsTreeDataProvider,
   treeView: vscode.TreeView<TreeItemType>,
@@ -5036,6 +5168,8 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('beads.bulkRemoveLabel', () => bulkUpdateLabel(provider, treeView, 'remove')),
     vscode.commands.registerCommand('beads.toggleFavorite', () => toggleFavorites(provider, treeView, context)),
     vscode.commands.registerCommand('beads.inlineStatusChange', () => inlineStatusQuickChange(provider, treeView, activityFeedView)),
+    vscode.commands.registerCommand('beads.inlineEditTitle', () => inlineEditTitle(provider, treeView)),
+    vscode.commands.registerCommand('beads.inlineEditLabels', () => inlineEditLabels(provider, treeView)),
     
     // Activity Feed commands
     vscode.commands.registerCommand('beads.refreshActivityFeed', () => activityFeedProvider.refresh()),
@@ -5245,6 +5379,8 @@ export {
   collectDependencyEdges,
   addDependencyCommand,
   inlineStatusQuickChange,
+  inlineEditTitle,
+  inlineEditLabels,
   bulkUpdateStatus,
   bulkUpdateLabel,
 };
