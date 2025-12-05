@@ -427,3 +427,10 @@ User collapse/expand choices persist and override defaults on subsequent loads. 
 - Expand/collapse affordance: chevron button (aria-expanded) on each row to reveal metadata (labels, priority, updated-at, external refs) without changing selection; keyboard: Space/Enter toggles, Left/Right collapse/expand.
 - Accessibility: chips are `button` with `aria-pressed`, rows expose `aria-level` and `aria-expanded`; focus order is toolbar → list → expanded metadata. All labels/assignees are HTML-escaped and sanitized before render.
 - See `docs/filters-assignee.md` for detailed states, sorting keys, and copy blocks.
+
+## CI & Coverage Contract (beads-xae)
+- Order of work: `npm run lint` → `npm run test:unit` (wrapped by c8) → `npm run test:bd-cli`; `npm run test:integration` (VS Code stable, headless flags) and `npm run test:tui` run in parallel after lint; optional `npm run package` gate for releases.
+- Coverage: `c8 -r lcov -r text-summary` around unit/bd-cli to emit `coverage/lcov.info`; upload to Codecov when `CODECOV_TOKEN` is set and always store the artifact.
+- Runner/tooling: node 18 via `actions/setup-node@v4`, npm cache enabled; env `CI=true`, `BEADS_NO_DAEMON=1`, `VSCODE_CHANNEL=stable`; clean `.vscode-test` on cache miss.
+- Permissions: `contents: read`, `pull-requests: write` only when posting PR comments; secrets limited to `CODECOV_TOKEN`.
+- See `docs/ci.md` for full job layout, artifacts, and local parity commands.
