@@ -4,6 +4,7 @@ import {
   BeadItemData,
   extractBeads,
   normalizeBead,
+  pickAssignee,
   pickFirstKey,
   pickTags,
   pickValue
@@ -11,6 +12,8 @@ import {
 import { resolveDataFilePath } from '../../utils/fs';
 import { DEFAULT_STALE_THRESHOLD_HOURS, getStaleInfo, isStale } from '../../utils/stale';
 import { escapeHtml, formatError, formatRelativeTime, linkifyText } from '../../utils/format';
+import { sanitizeInlineText } from '../../utils/sanitize';
+import { formatStatusLabel } from '../../utils/status';
 
 describe('Utility Functions', () => {
 
@@ -95,6 +98,23 @@ describe('Utility Functions', () => {
       const entry = { labels: [1, 2, 3] };
       const result = pickTags(entry);
       assert.deepStrictEqual(result, ['1', '2', '3']);
+    });
+  });
+
+  describe('pickAssignee', () => {
+    it('returns direct assignee string when present', () => {
+      const entry = { assignee: 'Alice' };
+      assert.strictEqual(pickAssignee(entry), 'Alice');
+    });
+
+    it('extracts nested assignee name object', () => {
+      const entry = { assigned_to: { name: 'Bob Builder' } } as any;
+      assert.strictEqual(pickAssignee(entry), 'Bob Builder');
+    });
+
+    it('returns undefined when no assignee present', () => {
+      const entry = { title: 'No owner' };
+      assert.strictEqual(pickAssignee(entry), undefined);
     });
   });
 
@@ -349,6 +369,28 @@ describe('Utility Functions', () => {
     it('should return prefix for non-Error objects', () => {
       const result = formatError('Operation failed', 'some string');
       assert.strictEqual(result, 'Operation failed');
+    });
+  });
+
+  describe('sanitizeInlineText', () => {
+    it('strips tags, newlines, and collapses whitespace', () => {
+      const dirty = ' <b>Hello</b>\nworld <script>alert(1)</script> ';
+      assert.strictEqual(sanitizeInlineText(dirty), 'Hello world');
+    });
+
+    it('returns empty string for undefined input', () => {
+      assert.strictEqual(sanitizeInlineText(undefined as any), '');
+    });
+  });
+
+  describe('formatStatusLabel', () => {
+    it('humanizes known statuses', () => {
+      assert.strictEqual(formatStatusLabel('in_progress'), 'In Progress');
+      assert.strictEqual(formatStatusLabel('open'), 'Open');
+    });
+
+    it('falls back to original string for unknown status', () => {
+      assert.strictEqual(formatStatusLabel('paused'), 'paused');
     });
   });
 
