@@ -1,7 +1,7 @@
 {
   "command.beads.refresh": "Beads: Refresh",
   "command.beads.search": "Beads: Search",
-  "command.beads.clearSearch": "Beads: Clear Search",
+  "command.beads.clearSearch": "Beads: Clear Search (Esc to reset filter)",
   "command.beads.openBead": "Beads: Open",
   "command.beads.createBead": "Beads: Create",
   "command.beads.addDependency": "Beads: Add Dependency",
@@ -18,7 +18,6 @@
   "command.beads.openActivityFeedPanel": "Beads: Open Activity Feed Panel (full view)",
   "command.beads.deleteBeads": "Beads: Delete (Del/Backspace)",
   "command.beads.exportMarkdown": "Beads: Export to Markdown (selection or view)",
-  "command.beads.inlineStatusChange": "Beads: Change Status (Inline)",
   "command.beads.inlineStatusChange": "Beads: Change Status (Inline)",
   "webview.dependencyTree.title": "Beads Dependency Tree",
   "webview.dependencyTree.resetView": "Reset View",
