@@ -81,3 +81,27 @@ export async function executeBulkLabelUpdate(
   // Reuse status bulk helper; semantics identical for progress/failure handling
   return executeBulkStatusUpdate(ids, _label, runner, onProgress);
 }
+
+
+export interface BulkResultSummary {
+  total: number;
+  successCount: number;
+  failureCount: number;
+  failureIds: string[];
+  failureList: string;
+}
+
+export function summarizeBulkResult(result: BulkOperationResult): BulkResultSummary {
+  const successCount = result.successes.length;
+  const failureCount = result.failures.length;
+  const failureIds = result.failures.map((failure) => failure.id);
+  const failureList = result.failures.map((failure) => `${failure.id}: ${failure.error}`).join('; ');
+
+  return {
+    total: successCount + failureCount,
+    successCount,
+    failureCount,
+    failureIds,
+    failureList,
+  };
+}

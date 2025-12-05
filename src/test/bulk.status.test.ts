@@ -129,7 +129,15 @@ function createBulkVscodeStub(options: BulkStubOptions = {}) {
     RelativePattern: class {},
     window: {
       showInformationMessage: (message: string) => { info.push(message); return Promise.resolve(undefined); },
-      showWarningMessage: (message: string) => { warnings.push(message); return Promise.resolve(undefined); },
+      showWarningMessage: (message: string, ...rest: any[]) => {
+        warnings.push(message);
+        const optionsArg = rest.find((arg) => arg && typeof arg === 'object' && !Array.isArray(arg));
+        const actions = rest.filter((arg) => typeof arg === 'string');
+        if (optionsArg?.modal && actions.length > 0) {
+          return Promise.resolve(actions[0]);
+        }
+        return Promise.resolve(undefined);
+      },
       showErrorMessage: (message: string) => { errors.push(message); return Promise.resolve(undefined); },
       showQuickPick: async () => quickPick,
       withProgress: async (_options: any, task: any) => task({ report: () => undefined }),
@@ -210,7 +218,7 @@ describe('Bulk status command', () => {
       ['update', 'B', '--status', 'open'],
     ]);
     assert.ok(refreshed, 'provider.refresh should be called');
-    assert.ok(vscodeStub._info.some((msg: string) => msg.includes('Updated')));
+    assert.ok(vscodeStub._info.some((msg: string) => msg.toLowerCase().includes('status')));
   });
 
   it('honors feature flag disablement', async () => {
