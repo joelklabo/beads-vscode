@@ -1,0 +1,7 @@
+{
+  "reporter": ["lcov", "text-summary"],
+  "include": ["src/**/*"],
+  "exclude": ["out/**", "scripts/**", "dist/**", "coverage/**", "tui/**"],
+  "all": true,
+  "report-dir": "coverage"
+}

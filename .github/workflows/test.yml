@@ -81,9 +81,44 @@ jobs:
           .vscode-test/
         retention-days: 7
 
-  package:
+  coverage:
     runs-on: ubuntu-latest
     needs: test
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.x
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run coverage (c8)
+      env:
+        BEADS_NO_DAEMON: 1
+      run: npm run ci:coverage
+
+    - name: Upload coverage artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-lcov
+        path: coverage/lcov.info
+        retention-days: 7
+
+    - name: Upload to Codecov
+      if: env.CODECOV_TOKEN != ''
+      uses: codecov/codecov-action@e6a768f0b0d0d07c3e0ef15221e0f7bfe205f0bb
+      with:
+        token: ${{ env.CODECOV_TOKEN }}
+        files: coverage/lcov.info
+
+  package:
+    runs-on: ubuntu-latest
+    needs: [test, coverage]
 
     steps:
     - name: Checkout code
