@@ -2,6 +2,15 @@
 
 Design for inspecting and editing dependency directionality inside the VS Code extension. The feature is gated by `beads.enableDependencyEditing` and requires `bd >= 0.29.0`; editing controls stay hidden otherwise.
 
+See also: the short how-to sections in [README](../README.md#dependency-tree-editing-preview) and [QUICKSTART](../QUICKSTART.md#4-dependency-editing-optional).
+
+## Quick usage
+- Turn on `beads.enableDependencyEditing` (read-only view when off). CLI calls run with `--no-daemon` and guard against cycles/duplicates/self-links.
+- Open the **Dependency Tree** view; selecting an issue in the main Beads tree (or running **Beads: Dependency Tree: Pick Root**) sets the focus.
+- Use the view toolbar actions **Add Upstream** / **Add Downstream** to add links via a quick pick; the picker filters out the current issue and reuses bd `dep add` for the chosen direction.
+- Remove links from the command palette (`Beads: Dependency Tree: Remove`) or the detail panel remove buttons; this calls `bd dep remove` and refreshes the tree/graph.
+- Keyboard and screen reader affordances follow the VS Code tree defaults plus the behaviors documented below.
+
 ## Goals
 - Provide a collapsible tree that shows which beads block the current one (upstream) and which are blocked by it (downstream).
 - Allow adding or removing dependencies with immediate refresh and friendly validation.
