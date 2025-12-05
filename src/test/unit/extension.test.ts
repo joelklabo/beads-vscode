@@ -159,7 +159,7 @@ describe('Extension tree items', () => {
 
     const description = String(bead.description);
     assert.ok(description.includes('Ada Lovelace'));
-    assert.ok(/[🔵🟢🟣🟠🔴🟡⚫⚪]/.test(description));
+    assert.ok(/[🔵🟢🟣🟠🔴🟡⚫⚪]/u.test(description));
     assert.ok(description.toLowerCase().includes('blocked'));
   });
 
