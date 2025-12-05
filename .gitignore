@@ -1,6 +1,10 @@
 node_modules
 out
 .vscode-test
+coverage/
+.nyc_output
+coverage-final.json
+.coverage*
 *.vsix
 .beads
 .beads/

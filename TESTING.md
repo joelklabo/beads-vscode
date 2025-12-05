@@ -1,185 +1,22 @@
 # Testing Guide for Beads VSCode Extension
 
-This document describes the comprehensive testing infrastructure including unit tests, integration tests, and GitHub Actions CI/CD.
+## One-liners
+- `npm run ci:verify` — lint + localization + compile + unit + headless integration (mirrors the CI Test workflow).
+- `npm run ci:coverage` — runs the unit suite under c8 and writes text + LCOV reports to `coverage/`.
+- `npm run test:clean-temp` — purge stale temp dirs from prior headless/integration runs.
 
-## Test Structure
+## Unit tests
+- Location: `src/test/unit/` (plus a few compiled helpers under `out/test/*`).
+- Run: `npm run test:unit` (compiles then executes `npm run test:unit:run`).
+- Coverage: `npm run ci:coverage` and open `coverage/lcov-report/index.html`.
 
-The project uses a hybrid testing approach:
+## Integration tests (headless by default)
+- Primary command: `npm run test:integration:headless` (uses `xvfb-run -a` on Linux; reuses focus-suppressing args on macOS/Windows).
+- Channels: set `VSCODE_TEST_CHANNEL=stable|insiders` or use `npm run test:integration:stable` / `npm run test:integration:insiders` helpers.
+- Isolation: set `VSCODE_TEST_INSTANCE_ID` to keep `user-data-dir` / `extensions-dir` unique when running in multiple terminals or worktrees. The env helper cleans these on exit; `npm run test:clean-temp` is available for stale runs.
 
-### Unit Tests (`src/test/unit/`)
+## Worktrees
+Run tests from your task worktree (not the main repo). Verify with `./scripts/task-worktree.sh verify <task-id>` before running commands so temp state stays scoped.
 
-Pure unit tests that test utility functions without requiring VSCode runtime.
-
-**Run with:** `npm run test:unit`
-
-**Coverage:**
-- Utility functions (pickValue, pickFirstKey, pickTags, normalizeBead)
-- Data extraction (extractBeads)
-- Path resolution (resolveDataFilePath)
-- Error formatting and HTML escaping
-
-### Integration Tests (`src/test/suite/`)
-
-Tests that require the VSCode extension host to run. These test the full extension functionality including commands, tree providers, and **bd CLI integration**.
-
-**Run with:** `npm run test:integration`
-
-**Coverage:**
-- Extension activation
-- Command registration
-- File handling (JSONL and JSON formats)
-- **NEW**: BD CLI operations (create, update, label management, close)
-
-**Prerequisites:** bd CLI must be installed and in PATH
-
-**Note:** Integration tests create temporary workspaces and clean up after themselves.
-
-## Running Tests
-
-### Quick Start
-```bash
-# Run all tests (lint + unit + integration)
-npm run test:all
-
-# Run just unit tests (default, fast)
-npm test
-
-# Run local test script (recommended)
-./scripts/test-local.sh
-```
-
-### Individual Test Suites
-```bash
-# Unit tests only (fast, no dependencies)
-npm run test:unit
-
-# Integration tests only (requires VSCode and bd CLI)
-npm run test:integration
-
-# Watch mode during development
-npm run watch
-```
-
-### Prerequisites for Integration Tests
-
-Install bd CLI:
-```bash
-# Option 1: Homebrew
-brew install steveyegge/tap/beads
-
-# Option 2: Go
-go install github.com/steveyegge/beads@latest
-
-# Verify installation
-bd version
-```
-
-
-### Headless & channel selection
-
-- Linux: `npm run test:integration:headless` wraps `xvfb-run -a` to keep runs fully headless.
-- Stable vs Insiders: `npm run test:integration:stable` (default) or `npm run test:integration:insiders`.
-- Environment variables:
-  - `VSCODE_TEST_CHANNEL` (`stable`|`insiders`, defaults to `stable`).
-  - `VSCODE_TEST_INSTANCE_ID` (auto-generated when omitted). Set one per terminal/worktree to isolate tmp paths and parallel agents.
-- Temp `user-data-dir` and `extensions-dir` live under the repo `tmp/` directory (not `/tmp`) and are removed after runs.
-- Clean up stale runs (e.g., after aborts): `npm run test:clean-temp`.
-
-### Multi-agent guidance
-- Always run tests inside your task worktree.
-- Provide unique `VSCODE_TEST_INSTANCE_ID` values when multiple agents/terminals run integration tests concurrently.
-- Avoid GUI pop-ups: prefer headless scripts above; macOS/Windows get focus-suppression launch args automatically.
-
-## Test Files
-
-- `src/test/unit/utils.test.ts` - Unit tests for utility functions
-- `src/test/suite/extension.test.ts` - Integration: Extension activation and command tests
-- `src/test/suite/fileHandling.test.ts` - Integration: File I/O tests (JSONL and JSON)
-- `src/test/suite/integration.test.ts` - **NEW**: BD CLI integration tests
-
-## Writing New Tests
-
-### Unit Tests
-
-Create new test files in `src/test/unit/` using Mocha's BDD style:
-
-```typescript
-import * as assert from 'assert';
-import { myFunction } from '../../utils';
-
-describe('My Feature', () => {
-  it('should do something', () => {
-    const result = myFunction();
-    assert.strictEqual(result, expected);
-  });
-});
-```
-
-### Integration Tests
-
-Create new test files in `src/test/suite/` using Mocha's TDD style:
-
-```typescript
-import * as assert from 'assert';
-import * as vscode from 'vscode';
-
-suite('My Extension Tests', () => {
-  test('should register command', async () => {
-    const commands = await vscode.commands.getCommands(true);
-    assert.ok(commands.includes('beads.myCommand'));
-  });
-});
-```
-
-## Code Coverage
-
-Currently, the test suite covers:
-- ✅ All utility functions
-- ✅ Data parsing and normalization
-- ✅ File path resolution
-- ✅ Extension activation
-- ✅ Command registration
-- ✅ JSONL and JSON file handling
-
-## GitHub Actions CI/CD
-
-### Workflow: `.github/workflows/test.yml`
-
-Automated testing runs on:
-- Push to `main` or `develop` branches
-- Pull requests
-- Manual workflow dispatch
-
-**Matrix Testing:**
-- Operating Systems: Ubuntu, macOS, Windows
-- Node Versions: 18.x, 20.x
-- Total: 6 test combinations
-
-**Steps:**
-1. Checkout code
-2. Setup Node.js
-3. Install dependencies
-4. Run linter
-5. Compile TypeScript
-6. Install Go and bd CLI
-7. Run unit tests
-8. Run integration tests
-9. Package extension (.vsix)
-
-**Special Handling:**
-- Linux uses `xvfb-run` for headless VSCode
-- Automatic bd CLI installation via Go
-- Artifacts uploaded for debugging
-
-### Running Locally
-
-```bash
-# Comprehensive local test (recommended)
-./scripts/test-local.sh
-
-# Or manually
-npm run lint
-npm run compile
-npm run test:unit
-npm run test:integration
-```
+## CI parity & badges
+The GitHub Actions **Test** workflow uses the same commands as `npm run ci:unit` + `npm run ci:integration` across an OS/Node/VS Code channel matrix, with coverage reported via `ci:coverage` on Ubuntu/Node 20/stable and uploaded to Codecov. Badges and matrix details live in [docs/ci.md](docs/ci.md).

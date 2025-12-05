@@ -669,7 +669,8 @@
     "watch": "tsc -watch -p ./",
     "lint": "eslint . --ext ts",
     "test": "npm run test:unit",
-    "test:unit": "npm run compile && mocha ./out/test/unit/**/*.test.js ./out/test/deps.add.test.js ./out/test/sanitization.test.js ./out/test/littleGlen.command-validation.test.js ./out/test/log-redaction.test.js ./out/test/activityFeed.timestamps.test.js ./out/test/title-format.test.js ./out/test/activityFeed.title-format.test.js ./out/test/multi-root.cli.test.js ./out/test/tooltips.security.test.js ./out/test/export.markdown.test.js ./out/test/export.csv.test.js ./out/test/bulk.status.test.js ./out/test/bulk.results.test.js ./out/test/bulk.labels.test.js ./out/test/favorites.persistence.test.js ./out/test/favorites.validation.test.js ./out/test/favorites.toggle.test.js ./out/test/inline.status.test.js ./out/test/inline.validation.test.js",
+    "test:unit": "npm run compile && npm run test:unit:run",
+    "test:unit:run": "mocha ./out/test/unit/**/*.test.js ./out/test/deps.add.test.js ./out/test/sanitization.test.js ./out/test/littleGlen.command-validation.test.js ./out/test/log-redaction.test.js ./out/test/activityFeed.timestamps.test.js ./out/test/title-format.test.js ./out/test/activityFeed.title-format.test.js ./out/test/multi-root.cli.test.js ./out/test/tooltips.security.test.js ./out/test/export.markdown.test.js ./out/test/export.csv.test.js ./out/test/bulk.status.test.js ./out/test/bulk.results.test.js ./out/test/bulk.labels.test.js ./out/test/favorites.persistence.test.js ./out/test/favorites.validation.test.js ./out/test/favorites.toggle.test.js ./out/test/inline.status.test.js ./out/test/inline.validation.test.js",
     "test:bd-cli": "npm run compile && mocha ./out/test/bd-cli.test.js",
     "test:integration": "npm run compile && node ./out/test/runTest.js",
     "test:stress": "./scripts/stress-test.sh",
@@ -687,7 +688,12 @@
     "test:integration:stable": "node -e \"const {spawnSync}=require('child_process'); const env={...process.env, VSCODE_TEST_CHANNEL:'stable', VSCODE_TEST_INSTANCE_ID:process.env.VSCODE_TEST_INSTANCE_ID||require('crypto').randomUUID()}; const cmd=process.platform==='win32'?'npm.cmd':'npm'; const r=spawnSync(cmd,['run','test:integration'],{stdio:'inherit',env}); process.exit(r.status ?? 1);\"",
     "test:integration:insiders": "node -e \"const {spawnSync}=require('child_process'); const env={...process.env, VSCODE_TEST_CHANNEL:'insiders', VSCODE_TEST_INSTANCE_ID:process.env.VSCODE_TEST_INSTANCE_ID||require('crypto').randomUUID()}; const cmd=process.platform==='win32'?'npm.cmd':'npm'; const r=spawnSync(cmd,['run','test:integration'],{stdio:'inherit',env}); process.exit(r.status ?? 1);\"",
     "test:integration:headless": "node -e \"const {spawnSync}=require('child_process'); const env={...process.env, VSCODE_TEST_CHANNEL:process.env.VSCODE_TEST_CHANNEL||'stable', VSCODE_TEST_INSTANCE_ID:process.env.VSCODE_TEST_INSTANCE_ID||require('crypto').randomUUID()}; const isLinux=process.platform==='linux'; const cmd=isLinux?'xvfb-run':(process.platform==='win32'?'npm.cmd':'npm'); const args=isLinux?['-a','npm','run','test:integration']:['run','test:integration']; const r=spawnSync(cmd,args,{stdio:'inherit',env}); process.exit(r.status ?? 1);\"",
-    "test:clean-temp": "bash ./scripts/cleanup-temp-tests.sh"
+    "test:clean-temp": "bash ./scripts/cleanup-temp-tests.sh",
+    "ci:lint": "npm run lint && node scripts/l10n-check.js",
+    "ci:unit": "npm run test:unit",
+    "ci:integration": "npm run test:integration:headless",
+    "ci:verify": "npm run ci:lint && npm run compile && npm run test:unit && npm run test:integration:headless",
+    "ci:coverage": "npm run compile && c8 --reporter=text --reporter=lcov npm run test:unit:run"
   },
   "devDependencies": {
     "@beads/bd": "^0.29.0",
@@ -701,6 +707,7 @@
     "@typescript-eslint/parser": "^6.17.0",
     "@vscode/test-electron": "^2.3.8",
     "@vscode/vsce": "^3.6.2",
+    "c8": "^10.1.3",
     "eslint": "^8.56.0",
     "glob": "^10.3.10",
     "ink": "^4.4.1",
