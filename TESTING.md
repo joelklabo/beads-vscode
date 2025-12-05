@@ -10,6 +10,11 @@
 - Run: `npm run test:unit` (compiles then executes `npm run test:unit:run`).
 - Coverage: `npm run ci:coverage` and open `coverage/lcov-report/index.html`.
 
+## Stale / Warning bucket checks
+- Unit coverage lives in `src/test/unit/extension.test.ts` (warning excludes closed tasks/epics and handles empty epics). Run `npm run test:unit -- --grep "stale"` for a focused pass.
+- Manual spot-check: set `beads.staleThresholdMinutes` low, mark a task `in_progress`, wait past the threshold, and confirm it shows in Warning; closing the item should drop it from Warning immediately.
+- Empty epics behave the same way: an open empty epic shows in Warning, but closing it moves it to Closed and keeps it out of Warning across refreshes.
+
 ## Integration tests (headless by default)
 - Primary command: `npm run test:integration:headless` (uses `xvfb-run -a` on Linux; reuses focus-suppressing args on macOS/Windows).
 - Channels: set `VSCODE_TEST_CHANNEL=stable|insiders` or use `npm run test:integration:stable` / `npm run test:integration:insiders` helpers.

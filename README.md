@@ -37,6 +37,14 @@ This Visual Studio Code extension provides a simple explorer view for [Beads](ht
 
 The extension integrates with the Beads CLI (`bd`) and reads from the Beads database (`.beads/*.db`). Changes are automatically reflected in the UI through file system watchers.
 
+### Stale / Warning bucket
+- Shows tasks marked `in_progress` whose `inProgressSince` exceeds `beads.staleThresholdMinutes` (default 10 minutes).
+- Highlights empty epics that are not closed so they can be filled or closed intentionally.
+- Closed tasks and epics never appear in the Warning bucket, even if they still have an old in-progress timestamp.
+- The Warning bucket sits above other sections; blocked/open items stay in their usual sections unless they become in progress and stale.
+
+
+
 ## CI & Testing
 - CI: see the Test workflow badge above (runs lint, unit, integration on Ubuntu/macOS/Windows, Node 18/20).
 - Headless/channel scripts: `npm run test:integration:stable`, `npm run test:integration:insiders`, `npm run test:integration:headless` (Linux wraps `xvfb-run -a`).
