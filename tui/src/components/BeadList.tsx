@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Box, Text, useInput } from 'ink';
+import { Box, Text, useInput, useStdout } from 'ink';
 import type { BeadItemData } from '@beads/core';
 
 interface Props {
@@ -24,7 +24,19 @@ const statusColor = (status?: string): string => {
 
 export const BeadList: React.FC<Props> = ({ items, selectedId, onSelect, loading }) => {
   const [cursor, setCursor] = useState(0);
+  const { stdout } = useStdout();
   const rows = useMemo(() => items, [items]);
+
+  const maxWidth = useMemo(() => {
+    const columns = stdout?.columns ?? 80;
+    return Math.max(40, Math.min(columns - 4, 100)); // leave border/padding space, cap for readability
+  }, [stdout]);
+
+  const truncate = (value: string | undefined, limit = maxWidth - 6): string => {
+    const str = value ?? '';
+    if (str.length <= limit) return str;
+    return `${str.slice(0, Math.max(0, limit - 1))}…`;
+  };
 
   useInput((input, key) => {
     if (key.upArrow || input === 'k') setCursor((c) => Math.max(0, c - 1));
@@ -35,7 +47,15 @@ export const BeadList: React.FC<Props> = ({ items, selectedId, onSelect, loading
   const activeId = selectedId ?? rows[cursor]?.id;
 
   return (
-    <Box flexDirection="column" borderStyle="round" borderColor="cyan" paddingX={1} paddingY={0} flexGrow={1}>
+    <Box
+      flexDirection="column"
+      borderStyle="round"
+      borderColor="cyan"
+      paddingX={1}
+      paddingY={0}
+      flexGrow={1}
+      width={maxWidth}
+    >
       <Box justifyContent="space-between">
         <Text color="cyan">Issues</Text>
         <Text dimColor>{loading ? 'Loading…' : `${rows.length} items`}</Text>
@@ -45,17 +65,18 @@ export const BeadList: React.FC<Props> = ({ items, selectedId, onSelect, loading
       ) : (
         rows.map((item, index) => {
           const isActive = activeId === item.id || cursor === index;
+          const title = truncate(item.title || 'Untitled');
           return (
             <Box key={item.id} flexDirection="column">
               <Text inverse={isActive}>
                 {isActive ? '▶ ' : '  '}
                 <Text color={statusColor(item.status)}>{item.id}</Text>
                 <Text> · </Text>
-                {item.title || 'Untitled'}
+                {title}
               </Text>
               {item.description ? (
                 <Text dimColor wrap="truncate-end">
-                  {item.description}
+                  {truncate(item.description, maxWidth - 4)}
                 </Text>
               ) : null}
             </Box>
