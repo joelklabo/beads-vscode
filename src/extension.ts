@@ -17,7 +17,7 @@ import {
   MarkdownExportHeaders,
   writeBeadsCsvFile,
   CsvExportHeaders,
-  canTransition,
+  validateStatusChange,
   formatStatusLabel,
   buildBulkSelection,
   executeBulkStatusUpdate,
@@ -3957,24 +3957,25 @@ async function inlineStatusQuickChange(
     return;
   }
 
-  const statusOptions = ['open', 'in_progress', 'blocked', 'closed'] as const;
-  const selection = await vscode.window.showQuickPick(
-    statusOptions.map((status) => ({
-      label: formatStatusLabel(status),
-      description: status,
-      value: status,
-    })),
+  const statusLabels = getStatusLabels();
+  const statusPick = await vscode.window.showQuickPick(
+    [
+      { label: statusLabels.open, description: 'open', value: 'open' },
+      { label: statusLabels.in_progress, description: 'in_progress', value: 'in_progress' },
+      { label: statusLabels.blocked, description: 'blocked', value: 'blocked' },
+      { label: statusLabels.closed, description: 'closed', value: 'closed' },
+    ],
     {
       placeHolder: t('Select a new status to apply'),
       ignoreFocusOut: true,
     }
   );
 
-  if (!selection) {
+  if (!statusPick) {
     return;
   }
 
-  const targetStatus = selection.value;
+  const targetStatus = statusPick.value;
   const projectRoot = resolveProjectRoot(config);
 
   if (!projectRoot) {
@@ -3982,53 +3983,56 @@ async function inlineStatusQuickChange(
     return;
   }
 
-  const summary = {
-    updated: [] as string[],
-    skipped: [] as string[],
-    failed: [] as string[],
-  };
+  const transitionable = beads.filter((bead) => validateStatusChange(bead.status, targetStatus).allowed);
+  const skipped = beads.filter((bead) => !validateStatusChange(bead.status, targetStatus).allowed).map((bead) => bead.id);
 
-  await vscode.window.withProgress({
-    location: vscode.ProgressLocation.Notification,
-    title: t('Updating status for {0} item(s)...', beads.length),
-    cancellable: false,
-  }, async () => {
-    for (const bead of beads) {
-      if (!canTransition(bead.status, targetStatus)) {
-        summary.skipped.push(bead.id);
-        continue;
-      }
+  if (transitionable.length === 0) {
+    void vscode.window.showWarningMessage(t('All selected items are already in status {0}.', formatStatusLabel(targetStatus)));
+    return;
+  }
 
-      try {
-        await runBdCommand(['update', bead.id, '--status', targetStatus], projectRoot);
-        summary.updated.push(bead.id);
-      } catch (error) {
-        console.error('Failed to update status', error);
-        summary.failed.push(bead.id);
-      }
+  const summary = await vscode.window.withProgress(
+    {
+      location: vscode.ProgressLocation.Notification,
+      title: t('Updating status for {0} item(s)...', transitionable.length),
+      cancellable: false,
+    },
+    async (progress) => {
+      return executeBulkStatusUpdate(
+        transitionable.map((bead) => bead.id),
+        targetStatus,
+        async (id) => {
+          await runBdCommand(['update', id, '--status', targetStatus], projectRoot);
+        },
+        (completed, total) => {
+          progress.report({ message: t('{0}/{1} updated', completed, total) });
+        }
+      );
     }
-  });
+  );
 
   await provider.refresh();
 
-  if (summary.updated.length > 0) {
+  if (summary.successes.length > 0) {
     void vscode.window.showInformationMessage(
-      t('Updated status for {0} item(s)', summary.updated.length)
+      t('Updated status for {0} item(s)', summary.successes.length)
     );
   }
 
-  if (summary.skipped.length > 0) {
+  if (skipped.length > 0) {
     void vscode.window.showWarningMessage(
-      t('Skipped {0} item(s) already in that status: {1}', summary.skipped.length, summary.skipped.join(', '))
+      t('Skipped {0} item(s) already in that status: {1}', skipped.length, skipped.join(', '))
     );
   }
 
-  if (summary.failed.length > 0) {
+  if (summary.failures.length > 0) {
+    const failureList = summary.failures.map((failure) => `${failure.id}: ${failure.error}`).join('; ');
     void vscode.window.showErrorMessage(
-      t('Failed to update {0} item(s): {1}', summary.failed.length, summary.failed.join(', '))
+      t('Failed to update {0} item(s): {1}', summary.failures.length, failureList)
     );
   }
 }
+
 export function activate(context: vscode.ExtensionContext): void {
   const provider = new BeadsTreeDataProvider(context);
   const treeView = vscode.window.createTreeView('beadsExplorer', {
@@ -4116,7 +4120,6 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('beads.exportMarkdown', () => exportBeadsMarkdown(provider, treeView)),
     vscode.commands.registerCommand('beads.bulkUpdateStatus', () => bulkUpdateStatus(provider, treeView)),
     vscode.commands.registerCommand('beads.toggleFavorite', () => toggleFavorites(provider, treeView, context)),
-    vscode.commands.registerCommand('beads.inlineStatusChange', () => inlineStatusQuickChange(provider, treeView, activityFeedView)),
     vscode.commands.registerCommand('beads.inlineStatusChange', () => inlineStatusQuickChange(provider, treeView, activityFeedView)),
     
     // Activity Feed commands

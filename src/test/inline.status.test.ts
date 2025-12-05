@@ -87,13 +87,17 @@ function createVscodeStub(enableFlag = true) {
 
 describe('Inline status quick change', () => {
   let vscodeStub: any;
-  let execCalls: Array<{ file: any; args: any; options: any }>; let restoreLoad: any;
+  let execCalls: Array<{ file: any; args: any; options: any }>;
+  let restoreLoad: any;
   let BeadsTreeDataProvider: any;
   let BeadTreeItem: any;
   let inlineStatusQuickChange: any;
+  let provider: any;
+  let failIds: Set<string>;
 
   beforeEach(() => {
     execCalls = [];
+    failIds = new Set();
     const moduleAny = Module as any;
     restoreLoad = moduleAny._load;
     vscodeStub = createVscodeStub(true);
@@ -111,8 +115,10 @@ describe('Inline status quick change', () => {
               cb = opts;
               opts = undefined;
             }
+            const id = Array.isArray(args) ? args[1] : undefined;
+            const error = failIds.has(id) ? new Error('cli failed') : null;
             execCalls.push({ file, args, options: opts });
-            cb(null, { stdout: '', stderr: '' });
+            cb(error, { stdout: '', stderr: '' });
           },
         };
       }
@@ -130,13 +136,17 @@ describe('Inline status quick change', () => {
   });
 
   afterEach(() => {
+    provider?.dispose?.();
     const moduleAny = Module as any;
     moduleAny._load = restoreLoad;
   });
 
+  function createContextStub() {
+    return { subscriptions: [], workspaceState: { get: () => undefined, update: async () => undefined } } as any;
+  }
+
   it('updates status for selected beads', async () => {
-    const context = { subscriptions: [], workspaceState: { get: () => undefined, update: async () => undefined } } as any;
-    const provider = new BeadsTreeDataProvider(context);
+    provider = new BeadsTreeDataProvider(createContextStub());
     (provider as any).items = [
       { id: 'A', title: 'A', status: 'open' },
       { id: 'B', title: 'B', status: 'blocked' },
@@ -155,8 +165,7 @@ describe('Inline status quick change', () => {
   });
 
   it('skips items already in target status', async () => {
-    const context = { subscriptions: [], workspaceState: { get: () => undefined, update: async () => undefined } } as any;
-    const provider = new BeadsTreeDataProvider(context);
+    provider = new BeadsTreeDataProvider(createContextStub());
     (provider as any).items = [
       { id: 'C', title: 'C', status: 'closed' },
     ];
@@ -166,7 +175,22 @@ describe('Inline status quick change', () => {
     await inlineStatusQuickChange(provider, treeView, undefined);
 
     assert.strictEqual(execCalls.length, 0, 'No CLI calls for unchanged status');
-    assert.ok(vscodeStub._warnings.some((msg: string) => msg.toLowerCase().includes('skipped')));
+    assert.ok(vscodeStub._warnings.some((msg: string) => msg.toLowerCase().includes('already')));
+  });
+
+  it('reports failures per item', async () => {
+    provider = new BeadsTreeDataProvider(createContextStub());
+    failIds.add('E');
+    (provider as any).items = [
+      { id: 'E', title: 'E', status: 'open' },
+    ];
+    (provider as any).refresh = async () => { (provider as any)._refreshed = true; };
+    const treeView = { selection: [new BeadTreeItem((provider as any).items[0])] } as any;
+
+    await inlineStatusQuickChange(provider, treeView, undefined);
+
+    assert.strictEqual(execCalls.length, 1);
+    assert.ok(vscodeStub._errors.some((msg: string) => msg.includes('E')));
   });
 
   it('respects feature flag disablement', async () => {
@@ -189,7 +213,7 @@ describe('Inline status quick change', () => {
     delete require.cache[require.resolve('../extension')];
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const extension = require('../extension');
-    const provider = new extension.BeadsTreeDataProvider({ subscriptions: [], workspaceState: { get: () => undefined, update: async () => undefined } } as any);
+    provider = new extension.BeadsTreeDataProvider(createContextStub());
     const treeView = { selection: [] } as any;
 
     await extension.inlineStatusQuickChange(provider, treeView, undefined);
