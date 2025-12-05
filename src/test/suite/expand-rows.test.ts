@@ -8,7 +8,6 @@ suite('Expandable rows', () => {
   let vscodeStub: any;
   let BeadsTreeDataProvider: any;
   let BeadTreeItem: any;
-  let BeadDetailItem: any;
 
   setup(() => {
     const moduleAny = Module as any;
@@ -36,7 +35,6 @@ suite('Expandable rows', () => {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const items = require('../../providers/beads/items');
     BeadTreeItem = items.BeadTreeItem;
-    BeadDetailItem = items.BeadDetailItem;
   });
 
   teardown(() => {
