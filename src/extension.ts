@@ -29,6 +29,7 @@ import {
   isValidFavoriteLabel,
   validateFavoriteTargets,
   sanitizeFavoriteError,
+  syncFavoritesState,
 } from './utils';
 import { ActivityFeedTreeDataProvider, ActivityEventItem } from './activityFeedProvider';
 import { EventType } from './activityFeed';
@@ -592,6 +593,19 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
       const result = await loadBeads(projectRoot, config);
       this.items = result.items;
       this.document = result.document;
+
+      const favoritesEnabled = config.get<boolean>('favorites.enabled', false);
+      if (favoritesEnabled) {
+        const favoriteLabel = getFavoriteLabel(config);
+        const useLabelStorage = config.get<boolean>('favorites.useLabelStorage', true);
+        await syncFavoritesState({
+          context: this.context,
+          items: this.items,
+          favoriteLabel,
+          useLabelStorage,
+        });
+      }
+
       console.log('[Provider DEBUG] After loadBeads, items count:', this.items.length);
       console.log('[Provider DEBUG] Items IDs:', this.items.map(i => i.id).slice(0, 10));
       this.ensureWatcher(result.document.filePath);
@@ -4171,6 +4185,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
     if (event.affectsConfiguration('beads.favorites')) {
       applyFavoritesContext();
+      void provider.refresh();
     }
 
     if (event.affectsConfiguration('beads.feedback') || event.affectsConfiguration('beads.projectRoot')) {
