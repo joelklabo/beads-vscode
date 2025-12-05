@@ -396,8 +396,14 @@ User collapse/expand choices persist and override defaults on subsequent loads. 
 
 ### Epic mode parity & empty epics
 - Epic view mirrors the above collapse defaults per epic section: active epics expanded; closed epics collapsed by default.
-- "Empty epic" = epic with zero visible children after filters/search. Empty closed epics are hidden; empty open epics render a single placeholder row (“No issues yet”) to allow drop targets and keep manual sort stable.
+- "Empty epic" = epic with zero visible children after filters/search. Empty closed epics stay in the Closed section (never Warning). Empty non-closed epics render a single placeholder row (“No issues yet”) and surface in Warning to prompt triage.
 - Items lacking `parentId` stay in an "Ungrouped" section (expanded). Missing parent IDs never create phantom empties.
+
+### Stale / Warning rules
+- Closed issues (tasks and epics) are filtered out before the Warning bucket is built.
+- Stale task criteria: `status === in_progress` **and** `inProgressSince` is older than the configured threshold (`beads.staleThresholdMinutes`, minutes → hours conversion).
+- Empty epics surface in Warning only when they are not closed; closed empty epics stay in the Closed section.
+- Apply the same filtering in both Status and Epic sort modes so the bucket contents stay consistent.
 
 ### Edge cases & error handling
 - Persisted collapse state from previous sessions is honored even if defaults change.

@@ -11,7 +11,7 @@ This Visual Studio Code extension provides a simple explorer view for [Beads](ht
 - **Issue Type Icons**: Each issue type displays with a distinctive icon - epics (📦), tasks (☑️), bugs (🐛), features (💡), spikes (🧪), and chores (🔧) - making it easy to identify different work types at a glance.
 - **Epic Grouping**: Group tasks by their parent epic using the "Toggle Sort Mode" command. Epics appear as expandable sections containing their child tasks, with ungrouped items shown in a separate section. Toggle between ID sort, status sort, and epic grouping modes.
 - **Live Data Sync**: Automatically watches the Beads database for changes and refreshes the view in real-time.
-- **Stale Task Warning**: Automatically detects and highlights in-progress tasks that have been stale for too long. A warning section at the top of the tree view shows tasks that exceed the configurable threshold, helping identify potentially stuck work or forgotten tasks.
+- **Stale Task Warning**: Automatically detects and highlights in-progress tasks that have been stale for too long. A warning section at the top of the tree view shows tasks that exceed the configurable threshold, helping identify potentially stuck work or forgotten tasks. Closed items are never shown in this bucket.
 - **Search**: Search across beads by ID, title, description, labels, status, assignee, and more.
 - **Drag and Drop Sorting**: Manually reorder beads in the tree view with drag-and-drop support.
 - **Dependency Visualization**: Interactive dependency graph showing relationships between beads with draggable nodes.
