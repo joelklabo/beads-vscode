@@ -148,6 +148,39 @@ describe('Extension tree items', () => {
     });
   });
 
+  it('provides expandable detail items for beads', async () => {
+    const context = createContextStub();
+    const provider = new BeadsTreeDataProvider(context as any);
+    (provider as any).items = [
+      {
+        id: 'task-1',
+        title: 'Inspect expandable row',
+        issueType: 'task',
+        status: 'open',
+        assignee: 'Ada Lovelace',
+        tags: ['backend', 'infra'],
+        updatedAt: new Date().toISOString(),
+        priority: 2,
+      }
+    ];
+
+    const roots = await provider.getChildren();
+    const bead = roots.find((n: any) => n.contextValue === 'bead');
+
+    assert.ok(bead, 'bead tree item should exist');
+    assert.strictEqual(bead.collapsibleState, vscodeStub.TreeItemCollapsibleState.Collapsed);
+
+    const details = await provider.getChildren(bead);
+    const detailLabels = details.map((d: any) => d.label as string);
+    const detailDescriptions = details.map((d: any) => d.description as string);
+
+    assert.ok(detailDescriptions.some((d: string) => (d || '').toLowerCase().includes('status: open')));
+    assert.ok(detailLabels.some((l: string) => (l || '').toLowerCase().includes('labels')));
+    assert.ok(detailLabels.some((l: string) => (l || '').toLowerCase().includes('updated')));
+
+    provider.dispose();
+  });
+
   it('creates an EpicTreeItem with children summary', () => {
     const epic = { id: 'epic-1', title: 'Test Epic', issueType: 'epic', status: 'open' };
     const children = [
