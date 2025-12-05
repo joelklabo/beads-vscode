@@ -21,6 +21,7 @@ export class ActivityFeedStore {
   private events: EventData[] = [];
   private totalEvents = 0;
   private pageSize = 200;
+  private desiredLimit = this.pageSize * 5;
   private currentPage = 0;
   private filterEventTypes: EventType[] | undefined;
   private filterIssueId: string | undefined;
@@ -61,13 +62,21 @@ export class ActivityFeedStore {
 
   private resetPaging(): void {
     this.currentPage = 0;
+    this.desiredLimit = this.pageSize * 5;
   }
 
   async loadMore(projectRoot: string | undefined): Promise<void> {
-    if ((this.currentPage + 1) * this.pageSize < this.totalEvents) {
-      this.currentPage++;
-      await this.refresh(projectRoot);
+    if (!projectRoot) {
+      return;
     }
+
+    if (this.events.length >= this.totalEvents) {
+      return;
+    }
+
+    this.desiredLimit = Math.min(this.totalEvents, this.desiredLimit + this.pageSize);
+    this.currentPage++;
+    await this.refresh(projectRoot);
   }
 
   async refresh(projectRoot: string | undefined): Promise<void> {
@@ -85,9 +94,11 @@ export class ActivityFeedStore {
         return;
       }
 
+      const targetLimit = this.totalEvents > 0 ? Math.min(this.totalEvents, this.desiredLimit) : this.desiredLimit;
+
       const options: FetchEventsOptions = {
-        limit: this.pageSize,
-        offset: this.currentPage * this.pageSize,
+        limit: targetLimit,
+        offset: 0,
         eventTypes: this.filterEventTypes,
         issueId: this.filterIssueId,
       };
@@ -196,7 +207,7 @@ export class ActivityFeedStore {
     for (const event of this.events) {
       byType[event.eventType] = (byType[event.eventType] || 0) + 1;
     }
-    return { total: this.totalEvents, byType };
+    return { total: Math.max(this.totalEvents, this.events.length), byType };
   }
 }
 
