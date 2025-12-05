@@ -427,3 +427,11 @@ User collapse/expand choices persist and override defaults on subsequent loads. 
 - Expand/collapse affordance: chevron button (aria-expanded) on each row to reveal metadata (labels, priority, updated-at, external refs) without changing selection; keyboard: Space/Enter toggles, Left/Right collapse/expand.
 - Accessibility: chips are `button` with `aria-pressed`, rows expose `aria-level` and `aria-expanded`; focus order is toolbar → list → expanded metadata. All labels/assignees are HTML-escaped and sanitized before render.
 - See `docs/filters-assignee.md` for detailed states, sorting keys, and copy blocks.
+
+## Headless & Multi-Agent Integration Tests (beads-8t1)
+- Launch args (all OSes): `--disable-gpu --disable-dev-shm-usage --disable-renderer-backgrounding --disable-features=CalculateNativeWinOcclusion`; write crash logs per run instance.
+- Isolation: honor `VSCODE_TEST_INSTANCE_ID` (or generate random) to create unique `tmp/integration/<instance>` user-data and extensions directories; clean after runs. Keep `.vscode-test` separate and clear when channel switches.
+- Channel selection: `VSCODE_TEST_CHANNEL` drives binary choice (`stable` default, `insiders` allowed). Harness should resolve paths accordingly.
+- Linux: wrap integration runs with `xvfb-run -a` if no display. macOS/Windows rely on headless-friendly flags to avoid foreground focus.
+- CI guidance: start matrix on ubuntu/macos/windows (stable); add insiders once scripts land. Upload VS Code logs/crash dumps keyed by instance id for failures.
+- See `docs/testing-headless.md` for env var table, temp dir scheme, and local usage examples.
