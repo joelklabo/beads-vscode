@@ -371,7 +371,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   private manualSortOrder: Map<string, number> = new Map();
 
   // Sort mode: 'id' (natural ID sort), 'status' (group by status), or 'epic' (group by parent epic)
-  private sortMode: 'id' | 'status' | 'epic' = 'id';
+  private sortMode: 'id' | 'status' | 'epic' | 'assignee' = 'id';
   
   // Collapsed state for status sections
   private collapsedSections: Set<string> = new Set(DEFAULT_COLLAPSED_SECTION_KEYS);
@@ -1294,7 +1294,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   }
 
   private loadSortMode(): void {
-    const saved = this.context.workspaceState.get<'id' | 'status' | 'epic'>('beads.sortMode');
+    const saved = this.context.workspaceState.get<'id' | 'status' | 'epic' | 'assignee'>('beads.sortMode');
     if (saved) {
       this.sortMode = saved;
     }
@@ -1466,22 +1466,30 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   }
 
   toggleSortMode(): void {
-    // Cycle through: id -> status -> epic -> id
+    // Cycle through: id → status → epic → assignee → id
     if (this.sortMode === 'id') {
       this.sortMode = 'status';
     } else if (this.sortMode === 'status') {
       this.sortMode = 'epic';
+    } else if (this.sortMode === 'epic') {
+      this.sortMode = 'assignee';
     } else {
       this.sortMode = 'id';
     }
     this.saveSortMode();
     this.onDidChangeTreeDataEmitter.fire();
-    const modeDisplay = this.sortMode === 'id' ? t('ID (natural)') : 
-                        this.sortMode === 'status' ? t('Status') : t('Epic');
+    const modeDisplay =
+      this.sortMode === 'id'
+        ? t('ID (natural)')
+        : this.sortMode === 'status'
+          ? t('Status')
+          : this.sortMode === 'epic'
+            ? t('Epic')
+            : t('Assignee');
     void vscode.window.showInformationMessage(t('Sort mode: {0}', modeDisplay));
   }
 
-  getSortMode(): 'id' | 'status' | 'epic' {
+  getSortMode(): 'id' | 'status' | 'epic' | 'assignee' {
     return this.sortMode;
   }
 
@@ -1516,6 +1524,10 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
       return this.sortByStatus(items);
     }
 
+    if (this.sortMode === 'assignee') {
+      return this.sortByAssignee(items);
+    }
+
     // Default: return items as-is (already naturally sorted by ID)
     return items;
   }
@@ -1542,6 +1554,31 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
       }
 
       // Then sort by ID naturally within each status group
+      return naturalSort(a, b);
+    });
+  }
+
+  private sortByAssignee(items: BeadItemData[]): BeadItemData[] {
+    const normalize = (item: BeadItemData) => deriveAssigneeName(item, '').trim();
+    return [...items].sort((a, b) => {
+      const aKey = normalize(a);
+      const bKey = normalize(b);
+
+      const aHas = aKey.length > 0;
+      const bHas = bKey.length > 0;
+
+      if (aHas && !bHas) {
+        return -1;
+      }
+      if (!aHas && bHas) {
+        return 1;
+      }
+
+      const cmp = aKey.localeCompare(bKey, undefined, { sensitivity: 'base' });
+      if (cmp !== 0) {
+        return cmp;
+      }
+
       return naturalSort(a, b);
     });
   }
