@@ -1,7 +1,7 @@
+import { validateStatusSelection } from '../utils/status';
+import { validateLabelInput, validateTitleInput } from '../utils/validation';
+
 const BEAD_ID_REGEX = /^[A-Za-z0-9._-]{1,64}$/;
-const MAX_TITLE_LENGTH = 256;
-const MAX_LABEL_LENGTH = 64;
-const MAX_STATUS_LENGTH = 64;
 const MAX_URL_LENGTH = 2048;
 
 export type LittleGlenCommand =
@@ -36,8 +36,16 @@ function isSafeUrl(input: unknown): input is string {
   }
 }
 
-function isSafeString(input: unknown, maxLength: number): input is string {
-  return typeof input === 'string' && input.trim().length > 0 && input.length <= maxLength;
+function isSafeTitle(input: unknown): string | undefined {
+  if (typeof input !== 'string') return undefined;
+  const result = validateTitleInput(input);
+  return result.valid ? result.value : undefined;
+}
+
+function isSafeLabel(input: unknown): string | undefined {
+  if (typeof input !== 'string') return undefined;
+  const result = validateLabelInput(input);
+  return result.valid ? result.value : undefined;
 }
 
 /**
@@ -77,23 +85,26 @@ export function validateLittleGlenMessage(
     }
     case 'updateStatus': {
       const status = message.status;
-      if (isSafeString(status, MAX_STATUS_LENGTH)) {
-        return { command, status: status.trim() };
+      const normalized = typeof status === 'string' ? validateStatusSelection(status) : undefined;
+      if (normalized) {
+        return { command, status: normalized };
       }
       return undefined;
     }
     case 'updateTitle': {
       const title = message.title;
-      if (isSafeString(title, MAX_TITLE_LENGTH)) {
-        return { command, title: title.trim() };
+      const normalized = isSafeTitle(title);
+      if (normalized) {
+        return { command, title: normalized };
       }
       return undefined;
     }
     case 'addLabel':
     case 'removeLabel': {
       const label = message.label;
-      if (isSafeString(label, MAX_LABEL_LENGTH)) {
-        return { command, label: label.trim() };
+      const normalized = isSafeLabel(label);
+      if (normalized) {
+        return { command, label: normalized };
       }
       return undefined;
     }
