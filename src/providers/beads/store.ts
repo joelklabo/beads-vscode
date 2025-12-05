@@ -86,6 +86,7 @@ export async function loadBeads(
       cwd: projectRoot,
       policy,
       maxBuffer: 10 * 1024 * 1024,
+      redactPaths: [projectRoot],
     });
 
     let beads: any[] = [];
