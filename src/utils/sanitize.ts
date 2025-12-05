@@ -79,3 +79,12 @@ export function sanitizeMarkdown(markdown: string, options: MarkdownSanitizeOpti
 
   return sanitizeHtml(markdown ?? '', mergedOptions);
 }
+
+export function sanitizeInlineText(value: string | undefined | null): string {
+  if (!value) {
+    return '';
+  }
+  // Strip HTML tags/attributes and collapse whitespace
+  const stripped = sanitizeHtml(value, { allowedTags: [], allowedAttributes: {} }) ?? '';
+  return stripped.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
+}

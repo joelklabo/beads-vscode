@@ -101,7 +101,10 @@ describe('Bead title formatting', () => {
     assert.ok(item.description?.includes('XYZ-99'));
     const preview = buildPreviewSnippet(longDesc, 40);
     assert.ok(preview?.endsWith('…'));
-    assert.ok(item.description?.includes(preview!.slice(0, 10)), 'tree description should include preview snippet');
+    const summaryDetail = item.getDetails().find((d: any) => (d.label || '').toLowerCase().includes('summary'));
+    assert.ok(summaryDetail, 'summary detail should be present');
+    const summaryText = (summaryDetail?.description ?? summaryDetail?.label ?? '') as string;
+    assert.ok(summaryText.includes(preview!.slice(0, 10)), 'summary detail should include preview snippet');
   });
 
   it('helper functions normalize ids and previews', () => {
