@@ -135,9 +135,9 @@ The extension supports three view modes that you can cycle through using the "To
 
 ### Filters and badges
 
-- The explorer toolbar shows the active filter as `Filter: <mode>`; click it or run `Beads: Switch Filter Mode…` to pick between Issues, Epics, Favorites, and other scopes. Tooltips explain what each mode hides or includes.
-- Every row displays an assignee pill and status label. In **assignee sort** (cycle with `Beads: Toggle Sort Mode`), names sort case-insensitively with **Unassigned** always last.
-- Press **Space/Enter** or click the chevron to expand a row for more metadata (labels, priority, updated time) without leaving the list. Focus order and `aria-expanded` are maintained for keyboard and screen reader users.
+- Use the explorer toolbar chip labeled `Filter: <mode>` (Issues, Epics, Favorites, Recent, Blockers, etc.). Click it or run `Beads: Switch Filter Mode…` (Cmd/Ctrl+Shift+P) to open the same quick pick with scope hints; the active label stays visible in high-contrast themes.
+- Every row shows an assignee pill plus a colored status badge even when collapsed. In **assignee sort** (cycle with `Beads: Toggle Sort Mode`), names sort case-insensitively with **Unassigned** pinned to the bottom.
+- Press **Space/Enter** or click the chevron to expand a row for labels, priority, external reference, and updated time without leaving the list. Focus order and `aria-expanded` stay in sync, and user-provided text is HTML-escaped in tooltips/markdown for safety.
 - See [docs/filters-assignee.md](docs/filters-assignee.md) for deeper UX/accessibility notes.
 
 ### Dependency tree editing (preview)
