@@ -22,6 +22,8 @@ import {
   formatStatusLabel,
   buildBulkSelection,
   executeBulkStatusUpdate,
+  executeBulkLabelUpdate,
+  BulkLabelAction,
   BulkOperationFailure,
   getFavoriteLabel,
   getLocalFavorites,
@@ -3733,8 +3735,7 @@ async function exportBeadsMarkdown(provider: BeadsTreeDataProvider, treeView: vs
 
 async function bulkUpdateStatus(
   provider: BeadsTreeDataProvider,
-  treeView: vscode.TreeView<TreeItemType>,
-  runCommand: RunBdCommandFn = runBdCommand
+  treeView: vscode.TreeView<TreeItemType>
 ): Promise<void> {
   const bulkConfig = getBulkActionsConfig();
 
@@ -3794,7 +3795,7 @@ async function bulkUpdateStatus(
         ids,
         statusPick.value,
         async (id) => {
-          await runCommand(['update', id, '--status', statusPick.value], projectRoot);
+          await runBdCommand(['update', id, '--status', statusPick.value], projectRoot);
         },
         (completed, total) => {
           progress.report({ message: t('{0}/{1} updated', completed, total) });
@@ -3823,6 +3824,104 @@ async function bulkUpdateStatus(
       }
     }
   );
+}
+
+async function bulkUpdateLabel(
+  provider: BeadsTreeDataProvider,
+  treeView: vscode.TreeView<TreeItemType>,
+  action: BulkLabelAction
+): Promise<void> {
+  const bulkConfig = getBulkActionsConfig();
+
+  if (!bulkConfig.enabled) {
+    const message = bulkConfig.validationError
+      ? t('Bulk actions are disabled: {0}', bulkConfig.validationError)
+      : t('Enable "beads.bulkActions.enabled" to run bulk label updates.');
+    void vscode.window.showWarningMessage(message);
+    return;
+  }
+
+  const selection = treeView.selection.filter((item): item is BeadTreeItem => item instanceof BeadTreeItem);
+  const { ids, error } = buildBulkSelection(selection.map((item) => item.bead), bulkConfig.maxSelection);
+
+  if (error) {
+    if (ids.length === 0) {
+      void vscode.window.showWarningMessage(t('Select one or more beads to update.'));
+    } else {
+      void vscode.window.showWarningMessage(
+        t('Select at most {0} beads for bulk update (selected {1}).', bulkConfig.maxSelection, ids.length)
+      );
+    }
+    return;
+  }
+
+  const labelInput = await vscode.window.showInputBox({
+    prompt: t('Enter a label to {0}', action === 'add' ? t('add') : t('remove')),
+    placeHolder: t('example: urgent'),
+    validateInput: (value) => {
+      const result = validateLabelInput(value);
+      return result.valid ? undefined : validationMessage('label', result.reason);
+    }
+  });
+
+  if (!labelInput) {
+    return;
+  }
+
+  const labelResult = validateLabelInput(labelInput);
+  if (!labelResult.valid || !labelResult.value) {
+    void vscode.window.showWarningMessage(validationMessage('label', labelResult.reason));
+    return;
+  }
+
+  const label = labelResult.value;
+  const config = vscode.workspace.getConfiguration('beads');
+  const projectRoot = resolveProjectRoot(config);
+
+  if (!projectRoot) {
+    void vscode.window.showErrorMessage(PROJECT_ROOT_ERROR);
+    return;
+  }
+
+  const progressTitle = action === 'add'
+    ? t('Adding label "{0}" to {1} bead(s)...', label, ids.length)
+    : t('Removing label "{0}" from {1} bead(s)...', label, ids.length);
+
+  const result = await vscode.window.withProgress(
+    { location: vscode.ProgressLocation.Notification, title: progressTitle },
+    async (progress) => {
+      return executeBulkLabelUpdate(
+        ids,
+        label,
+        action,
+        async (id) => {
+          await runBdCommand(['label', action, id, label], projectRoot);
+        },
+        (completed, total) => {
+          progress.report({ message: t('{0}/{1} updated', completed, total) });
+        }
+      );
+    }
+  );
+
+  await provider.refresh();
+
+  if (result.failures.length === 0) {
+    const verb = action === 'add' ? t('Added') : t('Removed');
+    void vscode.window.showInformationMessage(t('{0} label "{1}" for {2} bead(s)', verb, label, result.successes.length));
+    return;
+  }
+
+  const failureList = result.failures.map((failure) => `${failure.id}: ${failure.error}`).join('; ');
+  if (result.successes.length === 0) {
+    void vscode.window.showErrorMessage(
+      t('Failed to update label for {0} bead(s): {1}', result.failures.length, failureList)
+    );
+  } else {
+    void vscode.window.showWarningMessage(
+      t('Updated {0} bead(s); failed for {1}: {2}', result.successes.length, result.failures.length, failureList)
+    );
+  }
 }
 
 type RunBdCommandFn = (args: string[], projectRoot: string, options?: BdCommandOptions) => Promise<void>;
@@ -4083,20 +4182,12 @@ export function activate(context: vscode.ExtensionContext): void {
   // Set tree view reference for badge updates
   provider.setTreeView(treeView);
 
-  const updateBulkSelectionContext = (): void => {
-    const hasSelection = treeView.selection.some((item): item is BeadTreeItem => item instanceof BeadTreeItem);
-    void vscode.commands.executeCommand('setContext', 'beads.bulkActionsHasSelection', hasSelection);
-  };
-
   // Track expand/collapse to update icons and persist state
   const expandListener = treeView.onDidExpandElement(event => {
     provider.handleCollapseChange(event.element, false);
   });
   const collapseListener = treeView.onDidCollapseElement(event => {
     provider.handleCollapseChange(event.element, true);
-  });
-  const selectionListener = treeView.onDidChangeSelection(() => {
-    updateBulkSelectionContext();
   });
 
   // Create and register status bar item for stale count
@@ -4108,7 +4199,6 @@ export function activate(context: vscode.ExtensionContext): void {
     const bulkConfig = getBulkActionsConfig();
     void vscode.commands.executeCommand('setContext', 'beads.bulkActionsEnabled', bulkConfig.enabled);
     void vscode.commands.executeCommand('setContext', 'beads.bulkActionsMaxSelection', bulkConfig.maxSelection);
-    updateBulkSelectionContext();
   };
 
   const applyFavoritesContext = (): void => {
@@ -4153,7 +4243,6 @@ export function activate(context: vscode.ExtensionContext): void {
     treeView,
     expandListener,
     collapseListener,
-    selectionListener,
     activityFeedView,
     vscode.commands.registerCommand('beads.refresh', () => provider.refresh()),
     vscode.commands.registerCommand('beads.search', () => provider.search()),
@@ -4168,6 +4257,8 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('beads.exportCsv', () => exportBeadsCsv(provider, treeView)),
     vscode.commands.registerCommand('beads.exportMarkdown', () => exportBeadsMarkdown(provider, treeView)),
     vscode.commands.registerCommand('beads.bulkUpdateStatus', () => bulkUpdateStatus(provider, treeView)),
+    vscode.commands.registerCommand('beads.bulkAddLabel', () => bulkUpdateLabel(provider, treeView, 'add')),
+    vscode.commands.registerCommand('beads.bulkRemoveLabel', () => bulkUpdateLabel(provider, treeView, 'remove')),
     vscode.commands.registerCommand('beads.toggleFavorite', () => toggleFavorites(provider, treeView, context)),
     vscode.commands.registerCommand('beads.inlineStatusChange', () => inlineStatusQuickChange(provider, treeView, activityFeedView)),
     
@@ -4372,4 +4463,5 @@ export {
   addDependencyCommand,
   inlineStatusQuickChange,
   bulkUpdateStatus,
+  bulkUpdateLabel,
 };
