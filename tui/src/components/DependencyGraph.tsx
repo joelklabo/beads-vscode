@@ -12,7 +12,7 @@ interface DependencyGraphProps {
 }
 
 const Warning: React.FC<{ message: string }> = ({ message }) => (
-  <Text color="red">⚠ {message}</Text>
+  <Text color="red">⚠ Warning: {message}</Text>
 );
 
 export const DependencyGraph: React.FC<DependencyGraphProps> = ({

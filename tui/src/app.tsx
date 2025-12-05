@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Box, Text, useStdout } from 'ink';
 import NavBar, { Tab, TabId, ThemeMode } from './components/NavBar';
+import KeymapHelp from './components/KeymapHelp';
 import { useKeymap } from './hooks/useKeymap';
 
 type AppProps = {
@@ -49,8 +50,9 @@ export const App: React.FC<AppProps> = ({
   simulateKeys,
 }) => {
   const [activeTab, setActiveTab] = useState<TabId>(initialTab);
-  const [status, setStatus] = useState<string>('Press ? for help · g d/i/a/g/s to jump');
+  const [status, setStatus] = useState<string>('Keyboard navigation ready. Press ? for help; g d/i/a/g/s to jump.');
   const [theme, setTheme] = useState<ThemeMode>('auto');
+  const [showHelp, setShowHelp] = useState<boolean>(false);
   const { stdout } = useStdout();
   const tabIds = useMemo(() => tabs.map((t) => t.id), []);
   const worktree = formatWorktreeLabel(cwd);
@@ -63,7 +65,11 @@ export const App: React.FC<AppProps> = ({
 
   const handleSearch = (): void => setStatus('Search is not wired yet (future work)');
   const handleHelp = (): void =>
-    setStatus('Keys: ←/→, g d/i/a/g/s to jump, t cycle theme, / search (placeholder)');
+    setShowHelp((prev) => {
+      const next = !prev;
+      setStatus(next ? 'Keyboard help shown below. Press ? again to hide.' : 'Help panel hidden.');
+      return next;
+    });
   const handleThemeToggle = (): void => {
     const next = nextTheme(theme);
     setTheme(next);
@@ -142,6 +148,8 @@ export const App: React.FC<AppProps> = ({
       </Box>
 
       <NavBar tabs={tabs} activeId={activeTab} onSelect={setTab} theme={theme} />
+
+      {showHelp ? <KeymapHelp activeTab={activeTab} /> : null}
 
       <Box
         flexDirection="column"

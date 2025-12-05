@@ -295,6 +295,7 @@ export class BeadsStore {
     }
 
     state.refreshInProgress = true;
+    let shouldRefreshAgain = false;
     try {
       const result = await this.loader(state.target);
       state.items = result.items;
@@ -307,13 +308,17 @@ export class BeadsStore {
     } finally {
       state.refreshInProgress = false;
       if (state.pendingRefresh) {
+        shouldRefreshAgain = true;
         state.pendingRefresh = false;
-        await this.refreshWorkspace(state.target);
-        return;
       }
-
-      this.notify(this.getSnapshot());
     }
+
+    if (shouldRefreshAgain) {
+      await this.refreshWorkspace(state.target);
+      return;
+    }
+
+    this.notify(this.getSnapshot());
   }
 
   private ensureWorkspaceState(target: WorkspaceTarget): WorkspaceState {

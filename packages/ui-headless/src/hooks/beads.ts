@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { collectDependencyEdges, mapBeadsToGraphNodes, filterBeadsByQuery, getStaleInfo, BeadItemData, BeadsStore, WorkspaceTarget, GraphEdgeData, GraphNodeData } from '@beads/core';
+import { collectDependencyEdges, mapBeadsToGraphNodes, filterBeadsByQuery, BeadItemData, BeadsStore, WorkspaceTarget, GraphEdgeData, GraphNodeData } from '@beads/core';
 import { createHeadlessActions, CliAdapter, HeadlessActions } from './actions';
 import { useStoreSnapshot, StoreState } from './store';
 

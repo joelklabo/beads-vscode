@@ -36,6 +36,7 @@ export const NavBar: React.FC<NavBarProps> = ({ tabs, activeId, onSelect, theme 
         const isActive = tab.id === activeId;
         const borderColor = isActive ? colors.active : colors.inactive;
         const textColor = isActive ? colors.badge : colors.inactive;
+        const stateLabel = isActive ? 'active tab' : 'available tab';
 
         return (
           <ClickableBox
@@ -49,7 +50,7 @@ export const NavBar: React.FC<NavBarProps> = ({ tabs, activeId, onSelect, theme 
             <Text color={textColor} inverse={isActive}>
               {isActive ? '● ' : '○ '}
               {tab.label}
-              <Text dimColor> ({tab.hotkey})</Text>
+              <Text dimColor> ({tab.hotkey} · {stateLabel})</Text>
             </Text>
           </ClickableBox>
         );

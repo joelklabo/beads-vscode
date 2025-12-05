@@ -19,15 +19,20 @@ const EmptyState: React.FC<{ message: string }> = ({ message }) => (
   </Box>
 );
 
-const EventRow: React.FC<{ event: FeedEvent }> = ({ event }) => (
-  <Box flexDirection="row" gap={1}>
-    <Text color="cyan">{event.icon ?? '•'}</Text>
-    <Text>{event.description}</Text>
-    <Text dimColor>· {event.issueId}</Text>
-    {event.actor ? <Text dimColor>· {event.actor}</Text> : null}
-    <Text dimColor>· {relativeLabel(new Date(event.createdAt))}</Text>
-  </Box>
-);
+const EventRow: React.FC<{ event: FeedEvent }> = ({ event }) => {
+  const originLabel = event.worktreeId ? `worktree ${event.worktreeId}` : 'main worktree';
+  const iconLabel = event.icon ?? 'event';
+  return (
+    <Box flexDirection="row" gap={1}>
+      <Text color="cyan">{iconLabel}</Text>
+      <Text>{event.description}</Text>
+      <Text dimColor>· {event.issueId}</Text>
+      {event.actor ? <Text dimColor>· {event.actor}</Text> : null}
+      <Text dimColor>· {originLabel}</Text>
+      <Text dimColor>· {relativeLabel(new Date(event.createdAt))}</Text>
+    </Box>
+  );
+};
 
 const Section: React.FC<{ section: SectionedEvents; selectedIndex: number; baseIndex: number }> = ({
   section,
@@ -40,8 +45,9 @@ const Section: React.FC<{ section: SectionedEvents; selectedIndex: number; baseI
       const isSelected = selectedIndex === baseIndex + idx;
       return (
         <Box key={item.id} paddingLeft={1}>
-          <Text inverse={isSelected}>{isSelected ? '▶ ' : '  '}</Text>
+          <Text inverse={isSelected}>{isSelected ? 'sel' : '  '}</Text>
           <EventRow event={item} />
+          {isSelected ? <Text dimColor> (selected item)</Text> : null}
         </Box>
       );
     })}
