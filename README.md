@@ -27,6 +27,8 @@ The project is moving to a layered, multi-surface layout so VS Code, a web clien
 
 Details and rules live in `docs/adr/2025-12-core-layering.md` and the short `docs/architecture.md` overview. `extension.ts` now stays lean (activation/wiring only) while domain logic, CLI calls, and stores sit in shared packages.
 
+The Ink-based TUI also rides on the shared layers: it instantiates `BeadsStore` from `@beads/core`, calls the CLI through `BdCliClient` (which injects `--no-daemon` and sanitizes stderr), and routes mutating commands through `runGuardedBd` from `tui/lib/worktree` so the worktree guard script runs before any bd edits.
+
 ### Workspace layout & commands
 - Build: `npm run build:core`, `npm run build:vscode`, `npm run build:tui`, `npm run build:web` (skips if the web workspace is absent)
 - Tests: `npm run test:unit` (VS Code), `npm run test:core`, `npm run test:tui`, `npm run test:web:skeleton`
