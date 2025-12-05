@@ -729,7 +729,8 @@
     "test:ui-web": "npm run -w @beads/ui-web test",
     "build:ui-web": "npm run -w @beads/ui-web build",
     "web:dev": "npm run -w @beads/web dev",
-    "web:preview": "npm run -w @beads/web preview"
+    "web:preview": "npm run -w @beads/web preview",
+    "tui:start": "npm run -w @beads/tui start"
   },
   "devDependencies": {
     "@beads/bd": "^0.29.0",
