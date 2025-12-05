@@ -15,6 +15,14 @@ This document summarizes the accessibility affordances for dependency visualizat
 - Delete removes the selected edge when editing is enabled; Escape cancels link mode. A legend callout clarifies that arrowheads and labels read as source → target.
 - High-contrast mode replaces color-only cues with outlines/dashes for nodes and edges.
 
+## Filters, badges, and expanded rows
+- Filter mode picker exposes an explicit title/aria label; toolbar button still uses the command title so screen readers announce it as a filter control. Use arrow keys and Enter/Space inside the picker.
+- Status badges in the bead detail view are buttons with aria-haspopup="listbox"; Enter/Space or click opens the list, Escape closes it, and Arrow Down focuses the first option. Options set aria-selected and accept Enter/Space.
+- Badges include a text label plus a geometric glyph (◆) and keep visible focus outlines. In high contrast mode badges pick up a system border.
+- Dependency tree rows include aria-expanded and show a left border when expanded; focus rings and CanvasText outlines remain visible in forced-colors.
+- Tree items announce assignee and status through accessibility labels so status/assignee cues are not color-only.
+
+
 ## Known limitations
 - Tree items are always expanded; Left/Right navigation only moves focus (no collapse state yet).
 - Graph layout relies on scrolling for very large graphs; there is no keyboard panning shortcut beyond standard scroll behavior.

@@ -13,7 +13,7 @@
   "command.beads.visualizeDependencies": "Beads: Visualize Dependencies",
   "command.beads.sendFeedback": "Beads: Send Feedback",
   "command.beads.clearSortOrder": "Beads: Clear Manual Sort Order",
-  "command.beads.toggleSortMode": "Beads: Cycle Sort Mode (ID \u2192 Status \u2192 Epic \u2192 Assignee)",
+  "command.beads.toggleSortMode": "Beads: Cycle Sort Mode (ID → Status → Epic → Assignee)",
   "command.beads.refreshActivityFeed": "Beads: Refresh Activity Feed",
   "command.beads.filterActivityFeed": "Beads: Filter Activity Feed",
   "command.beads.clearActivityFeedFilter": "Beads: Clear Activity Feed Filter",
@@ -55,9 +55,13 @@
   "command.beads.bulkAddLabel": "Beads: Bulk Add Label",
   "command.beads.bulkRemoveLabel": "Beads: Bulk Remove Label",
   "command.beads.toggleFavorite": "Beads: Toggle Favorite",
-  "command.beads.applyQuickFilterPreset": "Beads: Switch Filter Mode",
-  "command.beads.clearQuickFilters": "Beads: Clear Filter",
+  "command.beads.applyQuickFilterPreset": "Beads: Filter Mode Picker",
+  "command.beads.clearQuickFilters": "Beads: Clear Filter (Show all items)",
   "command.beads.openInProgressPanel": "Beads: Open In-Progress Spotlight",
   "command.beads.inlineEditTitle": "Beads: Rename (Inline)",
-  "command.beads.inlineEditLabels": "Beads: Edit Labels (Inline)"
+  "command.beads.inlineEditLabels": "Beads: Edit Labels (Inline)",
+  "aria.statusBadge": "Status badge: {0}. Activate to change.",
+  "aria.statusDropdown": "Status options list",
+  "aria.filterPicker": "Filter mode picker for issues and epics",
+  "aria.expandRow": "Expand or collapse issue details"
 }

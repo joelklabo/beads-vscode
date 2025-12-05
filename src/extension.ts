@@ -246,6 +246,9 @@ interface BeadDetailStrings {
   blocksLabel: string;
   labelPrompt: string;
   statusLabels: StatusLabelMap;
+  statusBadgeAriaLabel: string;
+  statusDropdownLabel: string;
+  statusOptionAriaLabel: string;
 }
 
 interface DependencyTreeStrings {
@@ -312,6 +315,9 @@ const buildBeadDetailStrings = (statusLabels: StatusLabelMap): BeadDetailStrings
   blocksLabel: t('Blocks'),
   labelPrompt: t('Enter label name:'),
   statusLabels,
+  statusBadgeAriaLabel: t('Status: {0}. Activate to change.'),
+  statusDropdownLabel: t('Status options'),
+  statusOptionAriaLabel: t('Set status to {0}'),
 });
 
 const buildDependencyTreeStrings = (statusLabels: StatusLabelMap): DependencyTreeStrings => ({
@@ -964,11 +970,36 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
       }
     ];
 
-    const selection = await vscode.window.showQuickPick<QuickFilterPick>(items, {
-      placeHolder: t('Filter mode (current: {0})', this.getQuickFilterLabel(this.quickFilter)),
-      matchOnDetail: true,
-      matchOnDescription: true
+    const picker = vscode.window.createQuickPick<QuickFilterPick>();
+    picker.items = items;
+    picker.matchOnDetail = true;
+    picker.matchOnDescription = true;
+    picker.placeholder = t('Filter mode (current: {0})', this.getQuickFilterLabel(this.quickFilter));
+    picker.title = t('Filter mode picker');
+    const preselected = items.filter(item => item.picked);
+    if (preselected.length) {
+      picker.activeItems = preselected;
+      picker.selectedItems = preselected;
+    }
+
+    const selection = await new Promise<QuickFilterPick | undefined>((resolve) => {
+      let finished = false;
+      const accept = picker.onDidAccept(() => {
+        finished = true;
+        resolve(picker.selectedItems[0]);
+        picker.hide();
+      });
+      const hide = picker.onDidHide(() => {
+        if (!finished) {
+          resolve(undefined);
+        }
+        accept.dispose();
+        hide.dispose();
+      });
+      picker.show();
     });
+
+    picker.dispose();
 
     if (!selection) {
       return;
@@ -987,6 +1018,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
       next ? t('Applied filter: {0}', nextLabel) : t('Quick filters cleared')
     );
   }
+
 
   clearSearch(): void {
     this.searchQuery = '';
@@ -1286,6 +1318,14 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     const isExpanded = this.expandedRows.has(item.id);
     const treeItem = new BeadTreeItem(item, isExpanded);
     treeItem.contextValue = 'bead';
+
+    const statusLabel = formatStatusLabel(item.status || 'open');
+    const assigneeName = deriveAssigneeName(item, t('Unassigned')).trim() || t('Unassigned');
+    const expansionLabel = isExpanded ? t('Expanded') : t('Collapsed');
+    treeItem.accessibilityInformation = {
+      label: t('{0}. Assignee: {1}. Status: {2}. {3} row.', item.title || item.id, assigneeName, statusLabel, expansionLabel),
+      role: 'treeitem'
+    };
 
     treeItem.command = {
       command: 'beads.openBead',
@@ -2134,6 +2174,18 @@ function getBeadDetailHtml(
             top: 50%;
             transform: translateY(-50%);
         }
+        .status-badge:focus-visible {
+            outline: 2px solid var(--vscode-focusBorder);
+            outline-offset: 2px;
+        }
+        .status-option:focus-visible {
+            outline: 1px solid var(--vscode-focusBorder);
+            outline-offset: 2px;
+        }
+        .status-badge::before {
+            content: '◆ ';
+            font-size: 10px;
+        }
         .status-dropdown {
             display: none;
             position: absolute;
@@ -2349,6 +2401,16 @@ function getBeadDetailHtml(
             .tree-row:focus-visible {
                 outline-color: CanvasText;
             }
+            .badge {
+                border: 1px solid CanvasText;
+            }
+            .status-badge:focus-visible,
+            .status-option:focus-visible {
+                outline-color: CanvasText;
+            }
+            .tree-row[aria-expanded="true"] .tree-row-main {
+                border-left: 2px solid CanvasText;
+            }
         }
         .tree-row {
             padding-left: calc(var(--depth, 0) * 14px);
@@ -2359,6 +2421,10 @@ function getBeadDetailHtml(
             align-items: center;
             justify-content: space-between;
             gap: 8px;
+        }
+        .tree-row[aria-expanded="true"] .tree-row-main {
+            border-left: 2px solid var(--vscode-panel-border);
+            padding-left: 6px;
         }
         .tree-left {
             display: flex;
@@ -2414,12 +2480,12 @@ function getBeadDetailHtml(
         <h1 class="title" id="issueTitle" contenteditable="false">${escapeHtml(item.title)}</h1>
         <div class="metadata">
             <div class="status-wrapper">
-                <span class="badge status-badge" id="statusBadge" data-status="${item.status || 'open'}">${escapeHtml(statusDisplay || strings.statusLabels.open)}</span>
-                <div class="status-dropdown" id="statusDropdown">
-                    <div class="status-option" data-status="open">${escapeHtml(strings.statusLabels.open)}</div>
-                    <div class="status-option" data-status="in_progress">${escapeHtml(strings.statusLabels.in_progress)}</div>
-                    <div class="status-option" data-status="blocked">${escapeHtml(strings.statusLabels.blocked)}</div>
-                    <div class="status-option" data-status="closed">${escapeHtml(strings.statusLabels.closed)}</div>
+                <span class="badge status-badge" id="statusBadge" role="button" tabindex="0" aria-haspopup="listbox" aria-expanded="false" aria-controls="statusDropdown" aria-label="${escapeHtml(t(strings.statusBadgeAriaLabel, statusDisplay || strings.statusLabels.open))}" data-status="${item.status || 'open'}">${escapeHtml(statusDisplay || strings.statusLabels.open)}</span>
+                <div class="status-dropdown" id="statusDropdown" role="listbox" aria-label="${escapeHtml(strings.statusDropdownLabel)}">
+                    <div class="status-option" data-status="open" role="option" aria-selected="${(item.status || 'open') === 'open'}" aria-label="${escapeHtml(t(strings.statusOptionAriaLabel, strings.statusLabels.open))}">${escapeHtml(strings.statusLabels.open)}</div>
+                    <div class="status-option" data-status="in_progress" role="option" aria-selected="${item.status === 'in_progress'}" aria-label="${escapeHtml(t(strings.statusOptionAriaLabel, strings.statusLabels.in_progress))}">${escapeHtml(strings.statusLabels.in_progress)}</div>
+                    <div class="status-option" data-status="blocked" role="option" aria-selected="${item.status === 'blocked'}" aria-label="${escapeHtml(t(strings.statusOptionAriaLabel, strings.statusLabels.blocked))}">${escapeHtml(strings.statusLabels.blocked)}</div>
+                    <div class="status-option" data-status="closed" role="option" aria-selected="${item.status === 'closed'}" aria-label="${escapeHtml(t(strings.statusOptionAriaLabel, strings.statusLabels.closed))}">${escapeHtml(strings.statusLabels.closed)}</div>
                 </div>
             </div>
             ${issueType ? `<span class="badge type-badge">${issueType.toUpperCase()}</span>` : ''}
@@ -2581,6 +2647,7 @@ function getBeadDetailHtml(
                 }
                 statusBadge.classList.remove('editable');
                 statusDropdown.classList.remove('show');
+                statusBadge.setAttribute('aria-expanded', 'false');
                 labelActions.style.display = 'none';
                 issueTitle.contentEditable = 'false';
 
@@ -2617,32 +2684,93 @@ function getBeadDetailHtml(
             });
         }
 
+        const statusOptions = Array.from(document.querySelectorAll('.status-option')) || [];
+
+        const setDropdownVisible = (visible) => {
+            statusDropdown.classList.toggle('show', visible);
+            statusBadge.setAttribute('aria-expanded', visible ? 'true' : 'false');
+        };
+
+        const syncSelectedStatus = (statusValue) => {
+            statusOptions.forEach(opt => {
+                const isSelected = opt.getAttribute('data-status') === statusValue;
+                opt.setAttribute('aria-selected', isSelected ? 'true' : 'false');
+            });
+        };
+
+        const applyStatus = (newStatus) => {
+            if (!newStatus) {
+                return;
+            }
+            vscode.postMessage({
+                command: 'updateStatus',
+                status: newStatus,
+                issueId: '${item.id}'
+            });
+            setDropdownVisible(false);
+            statusBadge.setAttribute('data-status', newStatus);
+            syncSelectedStatus(newStatus);
+        };
+
+        syncSelectedStatus(statusBadge.getAttribute('data-status'));
+
         statusBadge.addEventListener('click', () => {
             if (isEditMode) {
-                statusDropdown.classList.toggle('show');
+                const nextVisible = !statusDropdown.classList.contains('show');
+                setDropdownVisible(nextVisible);
+                if (nextVisible) {
+                    const selected = statusOptions.find(opt => opt.getAttribute('aria-selected') === 'true') || statusOptions[0];
+                    if (selected) {
+                        selected.focus();
+                    }
+                }
             }
         });
 
-        document.querySelectorAll('.status-option').forEach(option => {
-            option.addEventListener('click', (e) => {
-                const newStatus = e.target.getAttribute('data-status');
+        statusBadge.addEventListener('keydown', (e) => {
+            if (!isEditMode) {
+                return;
+            }
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                const nextVisible = !statusDropdown.classList.contains('show');
+                setDropdownVisible(nextVisible);
+                if (nextVisible) {
+                    const selected = statusOptions.find(opt => opt.getAttribute('aria-selected') === 'true') || statusOptions[0];
+                    selected?.focus();
+                }
+            } else if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                setDropdownVisible(true);
+                const selected = statusOptions.find(opt => opt.getAttribute('aria-selected') === 'true') || statusOptions[0];
+                selected?.focus();
+            } else if (e.key === 'Escape') {
+                if (statusDropdown.classList.contains('show')) {
+                    setDropdownVisible(false);
+                    statusBadge.focus();
+                }
+            }
+        });
 
-                // Send message to extension
-                vscode.postMessage({
-                    command: 'updateStatus',
-                    status: newStatus,
-                    issueId: '${item.id}'
-                });
-
-                // Close dropdown
-                statusDropdown.classList.remove('show');
+        statusOptions.forEach(option => {
+            option.addEventListener('click', () => {
+                applyStatus(option.getAttribute('data-status'));
+            });
+            option.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    applyStatus(option.getAttribute('data-status'));
+                } else if (e.key === 'Escape') {
+                    setDropdownVisible(false);
+                    statusBadge.focus();
+                }
             });
         });
 
         // Close dropdown when clicking outside
         document.addEventListener('click', (e) => {
             if (!statusBadge.contains(e.target) && !statusDropdown.contains(e.target)) {
-                statusDropdown.classList.remove('show');
+                setDropdownVisible(false);
             }
         });
 
