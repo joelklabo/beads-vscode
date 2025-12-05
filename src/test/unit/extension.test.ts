@@ -148,6 +148,34 @@ describe('Extension tree items', () => {
     });
   });
 
+  it('renders assignee badge and status text in bead descriptions', () => {
+    const bead = new BeadTreeItem({
+      id: 'task-1',
+      title: 'Badge check',
+      issueType: 'task',
+      status: 'blocked',
+      assignee: 'Ada Lovelace',
+    });
+
+    const description = String(bead.description);
+    assert.ok(description.includes('Ada Lovelace'));
+    assert.ok(/[🔵🟢🟣🟠🔴🟡⚫⚪]/.test(description));
+    assert.ok(description.toLowerCase().includes('blocked'));
+  });
+
+  it('falls back to unassigned badge when assignee missing', () => {
+    const bead = new BeadTreeItem({
+      id: 'task-2',
+      title: 'No owner',
+      issueType: 'task',
+      status: 'open',
+    });
+
+    const description = String(bead.description);
+    assert.ok(description.includes('Unassigned'));
+    assert.ok(description.includes('⚪'));
+  });
+
   it('provides expandable detail items for beads', async () => {
     const context = createContextStub();
     const provider = new BeadsTreeDataProvider(context as any);
@@ -217,6 +245,22 @@ describe('Extension tree items', () => {
     const children = await provider.getChildren(epicNode);
     const ids = children.map((child: any) => child.bead.id);
     assert.deepStrictEqual(ids, ['bug-1', 'task-1']);
+
+    provider.dispose();
+  });
+
+  it('sorts by assignee placing named items first and unassigned last', () => {
+    const context = createContextStub();
+    const provider = new BeadsTreeDataProvider(context as any);
+    const items = [
+      { id: 'task-3', title: 'Gamma', assignee: '' },
+      { id: 'task-1', title: 'Alpha', assignee: 'Ada' },
+      { id: 'task-2', title: 'Beta', assignee: 'ada' },
+      { id: 'task-4', title: 'Delta' },
+    ];
+
+    const sorted = (provider as any).sortByAssignee(items);
+    assert.deepStrictEqual(sorted.map((i: any) => i.id), ['task-1', 'task-2', 'task-3', 'task-4']);
 
     provider.dispose();
   });
