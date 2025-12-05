@@ -129,6 +129,16 @@
         "icon": "$(checklist)"
       },
       {
+        "command": "beads.bulkAddLabel",
+        "title": "%command.beads.bulkAddLabel%",
+        "icon": "$(tag)"
+      },
+      {
+        "command": "beads.bulkRemoveLabel",
+        "title": "%command.beads.bulkRemoveLabel%",
+        "icon": "$(tag)"
+      },
+      {
         "command": "beads.toggleFavorite",
         "title": "%command.beads.toggleFavorite%",
         "icon": "$(star)"
@@ -383,6 +393,16 @@
           "group": "navigation@9"
         },
         {
+          "command": "beads.bulkAddLabel",
+          "when": "view == beadsExplorer && beads.bulkActionsEnabled",
+          "group": "navigation@9"
+        },
+        {
+          "command": "beads.bulkRemoveLabel",
+          "when": "view == beadsExplorer && beads.bulkActionsEnabled",
+          "group": "navigation@9"
+        },
+        {
           "command": "beads.clearSortOrder",
           "when": "view == beadsExplorer",
           "group": "1_sort@1"
@@ -455,15 +475,33 @@
           "group": "7_modification@2"
         },
         {
+          "command": "beads.bulkAddLabel",
+          "when": "view == beadsExplorer && viewItem == bead && beads.bulkActionsEnabled",
+          "group": "7_modification@3"
+        },
+        {
+          "command": "beads.bulkRemoveLabel",
+          "when": "view == beadsExplorer && viewItem == bead && beads.bulkActionsEnabled",
+          "group": "7_modification@4"
+        },
+        {
           "command": "beads.toggleFavorite",
           "when": "view == beadsExplorer && viewItem == bead && beads.favoritesEnabled",
-          "group": "7_modification@3"
+          "group": "7_modification@5"
         }
       ],
       "commandPalette": [
         {
           "command": "beads.bulkUpdateStatus",
           "when": "beads.bulkActionsEnabled && beads.bulkActionsHasSelection"
+        },
+        {
+          "command": "beads.bulkAddLabel",
+          "when": "beads.bulkActionsEnabled"
+        },
+        {
+          "command": "beads.bulkRemoveLabel",
+          "when": "beads.bulkActionsEnabled"
         },
         {
           "command": "beads.toggleFavorite",
@@ -497,7 +535,7 @@
     "watch": "tsc -watch -p ./",
     "lint": "eslint . --ext ts",
     "test": "npm run test:unit",
-    "test:unit": "npm run compile && mocha ./out/test/unit/**/*.test.js ./out/test/deps.add.test.js ./out/test/sanitization.test.js ./out/test/littleGlen.command-validation.test.js ./out/test/log-redaction.test.js ./out/test/activityFeed.timestamps.test.js ./out/test/title-format.test.js ./out/test/activityFeed.title-format.test.js ./out/test/multi-root.cli.test.js ./out/test/tooltips.security.test.js ./out/test/export.markdown.test.js ./out/test/export.csv.test.js ./out/test/bulk.status.test.js ./out/test/favorites.persistence.test.js ./out/test/favorites.validation.test.js ./out/test/favorites.toggle.test.js ./out/test/inline.status.test.js ./out/test/inline.validation.test.js",
+    "test:unit": "npm run compile && mocha ./out/test/unit/**/*.test.js ./out/test/deps.add.test.js ./out/test/sanitization.test.js ./out/test/littleGlen.command-validation.test.js ./out/test/log-redaction.test.js ./out/test/activityFeed.timestamps.test.js ./out/test/title-format.test.js ./out/test/activityFeed.title-format.test.js ./out/test/multi-root.cli.test.js ./out/test/tooltips.security.test.js ./out/test/export.markdown.test.js ./out/test/export.csv.test.js ./out/test/bulk.status.test.js ./out/test/bulk.labels.test.js ./out/test/favorites.persistence.test.js ./out/test/favorites.validation.test.js ./out/test/favorites.toggle.test.js ./out/test/inline.status.test.js ./out/test/inline.validation.test.js",
     "test:bd-cli": "npm run compile && mocha ./out/test/bd-cli.test.js",
     "test:integration": "npm run compile && node ./out/test/runTest.js",
     "test:stress": "./scripts/stress-test.sh",

@@ -41,5 +41,7 @@
   "view.beadsExplorer.name": "Issues",
   "view.activityFeed.name": "Activity Feed",
   "command.beads.bulkUpdateStatus": "Beads: Bulk Update Status",
+  "command.beads.bulkAddLabel": "Beads: Bulk Add Label",
+  "command.beads.bulkRemoveLabel": "Beads: Bulk Remove Label",
   "command.beads.toggleFavorite": "Beads: Toggle Favorite"
 }

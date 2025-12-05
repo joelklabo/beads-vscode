@@ -68,3 +68,16 @@ export async function executeBulkStatusUpdate(
 
   return { successes, failures };
 }
+
+export type BulkLabelAction = 'add' | 'remove';
+
+export async function executeBulkLabelUpdate(
+  ids: string[],
+  _label: string,
+  _action: BulkLabelAction,
+  runner: (id: string) => Promise<void>,
+  onProgress?: (completed: number, total: number) => void
+): Promise<BulkOperationResult> {
+  // Reuse status bulk helper; semantics identical for progress/failure handling
+  return executeBulkStatusUpdate(ids, _label, runner, onProgress);
+}
