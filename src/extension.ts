@@ -70,6 +70,7 @@ import { computeFeedbackEnablement } from './feedback/enablement';
 import { getBulkActionsConfig } from './utils/config';
 import { registerSendFeedbackCommand } from './commands/sendFeedback';
 import { buildDependencyGraphHtml } from './graph/view';
+import { DependencyTreeProvider } from './dependencyTreeProvider';
 
 const execFileAsync = promisify(execFile);
 const t = vscode.l10n.t;
@@ -5112,6 +5113,19 @@ export function activate(context: vscode.ExtensionContext): void {
   // Set tree view reference for badge updates
   provider.setTreeView(treeView);
 
+  const dependencyTreeProvider = new DependencyTreeProvider(() => provider['items'] as BeadItemData[] | undefined);
+  const dependencyTreeView = vscode.window.createTreeView('beadsDependencyTree', {
+    treeDataProvider: dependencyTreeProvider,
+    showCollapseAll: true,
+  });
+  const dependencySelection = treeView.onDidChangeSelection((event) => {
+    const bead = event.selection.find((item): item is BeadTreeItem => item instanceof BeadTreeItem);
+    if (bead?.bead) {
+      dependencyTreeProvider.setRoot(bead.bead.id);
+    }
+  });
+  const dependencySync = provider.onDidChangeTreeData(() => dependencyTreeProvider.refresh());
+
   // Track expand/collapse to update icons and persist state
   const expandListener = treeView.onDidExpandElement(event => {
     provider.handleCollapseChange(event.element, false);
@@ -5196,6 +5210,9 @@ export function activate(context: vscode.ExtensionContext): void {
 
   context.subscriptions.push(
     treeView,
+    dependencyTreeView,
+    dependencySelection,
+    dependencySync,
     expandListener,
     collapseListener,
     activityFeedView,
@@ -5212,6 +5229,64 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('beads.selectWorkspace', () => selectWorkspace(provider)),
     vscode.commands.registerCommand('beads.addDependency', (item?: BeadItemData) => addDependencyCommand(provider, item)),
     vscode.commands.registerCommand('beads.removeDependency', (item?: BeadItemData) => removeDependencyCommand(provider, undefined, { contextId: item?.id })),
+    vscode.commands.registerCommand('beads.dependencyTree.pickRoot', async () => {
+      const root = await pickBeadQuick(provider['items'] as BeadItemData[] | undefined, t('Select issue for dependency tree'));
+      if (root) {
+        dependencyTreeProvider.setRoot(root.id);
+      }
+    }),
+    vscode.commands.registerCommand('beads.dependencyTree.addUpstream', async () => {
+      const editingEnabled = vscode.workspace.getConfiguration('beads').get<boolean>('enableDependencyEditing', false);
+      if (!editingEnabled) {
+        void vscode.window.showWarningMessage(t('Enable dependency editing in settings to add dependencies.'));
+        return;
+      }
+      const rootId = dependencyTreeProvider.getRootId();
+      const items = provider['items'] as BeadItemData[] | undefined;
+      const root = items?.find((i) => i.id === rootId);
+      if (!root) {
+        void vscode.window.showWarningMessage(t('Select an issue to edit dependencies.'));
+        return;
+      }
+      const target = await pickBeadQuick(items, t('Select an upstream dependency'), root.id);
+      if (!target) {
+        return;
+      }
+      await addDependencyCommand(provider, root, { sourceId: root.id, targetId: target.id });
+      dependencyTreeProvider.refresh();
+    }),
+    vscode.commands.registerCommand('beads.dependencyTree.addDownstream', async () => {
+      const editingEnabled = vscode.workspace.getConfiguration('beads').get<boolean>('enableDependencyEditing', false);
+      if (!editingEnabled) {
+        void vscode.window.showWarningMessage(t('Enable dependency editing in settings to add dependencies.'));
+        return;
+      }
+      const rootId = dependencyTreeProvider.getRootId();
+      const items = provider['items'] as BeadItemData[] | undefined;
+      const root = items?.find((i) => i.id === rootId);
+      if (!root) {
+        void vscode.window.showWarningMessage(t('Select an issue to edit dependencies.'));
+        return;
+      }
+      const dependent = await pickBeadQuick(items, t('Select an issue that should depend on {0}', root.id), root.id);
+      if (!dependent) {
+        return;
+      }
+      await addDependencyCommand(provider, dependent, { sourceId: dependent.id, targetId: root.id });
+      dependencyTreeProvider.refresh();
+    }),
+    vscode.commands.registerCommand('beads.dependencyTree.remove', async (node?: any) => {
+      const editingEnabled = vscode.workspace.getConfiguration('beads').get<boolean>('enableDependencyEditing', false);
+      if (!editingEnabled) {
+        void vscode.window.showWarningMessage(t('Enable dependency editing in settings to remove dependencies.'));
+        return;
+      }
+      if (!node || !node.sourceId || !node.targetId) {
+        return;
+      }
+      await removeDependencyCommand(provider, { sourceId: node.sourceId, targetId: node.targetId }, { contextId: dependencyTreeProvider.getRootId() });
+      dependencyTreeProvider.refresh();
+    }),
     vscode.commands.registerCommand('beads.visualizeDependencies', () => visualizeDependencies(provider)),
     vscode.commands.registerCommand('beads.exportCsv', () => exportBeadsCsv(provider, treeView)),
     vscode.commands.registerCommand('beads.exportMarkdown', () => exportBeadsMarkdown(provider, treeView)),

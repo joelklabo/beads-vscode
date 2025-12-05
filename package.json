@@ -58,6 +58,26 @@
         "icon": "$(link)"
       },
       {
+        "command": "beads.dependencyTree.pickRoot",
+        "title": "%command.beads.dependencyTree.pickRoot%",
+        "icon": "$(location)"
+      },
+      {
+        "command": "beads.dependencyTree.addUpstream",
+        "title": "%command.beads.dependencyTree.addUpstream%",
+        "icon": "$(arrow-up)"
+      },
+      {
+        "command": "beads.dependencyTree.addDownstream",
+        "title": "%command.beads.dependencyTree.addDownstream%",
+        "icon": "$(arrow-down)"
+      },
+      {
+        "command": "beads.dependencyTree.remove",
+        "title": "%command.beads.dependencyTree.remove%",
+        "icon": "$(trash)"
+      },
+      {
         "command": "beads.editExternalReference",
         "title": "%command.beads.editExternalReference%"
       },
@@ -187,6 +207,11 @@
         {
           "id": "activityFeed",
           "name": "Activity Feed"
+        },
+        {
+          "id": "beadsDependencyTree",
+          "name": "%view.dependencyTree.name%",
+          "when": "config.beads.enableDependencyEditing"
         }
       ]
     },
@@ -476,6 +501,21 @@
           "command": "beads.openInProgressPanel",
           "when": "view == beadsExplorer",
           "group": "navigation@6.5"
+        },
+        {
+          "command": "beads.dependencyTree.pickRoot",
+          "when": "view == beadsDependencyTree",
+          "group": "navigation@1"
+        },
+        {
+          "command": "beads.dependencyTree.addUpstream",
+          "when": "view == beadsDependencyTree && config.beads.enableDependencyEditing",
+          "group": "navigation@2"
+        },
+        {
+          "command": "beads.dependencyTree.addDownstream",
+          "when": "view == beadsDependencyTree && config.beads.enableDependencyEditing",
+          "group": "navigation@3"
         }
       ],
       "view/item/context": [
