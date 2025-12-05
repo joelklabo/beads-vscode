@@ -18,7 +18,7 @@ export function validateTitleInput(title: string): ValidationResult {
   if (normalized.length > TITLE_MAX_LENGTH) {
     return { valid: false, reason: 'too_long' };
   }
-  if (/\r|\n/.test(normalized)) {
+  if (/\r|\n/.test(title ?? '')) {
     return { valid: false, reason: 'invalid_characters' };
   }
   return { valid: true, value: normalized };
@@ -29,7 +29,7 @@ export function validateLabelInput(label: string): ValidationResult {
   if (/\r|\n|\t/.test(raw)) {
     return { valid: false, reason: 'invalid_characters' };
   }
-  const sanitized = raw.replace(/\s+/g, ' ').trim();
+  const sanitized = raw.trim();
   if (!sanitized) {
     return { valid: false, reason: 'empty' };
   }

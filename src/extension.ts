@@ -63,6 +63,26 @@ const execFileAsync = promisify(execFile);
 const t = vscode.l10n.t;
 const PROJECT_ROOT_ERROR = t('Unable to resolve project root. Set "beads.projectRoot" or open a workspace folder.');
 
+function validationMessage(kind: 'title' | 'label' | 'status', reason?: string): string {
+  switch (reason) {
+    case 'empty':
+      return kind === 'title' ? t('Title cannot be empty.') : t('Label cannot be empty.');
+    case 'too_long':
+      return kind === 'title'
+        ? t('Title must be 1-{0} characters without new lines.', 256)
+        : t('Label must be 1-{0} characters.', 64);
+    case 'invalid_characters':
+      return t('The {0} contains unsupported characters.', kind);
+    case 'invalid_status':
+      return t('Status update blocked: invalid status.');
+    case 'already in target status':
+      return t('Status update blocked: already in target status.');
+    default:
+      return t('Invalid {0} value.', kind);
+  }
+}
+
+
 function createNonce(): string {
   return Math.random().toString(36).slice(2, 15) + Math.random().toString(36).slice(2, 15);
 }
@@ -783,14 +803,14 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   async updateStatus(item: BeadItemData, newStatus: string): Promise<void> {
     const validation = validateStatusInput(newStatus);
     if (!validation.valid) {
-      void vscode.window.showWarningMessage(t('Invalid status selection.'));
+      void vscode.window.showWarningMessage(validationMessage('status', validation.reason));
       return;
     }
 
     const normalizedStatus = validation.value as string;
     const transition = validateStatusChange(item.status, normalizedStatus);
     if (!transition.allowed) {
-      void vscode.window.showWarningMessage(t('Status update blocked: item is already in that status.'));
+      void vscode.window.showWarningMessage(validationMessage('status', transition.reason));
       return;
     }
 
@@ -816,7 +836,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   async updateTitle(item: BeadItemData, newTitle: string): Promise<void> {
     const validation = validateTitleInput(newTitle);
     if (!validation.valid) {
-      void vscode.window.showWarningMessage(t('Title must be 1-{0} characters without new lines.', 256));
+      void vscode.window.showWarningMessage(validationMessage('title', validation.reason));
       return;
     }
 
