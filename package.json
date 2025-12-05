@@ -10,7 +10,11 @@
     "type": "git",
     "url": "https://github.com/kris-hansen/beads-vscode.git"
   },
-  "workspaces": ["packages/*", "tui", "web"],
+  "workspaces": [
+    "packages/*",
+    "tui",
+    "web"
+  ],
   "bugs": {
     "url": "https://github.com/kris-hansen/beads-vscode/issues"
   },
@@ -526,26 +530,26 @@
           "when": "view == beadsExplorer && viewItem == bead",
           "group": "navigation@1"
         },
-      {
-        "command": "beads.addDependency",
-        "when": "view == beadsExplorer && viewItem == bead && config.beads.enableDependencyEditing",
-        "group": "navigation@2"
-      },
-      {
-        "command": "beads.dependencyTree.addUpstream",
-        "when": "view == beadsDependencyTree && viewItem == dependencyGroupUpstream && config.beads.enableDependencyEditing",
-        "group": "navigation@1"
-      },
-      {
-        "command": "beads.dependencyTree.addDownstream",
-        "when": "view == beadsDependencyTree && viewItem == dependencyGroupDownstream && config.beads.enableDependencyEditing",
-        "group": "navigation@1"
-      },
-      {
-        "command": "beads.dependencyTree.remove",
-        "when": "view == beadsDependencyTree && (viewItem == dependencyNodeUpstream || viewItem == dependencyNodeDownstream) && config.beads.enableDependencyEditing",
-        "group": "inline@2"
-      },
+        {
+          "command": "beads.addDependency",
+          "when": "view == beadsExplorer && viewItem == bead && config.beads.enableDependencyEditing",
+          "group": "navigation@2"
+        },
+        {
+          "command": "beads.dependencyTree.addUpstream",
+          "when": "view == beadsDependencyTree && viewItem == dependencyGroupUpstream && config.beads.enableDependencyEditing",
+          "group": "navigation@1"
+        },
+        {
+          "command": "beads.dependencyTree.addDownstream",
+          "when": "view == beadsDependencyTree && viewItem == dependencyGroupDownstream && config.beads.enableDependencyEditing",
+          "group": "navigation@1"
+        },
+        {
+          "command": "beads.dependencyTree.remove",
+          "when": "view == beadsDependencyTree && (viewItem == dependencyNodeUpstream || viewItem == dependencyNodeDownstream) && config.beads.enableDependencyEditing",
+          "group": "inline@2"
+        },
         {
           "command": "beads.exportCsv",
           "when": "view == beadsExplorer && viewItem == bead && config.beads.exportCsv.enabled",
@@ -695,7 +699,7 @@
     "test:bd-cli": "npm run compile && mocha ./out/test/bd-cli.test.js",
     "test:integration": "npm run compile && node ./out/test/runTest.js",
     "test:stress": "./scripts/stress-test.sh",
-    "test:all": "npm run lint && npm run test:unit && npm run test:bd-cli",
+    "test:all": "npm run lint && npm run test:unit && npm run test:core && npm run test:tui && npm run test:web:skeleton && npm run test:bd-cli",
     "guard": "./scripts/worktree-guard.sh",
     "bd": "./scripts/bd-wrapper.sh",
     "package": "vsce package",
@@ -703,22 +707,23 @@
     "install-local": "npm run package && ./scripts/install-local.sh",
     "test:harness": "bash ./scripts/agent-harness/run-placeholder.sh",
     "test:tui:smoke": "echo 'TODO: add TUI smoke test' && exit 0",
-    "test:web:skeleton": "echo 'Playwright skeleton disabled' && exit 0",
-    "test:tui": "tsx tui/src/__tests__/nav.runner.tsx && tsx tui/src/__tests__/eventsStore.test.ts && tsx tui/src/__tests__/graph.test.ts",
+    "test:web:skeleton": "node -e \"const fs=require('fs'); if(!fs.existsSync('web/package.json') && !fs.existsSync('packages/web/package.json')){console.log('web workspace missing, skipping smoke test'); process.exit(0);} const {spawnSync}=require('child_process'); const cmd=process.platform==='win32'?'npm.cmd':'npm'; const r=spawnSync(cmd,['run','-w','@beads/web','build'],{stdio:'inherit'}); process.exit(r.status??1);\"",
+    "test:tui": "npm run -w @beads/tui test",
     "check:size": "node scripts/size-check.js",
     "test:integration:stable": "node -e \"const {spawnSync}=require('child_process'); const env={...process.env, VSCODE_TEST_CHANNEL:'stable', VSCODE_TEST_INSTANCE_ID:process.env.VSCODE_TEST_INSTANCE_ID||require('crypto').randomUUID()}; const cmd=process.platform==='win32'?'npm.cmd':'npm'; const r=spawnSync(cmd,['run','test:integration'],{stdio:'inherit',env}); process.exit(r.status ?? 1);\"",
     "test:integration:insiders": "node -e \"const {spawnSync}=require('child_process'); const env={...process.env, VSCODE_TEST_CHANNEL:'insiders', VSCODE_TEST_INSTANCE_ID:process.env.VSCODE_TEST_INSTANCE_ID||require('crypto').randomUUID()}; const cmd=process.platform==='win32'?'npm.cmd':'npm'; const r=spawnSync(cmd,['run','test:integration'],{stdio:'inherit',env}); process.exit(r.status ?? 1);\"",
     "test:integration:headless": "node -e \"const {spawnSync}=require('child_process'); const env={...process.env, VSCODE_TEST_CHANNEL:process.env.VSCODE_TEST_CHANNEL||'stable', VSCODE_TEST_INSTANCE_ID:process.env.VSCODE_TEST_INSTANCE_ID||require('crypto').randomUUID()}; const isLinux=process.platform==='linux'; const cmd=isLinux?'xvfb-run':(process.platform==='win32'?'npm.cmd':'npm'); const args=isLinux?['-a','npm','run','test:integration']:['run','test:integration']; const r=spawnSync(cmd,args,{stdio:'inherit',env}); process.exit(r.status ?? 1);\"",
     "test:clean-temp": "bash ./scripts/cleanup-temp-tests.sh",
     "ci:lint": "npm run lint && node scripts/l10n-check.js",
-    "ci:unit": "npm run test:unit",
+    "ci:unit": "npm run test:unit && npm run test:core && npm run test:tui && npm run test:web:skeleton",
     "ci:integration": "npm run test:integration:headless",
-    "ci:core": "npm run --if-present build:core",
+    "ci:core": "npm run --if-present build:core && npm run --if-present test:core",
     "ci:tui": "npm run --if-present build:tui && npm run --if-present test:tui",
     "ci:web": "node -e \"const fs=require('fs'); if(!fs.existsSync('packages/web/package.json') && !fs.existsSync('web/package.json')){console.log('web workspace missing, skipping web CI'); process.exit(0);} const {spawnSync}=require('child_process'); const cmd=process.platform==='win32'?'npm.cmd':'npm'; const r=spawnSync(cmd,['run','build:web'],{stdio:'inherit'}); process.exit(r.status??1);\" && npm run --if-present test:web:skeleton",
     "ci:workspace": "npm run ci:core && npm run ci:tui && npm run ci:web",
     "ci:verify": "npm run ci:lint && npm run compile && npm run test:unit && npm run test:integration:headless",
-    "ci:coverage": "npm run compile && c8 --reporter=text --reporter=lcov npm run test:unit:run"
+    "ci:coverage": "npm run compile && c8 --reporter=text --reporter=lcov npm run test:unit:run",
+    "test:core": "npm run -w @beads/core test"
   },
   "devDependencies": {
     "@beads/bd": "^0.29.0",

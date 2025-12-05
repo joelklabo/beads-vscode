@@ -5,6 +5,10 @@
   "main": "out/index.js",
   "types": "out/index.d.ts",
   "scripts": {
-    "build": "tsc -b"
+    "build": "tsc -b",
+    "test": "tsx --test \"test/**/*.test.ts\""
+  },
+  "devDependencies": {
+    "tsx": "^4.7.0"
   }
 }
