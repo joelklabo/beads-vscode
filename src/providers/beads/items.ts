@@ -26,9 +26,35 @@ export class WarningSectionItem extends vscode.TreeItem {
     this.description = `${beads.length}`;
     this.iconPath = new vscode.ThemeIcon('warning', new vscode.ThemeColor('charts.orange'));
     const tooltip = new vscode.MarkdownString();
-    tooltip.appendMarkdown(`**Stale Tasks:** ${beads.length} issue${beads.length !== 1 ? 's' : ''}\n\n`);
-    tooltip.appendMarkdown(`These tasks have been in progress for more than ${thresholdMinutes} minutes and may need attention.`);
+    const emptyEpicCount = beads.filter((b) => b.issueType === 'epic').length;
+    const staleCount = beads.length - emptyEpicCount;
+    tooltip.appendMarkdown(`**Warnings:** ${beads.length} item${beads.length !== 1 ? 's' : ''}\n\n`);
+    if (staleCount > 0) {
+      tooltip.appendMarkdown(`Stale tasks in progress > ${thresholdMinutes} min: ${staleCount}\n\n`);
+    }
+    if (emptyEpicCount > 0) {
+      tooltip.appendMarkdown(`Empty epics (no children): ${emptyEpicCount}\n\n`);
+    }
+    tooltip.appendMarkdown('Review these items to keep work flowing.');
     this.tooltip = tooltip;
+  }
+}
+
+export class EpicStatusSectionItem extends vscode.TreeItem {
+  constructor(public readonly status: string, public readonly epics: EpicTreeItem[], isCollapsed: boolean = false) {
+    const statusDisplay = status.split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+    super(statusDisplay, isCollapsed ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.Expanded);
+    this.contextValue = 'epicStatusSection';
+    this.description = `${epics.length}`;
+    const iconConfig: Record<string, { icon: string; color: string }> = {
+      open: { icon: 'circle-outline', color: 'charts.blue' },
+      in_progress: { icon: 'clock', color: 'charts.yellow' },
+      blocked: { icon: 'error', color: 'errorForeground' },
+      closed: { icon: 'pass', color: 'testing.iconPassed' },
+    };
+    const config = iconConfig[status] || { icon: 'folder', color: 'foreground' };
+    this.iconPath = new vscode.ThemeIcon(config.icon, new vscode.ThemeColor(config.color));
+    this.tooltip = `${statusDisplay}: ${epics.length} epic${epics.length !== 1 ? 's' : ''}`;
   }
 }
 

@@ -40,6 +40,7 @@ import {
   StatusSectionItem,
   UngroupedSectionItem,
   WarningSectionItem,
+  EpicStatusSectionItem,
 } from './providers/beads/items';
 import {
   BeadsDocument,
@@ -142,7 +143,7 @@ async function runBdCommand(args: string[], projectRoot: string, options: BdComm
   });
 }
 
-type TreeItemType = StatusSectionItem | WarningSectionItem | EpicTreeItem | UngroupedSectionItem | BeadTreeItem;
+type TreeItemType = StatusSectionItem | WarningSectionItem | EpicStatusSectionItem | EpicTreeItem | UngroupedSectionItem | BeadTreeItem;
 
 type StatusLabelMap = {
   open: string;
@@ -422,6 +423,10 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
       return element.beads.map((item) => this.createTreeItem(item));
     }
     
+    if (element instanceof EpicStatusSectionItem) {
+      return element.epics;
+    }
+    
     if (element instanceof EpicTreeItem) {
       return element.children.map((item) => this.createTreeItem(item));
     }
@@ -505,14 +510,14 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     return sections;
   }
   
-  private createEpicTree(items: BeadItemData[]): (EpicTreeItem | UngroupedSectionItem | WarningSectionItem)[] {
+  private createEpicTree(items: BeadItemData[]): (EpicStatusSectionItem | UngroupedSectionItem | WarningSectionItem | EpicTreeItem)[] {
     // Get stale threshold from configuration (in minutes, convert to hours for isStale)
     const config = vscode.workspace.getConfiguration('beads');
     const thresholdMinutes = config.get<number>('staleThresholdMinutes', 10);
     const thresholdHours = thresholdMinutes / 60;
     
-    // Find stale items so we can surface them above the tree
-    const staleItems = items.filter(item => isStale(item, thresholdHours));
+    // Find stale items so we can surface them above the tree (tasks only)
+    const staleItems = items.filter(item => item.issueType !== 'epic' && isStale(item, thresholdHours));
     
     // Build maps for epics and their children
     const epicMap = new Map<string, BeadItemData>();
@@ -545,20 +550,48 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     childrenMap.forEach(children => children.sort(naturalSort));
     ungrouped.sort(naturalSort);
     
-    const sections: (EpicTreeItem | UngroupedSectionItem | WarningSectionItem)[] = [];
+    const sections: (EpicStatusSectionItem | UngroupedSectionItem | WarningSectionItem | EpicTreeItem)[] = [];
 
-    // Stale tasks section (collapsible)
-    if (staleItems.length > 0) {
-      const isCollapsed = this.collapsedSections.has('stale');
-      sections.push(new WarningSectionItem(staleItems, thresholdMinutes, isCollapsed));
-    }
+    const emptyEpics: BeadItemData[] = [];
+    const statusBuckets: Record<string, EpicTreeItem[]> = {
+      in_progress: [],
+      open: [],
+      blocked: [],
+      closed: [],
+    };
 
-    // Epic folders
+    // Sort epics and assign to buckets (skip empty for main buckets)
     const sortedEpics = Array.from(epicMap.values()).sort(naturalSort);
     sortedEpics.forEach(epic => {
       const children = childrenMap.get(epic.id) || [];
-      const isCollapsed = this.collapsedEpics.get(epic.id) === true;
-      sections.push(new EpicTreeItem(epic, children, isCollapsed));
+      if (children.length === 0) {
+        emptyEpics.push(epic);
+        return;
+      }
+      const epicItem = new EpicTreeItem(epic, children, this.collapsedEpics.get(epic.id) === true);
+      const status = epic.status || 'open';
+      if (!statusBuckets[status]) {
+        statusBuckets[status] = [];
+      }
+      statusBuckets[status].push(epicItem);
+    });
+
+    // Warning bucket: stale tasks + empty epics
+    const warningItems = [...staleItems, ...emptyEpics];
+    if (warningItems.length > 0) {
+      const isCollapsed = this.collapsedSections.has('stale');
+      sections.push(new WarningSectionItem(warningItems, thresholdMinutes, isCollapsed));
+    }
+
+    // Status-ordered epic sections
+    const statusOrder = ['in_progress', 'open', 'blocked', 'closed'];
+    statusOrder.forEach(status => {
+      const epics = statusBuckets[status] || [];
+      if (epics.length === 0) {
+        return;
+      }
+      const isCollapsed = this.collapsedSections.has(status);
+      sections.push(new EpicStatusSectionItem(status, epics, isCollapsed));
     });
 
     // Ungrouped bucket at the end
@@ -1098,6 +1131,9 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
 
   private getCollapseKey(element: TreeItemType): string | undefined {
     if (element instanceof StatusSectionItem) {
+      return element.status;
+    }
+    if (element instanceof EpicStatusSectionItem) {
       return element.status;
     }
     if (element instanceof WarningSectionItem) {
