@@ -188,6 +188,35 @@ describe('Extension tree items', () => {
     provider.dispose();
   });
 
+  it('status root sections order warning → in_progress → open → blocked → closed with default collapses', async () => {
+    const context = createContextStub();
+    const provider = new BeadsTreeDataProvider(context as any);
+    const now = Date.now();
+    (provider as any).items = [
+      { id: 'task-stale', title: 'Stale task', issueType: 'task', status: 'in_progress', inProgressSince: new Date(now - 60 * 60 * 1000).toISOString() },
+      { id: 'task-progress', title: 'Working task', issueType: 'task', status: 'in_progress', inProgressSince: new Date(now - 5 * 60 * 1000).toISOString() },
+      { id: 'task-open', title: 'Open task', issueType: 'task', status: 'open' },
+      { id: 'task-blocked', title: 'Blocked task', issueType: 'task', status: 'blocked' },
+      { id: 'task-closed', title: 'Closed task', issueType: 'task', status: 'closed' },
+    ];
+    (provider as any).sortMode = 'status';
+
+    const roots = await provider.getChildren();
+    const labels = roots.map((r: any) => r.contextValue === 'warningSection' ? 'warning' : r.status);
+    assert.deepStrictEqual(labels, ['warning', 'in_progress', 'open', 'blocked', 'closed']);
+
+    const warning = roots[0] as any;
+    assert.strictEqual(warning.contextValue, 'warningSection');
+    assert.strictEqual(warning.collapsibleState, vscodeStub.TreeItemCollapsibleState.Expanded);
+
+    const statusSections = roots.filter((r: any) => r.contextValue === 'statusSection');
+    statusSections.forEach((section: any) => {
+      assert.strictEqual(section.collapsibleState, vscodeStub.TreeItemCollapsibleState.Collapsed);
+    });
+
+    provider.dispose();
+  });
+
   it('epic root sections order warning → in_progress → open → blocked → closed with empty epics in warning', async () => {
     const context = createContextStub();
     const provider = new BeadsTreeDataProvider(context as any);
