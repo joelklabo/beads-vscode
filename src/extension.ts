@@ -15,6 +15,8 @@ import {
   warnIfDependencyEditingUnsupported as warnIfDependencyEditingUnsupportedCli,
   writeBeadsMarkdownFile,
   MarkdownExportHeaders,
+  canTransition,
+  formatStatusLabel,
   buildBulkSelection,
   executeBulkStatusUpdate,
   BulkOperationFailure,
@@ -3703,6 +3705,129 @@ async function toggleFavorites(
   }
 }
 
+function collectSelectedBeads(
+  provider: BeadsTreeDataProvider,
+  treeView: vscode.TreeView<TreeItemType>,
+  activityFeedView?: vscode.TreeView<vscode.TreeItem>
+): BeadItemData[] {
+  const treeSelections = treeView.selection
+    .filter((item): item is BeadTreeItem => item instanceof BeadTreeItem)
+    .map((item) => item.bead);
+
+  const feedSelections = activityFeedView?.selection
+    .filter((item): item is ActivityEventItem => item instanceof ActivityEventItem)
+    .map((item) => item.event.issueId)
+    .filter(Boolean) ?? [];
+
+  const providerItems = (provider as any).items as BeadItemData[];
+  const feedBeads = feedSelections
+    .map((id) => providerItems.find((b) => b.id === id))
+    .filter((b): b is BeadItemData => Boolean(b));
+
+  const combined = [...treeSelections, ...feedBeads];
+  const seen = new Set<string>();
+  return combined.filter((b) => {
+    if (seen.has(b.id)) {
+      return false;
+    }
+    seen.add(b.id);
+    return true;
+  });
+}
+
+async function inlineStatusQuickChange(
+  provider: BeadsTreeDataProvider,
+  treeView: vscode.TreeView<TreeItemType>,
+  activityFeedView?: vscode.TreeView<vscode.TreeItem>
+): Promise<void> {
+  const config = vscode.workspace.getConfiguration('beads');
+  const featureEnabled = config.get<boolean>('inlineStatusChange.enabled', false);
+
+  if (!featureEnabled) {
+    void vscode.window.showInformationMessage(
+      t('Enable the "beads.inlineStatusChange.enabled" setting to change status inline.')
+    );
+    return;
+  }
+
+  const beads = collectSelectedBeads(provider, treeView, activityFeedView);
+  if (!beads || beads.length === 0) {
+    void vscode.window.showWarningMessage(t('No beads selected. Select one or more items to change status.'));
+    return;
+  }
+
+  const statusOptions = ['open', 'in_progress', 'blocked', 'closed'] as const;
+  const selection = await vscode.window.showQuickPick(
+    statusOptions.map((status) => ({
+      label: formatStatusLabel(status),
+      description: status,
+      value: status,
+    })),
+    {
+      placeHolder: t('Select a new status to apply'),
+      ignoreFocusOut: true,
+    }
+  );
+
+  if (!selection) {
+    return;
+  }
+
+  const targetStatus = selection.value;
+  const projectRoot = resolveProjectRoot(config);
+
+  if (!projectRoot) {
+    void vscode.window.showErrorMessage(PROJECT_ROOT_ERROR);
+    return;
+  }
+
+  const summary = {
+    updated: [] as string[],
+    skipped: [] as string[],
+    failed: [] as string[],
+  };
+
+  await vscode.window.withProgress({
+    location: vscode.ProgressLocation.Notification,
+    title: t('Updating status for {0} item(s)...', beads.length),
+    cancellable: false,
+  }, async () => {
+    for (const bead of beads) {
+      if (!canTransition(bead.status, targetStatus)) {
+        summary.skipped.push(bead.id);
+        continue;
+      }
+
+      try {
+        await runBdCommand(['update', bead.id, '--status', targetStatus], projectRoot);
+        summary.updated.push(bead.id);
+      } catch (error) {
+        console.error('Failed to update status', error);
+        summary.failed.push(bead.id);
+      }
+    }
+  });
+
+  await provider.refresh();
+
+  if (summary.updated.length > 0) {
+    void vscode.window.showInformationMessage(
+      t('Updated status for {0} item(s)', summary.updated.length)
+    );
+  }
+
+  if (summary.skipped.length > 0) {
+    void vscode.window.showWarningMessage(
+      t('Skipped {0} item(s) already in that status: {1}', summary.skipped.length, summary.skipped.join(', '))
+    );
+  }
+
+  if (summary.failed.length > 0) {
+    void vscode.window.showErrorMessage(
+      t('Failed to update {0} item(s): {1}', summary.failed.length, summary.failed.join(', '))
+    );
+  }
+}
 export function activate(context: vscode.ExtensionContext): void {
   const provider = new BeadsTreeDataProvider(context);
   const treeView = vscode.window.createTreeView('beadsExplorer', {
@@ -3789,6 +3914,8 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('beads.exportMarkdown', () => exportBeadsMarkdown(provider, treeView)),
     vscode.commands.registerCommand('beads.bulkUpdateStatus', () => bulkUpdateStatus(provider, treeView)),
     vscode.commands.registerCommand('beads.toggleFavorite', () => toggleFavorites(provider, treeView, context)),
+    vscode.commands.registerCommand('beads.inlineStatusChange', () => inlineStatusQuickChange(provider, treeView, activityFeedView)),
+    vscode.commands.registerCommand('beads.inlineStatusChange', () => inlineStatusQuickChange(provider, treeView, activityFeedView)),
     
     // Activity Feed commands
     vscode.commands.registerCommand('beads.refreshActivityFeed', () => activityFeedProvider.refresh()),
@@ -3988,4 +4115,5 @@ export {
   findBdCommand,
   collectDependencyEdges,
   addDependencyCommand,
+  inlineStatusQuickChange,
 };

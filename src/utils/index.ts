@@ -10,3 +10,4 @@ export * from './environment';
 export * from './cli';
 export * from './dependencies';
 export * from './markdown';
+export * from './status';
