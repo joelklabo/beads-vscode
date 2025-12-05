@@ -352,8 +352,9 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     const staleCount = this.items.filter(item => isStale(item, thresholdHours)).length;
 
     if (staleCount > 0) {
+      const badgeTooltip = t('{0} stale task{1} (in progress > {2} min)', staleCount, staleCount !== 1 ? 's' : '', thresholdMinutes);
       this.treeView.badge = {
-        tooltip: `${staleCount} stale task${staleCount !== 1 ? 's' : ''} (in progress > ${thresholdMinutes} min)`,
+        tooltip: badgeTooltip,
         value: staleCount
       };
     } else {
@@ -374,7 +375,10 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
 
     if (staleCount > 0) {
       this.statusBarItem.text = `$(warning) ${staleCount} stale task${staleCount !== 1 ? 's' : ''}`;
-      this.statusBarItem.tooltip = `${staleCount} task${staleCount !== 1 ? 's' : ''} in progress for more than ${thresholdMinutes} minutes. Click to view.`;
+      this.statusBarItem.tooltip = t('{0} task{1} in progress for more than {2} minutes. Click to view.',
+        staleCount,
+        staleCount !== 1 ? 's' : '',
+        thresholdMinutes);
       this.statusBarItem.command = 'beadsExplorer.focus';
       this.statusBarItem.show();
       return;
@@ -382,7 +386,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
 
     if (this.feedbackEnabled) {
       this.statusBarItem.text = `$(comment-discussion) ${t('Send Feedback')}`;
-      this.statusBarItem.tooltip = t('Share feedback or report a bug');
+      this.statusBarItem.tooltip = t('Share feedback or report a bug (opens GitHub)');
       this.statusBarItem.command = 'beads.sendFeedback';
       this.statusBarItem.show();
       return;
