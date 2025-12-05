@@ -1,5 +1,7 @@
 # Beads VSCode Extension - Interface Design
 
+> Architecture overview: see `docs/adr/2025-12-core-layering.md` for the layered plan (core, headless hooks, renderer packages, and platform adapters).
+
 ## Overview
 
 This document defines the interface between the VSCode extension and the beads backend for reliable state management.

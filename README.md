@@ -8,6 +8,25 @@
 
 This Visual Studio Code extension provides a simple explorer view for [Beads](https://github.com/steveyegge/beads) projects so that you can manage your beads without leaving the editor.
 
+## Architecture (high level)
+
+The project is moving to a layered, multi-surface layout so VS Code, a web client, and the Ink-based TUI can share logic:
+```
+             bd CLI (--no-daemon)
+                    |
+              packages/core
+                    |
+             packages/ui-headless  (React hooks/state, no DOM/Ink)
+              /                 \
+      packages/ui-web      packages/ui-ink
+           |                    |
+          web app           tui app
+
+             packages/platform-vscode (activation + wiring only)
+```
+
+Details and rules live in `docs/adr/2025-12-core-layering.md`. As the refactor lands, `extension.ts` will shrink to activation/wiring, while domain logic, CLI calls, and stores sit in shared packages.
+
 ## Features
 
 - **Dedicated Activity Bar**: Beads has its own dedicated view in the VS Code activity bar for easy access.
