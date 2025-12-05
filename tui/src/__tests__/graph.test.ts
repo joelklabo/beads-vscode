@@ -8,12 +8,12 @@ const nodes = [
 ];
 
 const edges = [
-  { from: 'A', to: 'B' },
-  { from: 'B', to: 'C' },
+  { sourceId: 'A', targetId: 'B' },
+  { sourceId: 'B', targetId: 'C' },
 ];
 
 function run(): void {
-  const cycles = detectCycles([...edges, { from: 'C', to: 'A' }]);
+  const cycles = detectCycles([...edges, { sourceId: 'C', targetId: 'A' }]);
   assert.ok(cycles.hasCycle);
   assert.ok(cycles.cycles[0].includes('A'));
 

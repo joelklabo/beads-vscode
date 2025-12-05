@@ -11,7 +11,9 @@
   },
   "dependencies": {
     "ink": "^4.4.1",
-    "react": "^18.2.0"
+    "react": "^18.2.0",
+    "@beads/core": "0.0.0",
+    "@beads/ui-headless": "0.0.0"
   },
   "devDependencies": {
     "@types/react": "^18.2.46",

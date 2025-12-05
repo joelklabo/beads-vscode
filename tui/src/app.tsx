@@ -1,6 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Box, Text, useStdout } from 'ink';
+import Core from '@beads/core';
+import type { WorkspaceTarget } from '@beads/core';
+import Headless from '@beads/ui-headless';
 import NavBar, { Tab, TabId, ThemeMode } from './components/NavBar';
+import BeadList from './components/BeadList';
+import DependencyGraph from './components/DependencyGraph';
 import { useKeymap } from './hooks/useKeymap';
 
 type AppProps = {
@@ -9,6 +14,8 @@ type AppProps = {
   onTabChange?: (tab: TabId) => void;
   onThemeChange?: (theme: ThemeMode) => void;
   simulateKeys?: string[]; // for tests: e.g., ['g','a'] or ['RIGHT']
+  store?: BeadsStore;
+  workspaces?: WorkspaceTarget[];
 };
 
 const tabs: Tab[] = [
@@ -47,6 +54,8 @@ export const App: React.FC<AppProps> = ({
   onTabChange,
   onThemeChange,
   simulateKeys,
+  store: providedStore,
+  workspaces: providedWorkspaces,
 }) => {
   const [activeTab, setActiveTab] = useState<TabId>(initialTab);
   const [status, setStatus] = useState<string>('Press ? for help · g d/i/a/g/s to jump');
@@ -54,6 +63,13 @@ export const App: React.FC<AppProps> = ({
   const { stdout } = useStdout();
   const tabIds = useMemo(() => tabs.map((t) => t.id), []);
   const worktree = formatWorktreeLabel(cwd);
+
+  const workspaces = useMemo<WorkspaceTarget[]>(() => providedWorkspaces ?? [{ id: 'primary', root: cwd }], [providedWorkspaces, cwd]);
+  const [store] = useState(() => {
+    if (providedStore) return providedStore;
+    const { BeadsStore } = Core as typeof import('@beads/core');
+    return new BeadsStore({ onError: (err) => setStatus(String(err)) });
+  });
 
   const setTab = (id: TabId): void => {
     setActiveTab(id);
@@ -70,6 +86,28 @@ export const App: React.FC<AppProps> = ({
     onThemeChange?.(next);
     setStatus(`Theme: ${next}`);
   };
+
+  const { useBeadsView, useBeadDetail, useGraphData } = Headless as typeof import('@beads/ui-headless');
+
+  const beadsView = useBeadsView({ workspaces, store });
+  const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
+  const detail = useBeadDetail({ beadId: selectedId ?? beadsView.items[0]?.id ?? '', workspaces, store });
+  const graph = useGraphData(workspaces, store);
+
+  useEffect(() => {
+    if (!selectedId && beadsView.items.length > 0) {
+      setSelectedId(beadsView.items[0].id);
+    }
+  }, [selectedId, beadsView.items]);
+
+  useEffect(
+    () => () => {
+      if (!providedStore) {
+        store.dispose();
+      }
+    },
+    [providedStore, store]
+  );
 
   // Live keyboard handling
   useKeymap(tabIds, activeTab, setTab, {
@@ -133,16 +171,23 @@ export const App: React.FC<AppProps> = ({
 
   const themeColor = theme === 'light' ? 'cyan' : theme === 'dark' ? 'yellow' : 'magenta';
 
-  return (
-    <Box flexDirection="column" padding={1} borderStyle="single" borderColor={themeColor}>
-      <Box marginBottom={1}>
-        <Text color={themeColor}>
-          {worktree} · {panelLabel(activeTab)} view
-        </Text>
-      </Box>
+  const renderActivePanel = (): React.ReactNode => {
+    if (activeTab === 'issues') {
+      return (
+        <BeadList
+          items={beadsView.items}
+          selectedId={selectedId}
+          onSelect={setSelectedId}
+          loading={beadsView.loading}
+        />
+      );
+    }
 
-      <NavBar tabs={tabs} activeId={activeTab} onSelect={setTab} theme={theme} />
+    if (activeTab === 'graph') {
+      return <DependencyGraph nodes={graph.nodes} edges={graph.edges} />;
+    }
 
+    return (
       <Box
         flexDirection="column"
         borderStyle="round"
@@ -158,8 +203,30 @@ export const App: React.FC<AppProps> = ({
         <Box marginTop={1} flexDirection="column">
           <Text dimColor>Layout adapts automatically; flexWrap handles narrow (≤80) widths.</Text>
           <Text dimColor>Use arrows or g-keys to move focus. Press t to cycle theme.</Text>
+          <Text dimColor>
+            Loaded {beadsView.items.length} issues across {workspaces.length} workspace(s).
+          </Text>
+          {detail.bead ? (
+            <Text dimColor wrap="truncate-end">
+              Selected: {detail.bead.id} · {detail.bead.title}
+            </Text>
+          ) : null}
         </Box>
       </Box>
+    );
+  };
+
+  return (
+    <Box flexDirection="column" padding={1} borderStyle="single" borderColor={themeColor}>
+      <Box marginBottom={1}>
+        <Text color={themeColor}>
+          {worktree} · {panelLabel(activeTab)} view
+        </Text>
+      </Box>
+
+      <NavBar tabs={tabs} activeId={activeTab} onSelect={setTab} theme={theme} />
+
+      {renderActivePanel()}
 
       <Box marginTop={1}>
         <Text dimColor>{status}</Text>
