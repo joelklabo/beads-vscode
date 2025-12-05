@@ -70,6 +70,7 @@ function createVscodeStub() {
       showErrorMessage: () => undefined,
       createTreeView: () => ({})
     },
+    commands: { executeCommand: () => undefined },
     StatusBarAlignment: { Left: 1 },
     RelativePattern: class {},
     workspaceState: new Map<string, any>(),

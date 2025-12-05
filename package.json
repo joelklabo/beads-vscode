@@ -142,6 +142,16 @@
         "command": "beads.toggleFavorite",
         "title": "%command.beads.toggleFavorite%",
         "icon": "$(star)"
+      },
+      {
+        "command": "beads.applyQuickFilterPreset",
+        "title": "%command.beads.applyQuickFilterPreset%",
+        "icon": "$(filter)"
+      },
+      {
+        "command": "beads.clearQuickFilters",
+        "title": "%command.beads.clearQuickFilters%",
+        "icon": "$(clear-all)"
       }
     ],
     "viewsContainers": {
@@ -337,11 +347,26 @@
           "minimum": 5000,
           "maximum": 300000,
           "description": "Total elapsed time in milliseconds across retries before treating the bd CLI as offline (default: 30000)."
+        },
+        "beads.quickFilters.enabled": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Enable quick filter presets in the Beads explorer toolbar and command palette."
         }
       }
     },
     "menus": {
       "view/title": [
+        {
+          "command": "beads.applyQuickFilterPreset",
+          "when": "view == beadsExplorer && beads.quickFiltersEnabled",
+          "group": "navigation@1.5"
+        },
+        {
+          "command": "beads.clearQuickFilters",
+          "when": "view == beadsExplorer && beads.quickFiltersEnabled && beads.activeQuickFilter != ''",
+          "group": "navigation@1.6"
+        },
         {
           "command": "beads.toggleSortMode",
           "when": "view == beadsExplorer",
@@ -506,6 +531,14 @@
         {
           "command": "beads.toggleFavorite",
           "when": "beads.favoritesEnabled"
+        },
+        {
+          "command": "beads.applyQuickFilterPreset",
+          "when": "beads.quickFiltersEnabled"
+        },
+        {
+          "command": "beads.clearQuickFilters",
+          "when": "beads.quickFiltersEnabled && beads.activeQuickFilter != ''"
         }
       ]
     },

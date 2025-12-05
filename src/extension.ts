@@ -40,6 +40,9 @@ import {
   collectDependencyEdges,
   mapBeadsToGraphNodes,
   GraphEdgeData,
+  QuickFilterPreset,
+  applyQuickFilter,
+  toggleQuickFilter,
 } from './utils';
 import { ActivityFeedTreeDataProvider, ActivityEventItem } from './activityFeedProvider';
 import { EventType } from './activityFeed';
@@ -310,6 +313,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   private openPanels: Map<string, vscode.WebviewPanel> = new Map();
   private searchQuery: string = '';
   private refreshInProgress: boolean = false;
+  private quickFilter: QuickFilterPreset | undefined;
   private pendingRefresh: boolean = false;
   private debounceTimer: NodeJS.Timeout | undefined;
   private staleRefreshTimer: NodeJS.Timeout | undefined;
@@ -337,6 +341,8 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     this.loadSortMode();
     // Load persisted collapsed sections
     this.loadCollapsedSections();
+    // Load quick filter preset
+    this.loadQuickFilter();
     // Start periodic refresh for stale detection
     this.startStaleRefreshTimer();
   }
@@ -714,12 +720,14 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   }
 
   private filterItems(items: BeadItemData[]): BeadItemData[] {
+    let filtered = applyQuickFilter(items, this.quickFilter);
+
     if (!this.searchQuery) {
-      return items;
+      return filtered;
     }
 
     const query = this.searchQuery.toLowerCase();
-    return items.filter((item) => {
+    filtered = filtered.filter((item) => {
       const raw = item.raw as any;
       const searchableFields = [
         item.id,
@@ -739,6 +747,8 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
         String(field).toLowerCase().includes(query)
       );
     });
+
+    return filtered;
   }
 
   async search(): Promise<void> {
@@ -759,6 +769,43 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
       const count = this.filterItems(this.items).length;
       void vscode.window.showInformationMessage(t('Found {0} bead(s) matching "{1}"', count, this.searchQuery));
     }
+  }
+
+  async applyQuickFilterPreset(): Promise<void> {
+    const presets: Array<{ id: string; label: string; preset: QuickFilterPreset; description?: string }> = [
+      { id: 'open', label: t('Open'), preset: { kind: 'status', value: 'open' } },
+      { id: 'in_progress', label: t('In Progress'), preset: { kind: 'status', value: 'in_progress' } },
+      { id: 'blocked', label: t('Blocked'), preset: { kind: 'status', value: 'blocked' } },
+      { id: 'closed', label: t('Closed'), preset: { kind: 'status', value: 'closed' } },
+      { id: 'stale', label: t('Stale'), preset: { kind: 'stale' }, description: t('Tasks marked stale by threshold') },
+      { id: 'labeled', label: t('Labeled'), preset: { kind: 'label' }, description: t('Tasks that have one or more labels') },
+    ];
+
+    const active = this.quickFilter;
+    const getValue = (preset: QuickFilterPreset): string | undefined => ('value' in preset ? preset.value : undefined);
+    const selection = await vscode.window.showQuickPick(
+      presets.map((option) => ({
+        label: option.label,
+        description: option.description,
+        id: option.id,
+        picked:
+          !!active &&
+          active.kind === option.preset.kind &&
+          getValue(active) === getValue(option.preset),
+        preset: option.preset,
+      })),
+      { placeHolder: t('Apply a quick filter preset') }
+    );
+
+    if (!selection) {
+      return;
+    }
+
+    const next = toggleQuickFilter(active, selection.preset);
+    this.setQuickFilter(next);
+    void vscode.window.showInformationMessage(
+      next ? t('Applied quick filter: {0}', selection.label) : t('Quick filters cleared')
+    );
   }
 
   clearSearch(): void {
@@ -1183,7 +1230,42 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     });
     void this.context.workspaceState.update('beads.collapsedEpics', epicState);
   }
-  
+
+  private loadQuickFilter(): void {
+    const saved = this.context.workspaceState.get<QuickFilterPreset>('beads.quickFilterPreset');
+    this.quickFilter = saved;
+    this.syncQuickFilterContext();
+  }
+
+  syncQuickFilterContext(): void {
+    const key = this.getQuickFilterKey();
+    void vscode.commands.executeCommand('setContext', 'beads.activeQuickFilter', key ?? '');
+  }
+
+  private getQuickFilterKey(): string | undefined {
+    if (!this.quickFilter) {
+      return undefined;
+    }
+    const value = 'value' in this.quickFilter && this.quickFilter.value ? `:${this.quickFilter.value}` : '';
+    return `${this.quickFilter.kind}${value}`;
+  }
+
+  setQuickFilter(preset: QuickFilterPreset | undefined): void {
+    this.quickFilter = preset;
+    void this.context.workspaceState.update('beads.quickFilterPreset', preset);
+    this.syncQuickFilterContext();
+    this.onDidChangeTreeDataEmitter.fire();
+  }
+
+  clearQuickFilter(): void {
+    this.setQuickFilter(undefined);
+    void vscode.window.showInformationMessage(t('Quick filters cleared'));
+  }
+
+  getQuickFilter(): QuickFilterPreset | undefined {
+    return this.quickFilter;
+  }
+
   toggleSectionCollapse(status: string): void {
     if (this.collapsedSections.has(status)) {
       this.collapsedSections.delete(status);
@@ -4201,6 +4283,12 @@ export function activate(context: vscode.ExtensionContext): void {
     void vscode.commands.executeCommand('setContext', 'beads.bulkActionsMaxSelection', bulkConfig.maxSelection);
   };
 
+  const applyQuickFiltersContext = (): void => {
+    const quickFiltersEnabled = vscode.workspace.getConfiguration('beads').get<boolean>('quickFilters.enabled', false);
+    void vscode.commands.executeCommand('setContext', 'beads.quickFiltersEnabled', quickFiltersEnabled);
+    provider.syncQuickFilterContext();
+  };
+
   const applyFavoritesContext = (): void => {
     const favoritesEnabled = vscode.workspace.getConfiguration('beads').get<boolean>('favorites.enabled', false);
     void vscode.commands.executeCommand('setContext', 'beads.favoritesEnabled', favoritesEnabled);
@@ -4213,6 +4301,7 @@ export function activate(context: vscode.ExtensionContext): void {
   };
 
   applyBulkActionsContext();
+  applyQuickFiltersContext();
   applyFavoritesContext();
   applyFeedbackContext();
 
@@ -4248,6 +4337,8 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('beads.search', () => provider.search()),
     vscode.commands.registerCommand('beads.clearSearch', () => provider.clearSearch()),
     vscode.commands.registerCommand('beads.clearSortOrder', () => provider.clearSortOrder()),
+    vscode.commands.registerCommand('beads.applyQuickFilterPreset', () => provider.applyQuickFilterPreset()),
+    vscode.commands.registerCommand('beads.clearQuickFilters', () => provider.clearQuickFilter()),
     vscode.commands.registerCommand('beads.toggleSortMode', () => provider.toggleSortMode()),
     vscode.commands.registerCommand('beads.openBead', (item: BeadItemData) => openBead(item, provider)),
     vscode.commands.registerCommand('beads.createBead', () => createBead()),
@@ -4430,6 +4521,10 @@ export function activate(context: vscode.ExtensionContext): void {
       void provider.refresh();
     }
 
+    if (event.affectsConfiguration('beads.quickFilters')) {
+      applyQuickFiltersContext();
+    }
+
     if (event.affectsConfiguration('beads.feedback') || event.affectsConfiguration('beads.projectRoot')) {
       applyFeedbackContext();
     }
@@ -4438,6 +4533,7 @@ export function activate(context: vscode.ExtensionContext): void {
   const workspaceWatcher = vscode.workspace.onDidChangeWorkspaceFolders(() => {
     applyFeedbackContext();
     applyBulkActionsContext();
+    applyQuickFiltersContext();
   });
 
   context.subscriptions.push(configurationWatcher, workspaceWatcher);
