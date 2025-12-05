@@ -49,6 +49,7 @@ import {
   QuickFilterPreset,
   applyQuickFilter,
   toggleQuickFilter,
+  normalizeQuickFilter,
 } from './utils';
 import { ActivityFeedTreeDataProvider, ActivityEventItem } from './activityFeedProvider';
 import { EventType } from './activityFeed';
@@ -1500,7 +1501,10 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
 
   private loadQuickFilter(): void {
     const saved = this.context.workspaceState.get<QuickFilterPreset>('beads.quickFilterPreset');
-    this.quickFilter = saved;
+    this.quickFilter = normalizeQuickFilter(saved);
+    if (saved && !this.quickFilter) {
+      void vscode.window.showWarningMessage(t('Ignoring invalid quick filter; showing all items.'));
+    }
     this.syncQuickFilterContext();
   }
 
@@ -1588,8 +1592,12 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   }
 
   setQuickFilter(preset: QuickFilterPreset | undefined): void {
-    this.quickFilter = preset;
-    void this.context.workspaceState.update('beads.quickFilterPreset', preset);
+    const normalized = normalizeQuickFilter(preset);
+    if (preset && !normalized) {
+      void vscode.window.showWarningMessage(t('Invalid quick filter selection; showing all items.'));
+    }
+    this.quickFilter = normalized;
+    void this.context.workspaceState.update('beads.quickFilterPreset', normalized);
     this.updateQuickFilterUi();
     this.onDidChangeTreeDataEmitter.fire();
   }

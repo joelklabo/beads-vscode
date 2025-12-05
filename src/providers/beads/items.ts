@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { BeadItemData, buildPreviewSnippet, formatRelativeTime, getStaleInfo, isStale, sanitizeTooltipText, stripBeadIdPrefix, formatStatusLabel } from '../../utils';
+import { BeadItemData, buildPreviewSnippet, formatRelativeTime, getStaleInfo, isStale, sanitizeTooltipText, stripBeadIdPrefix, formatStatusLabel, sanitizeInlineText } from '../../utils';
 
 const t = vscode.l10n.t;
 
@@ -139,7 +139,8 @@ export class BeadTreeItem extends vscode.TreeItem {
 
   constructor(public readonly bead: BeadItemData, expanded: boolean = false, private readonly worktreeId?: string) {
     const cleanTitle = stripBeadIdPrefix(bead.title || bead.id, bead.id);
-    const label = cleanTitle || bead.title || bead.id;
+    const rawLabel = cleanTitle || bead.title || bead.id;
+    const label = sanitizeInlineText(rawLabel) || rawLabel;
     super(label, expanded ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed);
 
     const config = vscode.workspace.getConfiguration('beads');
@@ -149,8 +150,11 @@ export class BeadTreeItem extends vscode.TreeItem {
     const isTaskStale = isStale(bead, thresholdHours);
 
     const assigneeInfo = getAssigneeInfo(bead);
+    const safeAssigneeDisplay = sanitizeInlineText(assigneeInfo.display);
+    const safeAssigneeName = sanitizeInlineText(assigneeInfo.name);
+    const safeId = sanitizeInlineText(bead.id) || bead.id;
 
-    const descParts: string[] = [bead.id, `${assigneeInfo.dot} ${assigneeInfo.display}`, formatStatusLabel(bead.status || 'open')];
+    const descParts: string[] = [safeId, `${assigneeInfo.dot} ${safeAssigneeDisplay}`, formatStatusLabel(bead.status || 'open')];
     if (isTaskStale && staleInfo) {
       descParts.push(`⚠️ ${staleInfo.formattedTime}`);
     }
@@ -189,12 +193,12 @@ export class BeadTreeItem extends vscode.TreeItem {
     tooltip.supportHtml = false;
 
     const safeTitle = sanitizeTooltipText(bead.title || bead.id);
-    const safeId = sanitizeTooltipText(bead.id);
+    const safeIdTooltip = sanitizeTooltipText(bead.id);
     const safeDescription = bead.description ? sanitizeTooltipText(bead.description) : undefined;
     const safeWorktree = this.worktreeId ? sanitizeTooltipText(this.worktreeId) : undefined;
 
     tooltip.appendMarkdown(`**${safeTitle}**\n\n`);
-    tooltip.appendMarkdown(`🆔 ${safeId}\n\n`);
+    tooltip.appendMarkdown(`🆔 ${safeIdTooltip}\n\n`);
     tooltip.appendMarkdown(`👤 ${sanitizeTooltipText(assigneeInfo.name)}\n\n`);
 
     if (safeDescription) {
@@ -216,12 +220,13 @@ export class BeadTreeItem extends vscode.TreeItem {
     this.tooltip = tooltip;
 
     const preview = buildPreviewSnippet(bead.description, 80);
+    const safePreview = sanitizeInlineText(preview);
     const relTime = bead.updatedAt ? formatRelativeTime(bead.updatedAt) : undefined;
-    const labels = (bead.tags && bead.tags.length > 0) ? bead.tags.join(', ') : t('None');
+    const labels = (bead.tags && bead.tags.length > 0) ? sanitizeInlineText(bead.tags.join(', ')) : t('None');
     const priority = (bead as any).priority !== undefined && (bead as any).priority !== null ? String((bead as any).priority) : t('Unset');
 
     this.detailItems = [
-      new BeadDetailItem(`${assigneeInfo.dot} ${assigneeInfo.name}`, t('Status: {0}', formatStatusLabel(bead.status || 'open'))),
+      new BeadDetailItem(`${assigneeInfo.dot} ${safeAssigneeName}`, t('Status: {0}', formatStatusLabel(bead.status || 'open'))),
       new BeadDetailItem(t('Labels'), truncate(labels, 80)),
       new BeadDetailItem(t('Priority'), priority),
       new BeadDetailItem(t('Updated'), relTime ?? t('Unknown')),
@@ -231,8 +236,8 @@ export class BeadTreeItem extends vscode.TreeItem {
       this.detailItems.push(new BeadDetailItem(t('Blockers'), t('{0} blocking issue(s)', bead.blockingDepsCount)));
     }
 
-    if (preview) {
-      this.detailItems.push(new BeadDetailItem(t('Summary'), preview));
+    if (safePreview) {
+      this.detailItems.push(new BeadDetailItem(t('Summary'), truncate(safePreview, 120)));
     }
 
     this.command = {
