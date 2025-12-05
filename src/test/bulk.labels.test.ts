@@ -216,6 +216,7 @@ describe('bulkUpdateLabel command', () => {
     delete require.cache[require.resolve('../providers/beads/store')];
     delete require.cache[require.resolve('../extension')];
 
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const extension = require('../extension');
     bulkUpdateLabel = extension.bulkUpdateLabel;
     BeadsTreeDataProvider = extension.BeadsTreeDataProvider;
