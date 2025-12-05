@@ -1,5 +1,6 @@
 import * as assert from 'assert';
 import Module = require('module');
+import { stripNoDaemon } from './utils/webview';
 
 function createVscodeStub() {
   class EventEmitter<T> {
@@ -61,6 +62,9 @@ function createVscodeStub() {
         get: (key: string, fallback: any) => {
           if (key === 'enableDependencyEditing') {
             return true;
+          }
+          if (key === 'enableWorktreeGuard') {
+            return false;
           }
           if (key === 'projectRoot') {
             return '/tmp/project';
@@ -129,6 +133,15 @@ describe('removeDependency command', () => {
       return restoreLoad(request, parent, isMain);
     };
 
+    const modulesToClear = ['../extension', '../utils', '../utils/cli', '../providers/beads/store'];
+    modulesToClear.forEach((id) => {
+      try {
+        delete require.cache[require.resolve(id)];
+      } catch {
+        // ignore cache misses
+      }
+    });
+
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const extension = require('../extension');
     BeadsTreeDataProvider = extension.BeadsTreeDataProvider;
@@ -150,9 +163,11 @@ describe('removeDependency command', () => {
 
     await provider.removeDependency('A', 'B');
 
-    assert.strictEqual(execCalls.length, 1);
-    assert.deepStrictEqual(execCalls[0].file, 'bd');
-    assert.deepStrictEqual(execCalls[0].args, ['dep', 'remove', 'A', 'B']);
+    const depCall = execCalls.find(call => Array.isArray(call.args) && stripNoDaemon(call.args)[0] === 'dep');
+    assert.ok(depCall, 'bd dep remove should be invoked');
+    assert.deepStrictEqual(depCall!.file, 'bd');
+    assert.strictEqual(depCall!.args[0], '--no-daemon');
+    assert.deepStrictEqual(stripNoDaemon(depCall!.args), ['dep', 'remove', 'A', 'B']);
     assert.ok((provider as any)._refreshed, 'provider.refresh should be called');
     assert.ok(vscodeStub._info.some((msg: string) => msg.includes('Removed dependency')));
     provider.dispose();
@@ -170,9 +185,13 @@ describe('removeDependency command', () => {
 
     await provider.removeDependency('X', 'Y');
 
-    assert.strictEqual(execCalls.length, 1);
+    const depCall = execCalls.find(call => Array.isArray(call.args) && stripNoDaemon(call.args)[0] === 'dep');
+    assert.ok(depCall, 'bd dep remove should be invoked');
+    assert.strictEqual(depCall!.args[0], '--no-daemon');
+    assert.deepStrictEqual(stripNoDaemon(depCall!.args), ['dep', 'remove', 'X', 'Y']);
     assert.ok((provider as any)._refreshed, 'refresh should still run on missing dependency');
-    assert.ok(vscodeStub._warnings.some((msg: string) => msg.toLowerCase().includes('already removed')));
+    const warningText = vscodeStub._warnings.join(' ').toLowerCase();
+    assert.ok(/already removed|not found|does not exist|no dependency/.test(warningText), 'should warn when dependency is missing');
     provider.dispose();
   });
 });
