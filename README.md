@@ -25,7 +25,13 @@ The project is moving to a layered, multi-surface layout so VS Code, a web clien
              packages/platform-vscode (activation + wiring only)
 ```
 
-Details and rules live in `docs/adr/2025-12-core-layering.md`. As the refactor lands, `extension.ts` will shrink to activation/wiring, while domain logic, CLI calls, and stores sit in shared packages.
+Details and rules live in `docs/adr/2025-12-core-layering.md` and the short `docs/architecture.md` overview. `extension.ts` now stays lean (activation/wiring only) while domain logic, CLI calls, and stores sit in shared packages.
+
+### Workspace layout & commands
+- Build: `npm run build:core`, `npm run build:vscode`, `npm run build:tui`, `npm run build:web` (skips if the web workspace is absent)
+- Tests: `npm run test:unit` (VS Code), `npm run test:core`, `npm run test:tui`, `npm run test:web:skeleton`
+- Full sweep: `npm run test:all` or `npm run ci:verify` (mirrors the CI **Test** workflow)
+- All bd calls enforce `--no-daemon`; do not write directly to `.beads` DB files—go through the CLI/shared store
 
 ## Features
 
@@ -194,6 +200,10 @@ npm run lint
 ```
 
 See [TESTING.md](TESTING.md) for more information about the test infrastructure.
+
+### Accessibility & security
+- Accessibility checklist: [docs/accessibility.md](docs/accessibility.md)
+- Tooltip sanitization/security notes: [docs/tooltips/hover-rules.md](docs/tooltips/hover-rules.md)
 
 ### CI & coverage parity
 

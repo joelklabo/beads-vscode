@@ -15,7 +15,6 @@ coverage-final.json
 .beads/heartbeats/
 .npm-cache-*/
 DISTRIBUTION.md
-AGENTS.md
 .gitattributes
 
 # Local temporary files (DO NOT use /tmp/ - use this local tmp/ instead)
