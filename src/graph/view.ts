@@ -93,6 +93,7 @@ export function buildDependencyGraphHtml(
         .edge { stroke: var(--vscode-panel-border); stroke-width: 2; fill: none; marker-end: url(#arrowhead); opacity: 0.8; cursor: pointer; }
         .edge.blocks { stroke: #f14c4c; stroke-width: 2.5; }
         .edge.selected { stroke: var(--vscode-focusBorder, #007acc); stroke-width: 3; }
+        .edge-label { fill: var(--vscode-descriptionForeground); font-size: 11px; pointer-events: none; }
 
         .controls { position: fixed; top: 20px; right: 20px; display: flex; gap: 8px; align-items: center; }
         .control-button { background-color: var(--vscode-button-background); color: var(--vscode-button-foreground); border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 500; }
@@ -277,194 +278,51 @@ export function buildDependencyGraphHtml(
         let mouseDownPos = null;
 
         function calculateLayout() {
+            const adjacency = new Map();
+            edges.forEach((edge) => {
+                if (!adjacency.has(edge.sourceId)) adjacency.set(edge.sourceId, []);
+                adjacency.get(edge.sourceId).push(edge.targetId);
+            });
+
+            const memo = new Map();
+            const depth = (id) => {
+                if (memo.has(id)) return memo.get(id);
+                const targets = adjacency.get(id) || [];
+                const value = targets.length === 0 ? 0 : Math.max(...targets.map(depth)) + 1;
+                memo.set(id, value);
+                return value;
+            };
+
+            nodePositions.clear();
+            nodes.forEach((node) => { depth(node.id); });
+
             const levels = new Map();
-            const visited = new Set();
-            const outDegree = new Map();
-
-            nodes.forEach(node => outDegree.set(node.id, 0));
-            edges.forEach(edge => { outDegree.set(edge.sourceId, (outDegree.get(edge.sourceId) || 0) + 1); });
-
-            const leaves = nodes.filter(node => outDegree.get(node.id) === 0);
-            if (leaves.length === 0) {
-                const minOutDegree = Math.min(...Array.from(outDegree.values()));
-                leaves.push(...nodes.filter(node => outDegree.get(node.id) === minOutDegree));
-            }
-
-            const queue = leaves.map(node => ({node, level: 0}));
-            leaves.forEach(node => visited.add(node.id));
-
-            while (queue.length > 0) {
-                const {node, level} = queue.shift();
-                if (!levels.has(level)) { levels.set(level, []); }
-                levels.get(level).push(node);
-
-                const parents = edges
-                    .filter(edge => edge.targetId === node.id)
-                    .map(edge => nodes.find(n => n.id === edge.sourceId))
-                    .filter(n => n && !visited.has(n.id));
-
-                parents.forEach(parent => {
-                    visited.add(parent.id);
-                    queue.push({node: parent, level: level + 1});
-                });
-            }
-
-            nodes.forEach(node => {
-                if (!visited.has(node.id)) {
-                    const maxLevel = Math.max(...Array.from(levels.keys()), -1);
-                    const level = maxLevel + 1;
-                    if (!levels.has(level)) { levels.set(level, []); }
-                    levels.get(level).push(node);
-                }
+            nodes.forEach((node) => {
+                const d = memo.get(node.id) ?? 0;
+                if (!levels.has(d)) levels.set(d, []);
+                levels.get(d).push(node.id);
             });
 
-            const horizontalSpacing = 250;
-            const verticalSpacing = 120;
-            const startX = 100;
-            const startY = 100;
+            const spacingX = 220;
+            const spacingY = 140;
 
-            levels.forEach((nodesInLevel, level) => {
-                const sortedNodes = nodesInLevel.sort((a, b) => {
-                    const numA = parseInt(a.id.match(/[0-9]+/)?.[0] || '0', 10);
-                    const numB = parseInt(b.id.match(/[0-9]+/)?.[0] || '0', 10);
-                    return numA - numB;
-                });
-
-                sortedNodes.forEach((node, index) => {
-                    if (savedPositions[node.id]) {
-                        nodePositions.set(node.id, savedPositions[node.id]);
-                    } else {
-                        const x = startX + (index * horizontalSpacing);
-                        const y = startY + (level * verticalSpacing);
-                        nodePositions.set(node.id, {x, y});
-                    }
+            levels.forEach((ids, level) => {
+                ids.forEach((id, index) => {
+                    const saved = savedPositions[id];
+                    const x = saved?.x ?? index * spacingX + 40;
+                    const y = saved?.y ?? level * spacingY + 20;
+                    nodePositions.set(id, { x, y });
                 });
             });
-        }
 
-        function savePositions() {
-            const positions = {};
-            nodePositions.forEach((pos, id) => { positions[id] = pos; });
-            savedPositions = positions;
-            vscode.setState({ nodePositions: positions, lastSelectedNodeId });
-        }
-
-        function createNode(node) {
-            const div = document.createElement('div');
-            div.className = 'node status-' + node.status;
-            div.innerHTML = '<div class="node-id">' + '<span class="status-indicator ' + node.status + '"></span>' + node.id + '</div>' +
-                '<div class="node-title" title="' + node.title + '">' + node.title + '</div>';
-            div.dataset.nodeId = node.id;
-
-            div.addEventListener('contextmenu', (e) => {
-                e.preventDefault();
-                showContextMenu(e.pageX, e.pageY, node.id);
-            });
-
-            div.addEventListener('mousedown', (e) => {
-                if (dependencyEditingEnabled && e.button === 2) {
-                    linkSourceId = node.id;
-                    linkingDrag = true;
-                    updateHint('Drag to a target to link from ' + node.id);
-                    e.preventDefault();
-                    return;
+            Object.keys(savedPositions || {}).forEach((id) => {
+                if (!nodePositions.has(id)) {
+                    nodePositions.set(id, savedPositions[id]);
                 }
-                if (e.button !== 0) return;
-                draggedNode = div;
-                draggedNodeId = node.id;
-                mouseDownPos = {x: e.clientX, y: e.clientY};
-                const pos = nodePositions.get(node.id);
-                dragOffset.x = e.clientX - pos.x;
-                dragOffset.y = e.clientY - pos.y;
-                e.preventDefault();
             });
-
-            div.addEventListener('mouseup', (e) => {
-                if (linkingDrag && linkSourceId && linkSourceId !== node.id) {
-                    attemptAddDependency(linkSourceId, node.id);
-                }
-                linkingDrag = false;
-            });
-
-            div.addEventListener('click', (e) => {
-                if (isDragging) { return; }
-                if (dependencyEditingEnabled && (e.shiftKey || linkSourceId)) {
-                    if (!linkSourceId) {
-                        linkSourceId = node.id;
-                        updateHint('Select a target for ' + node.id);
-                    } else if (linkSourceId === node.id) {
-                        linkSourceId = null;
-                        updateHint('Link cancelled');
-                    } else {
-                        attemptAddDependency(linkSourceId, node.id);
-                    }
-                    return;
-                }
-                selectedEdge = null;
-                lastSelectedNodeId = node.id;
-                vscode.setState({ nodePositions: savedPositions, lastSelectedNodeId });
-                vscode.postMessage({ command: 'openBead', beadId: node.id });
-            });
-
-            return div;
         }
 
-        function drawEdge(from, to, type) {
-            const fromPos = nodePositions.get(from);
-            const toPos = nodePositions.get(to);
-            if (!fromPos || !toPos) return '';
-            const fromEl = nodeElements.get(from);
-            const toEl = nodeElements.get(to);
-            if (!fromEl || !toEl) return '';
 
-            const fromRect = fromEl.getBoundingClientRect();
-            const toRect = toEl.getBoundingClientRect();
-            const x1 = fromPos.x + (fromRect.width / 2);
-            const y1 = fromPos.y + fromRect.height;
-            const x2 = toPos.x + (toRect.width / 2);
-            const y2 = toPos.y;
-            const midY = (y1 + y2) / 2;
-            const path = 'M ' + x1 + ' ' + y1 + ' C ' + x1 + ' ' + midY + ', ' + x2 + ' ' + midY + ', ' + x2 + ' ' + y2;
-            return '<path d="' + path + '" class="edge ' + (type || '') + '" data-from="' + from + '" data-to="' + to + '" />';
-        }
-
-        function render() {
-            const canvas = document.getElementById('canvas');
-            const svg = document.getElementById('svg');
-            canvas.innerHTML = '';
-            nodeElements.clear();
-            calculateLayout();
-
-            nodes.forEach(node => {
-                const div = createNode(node);
-                const pos = nodePositions.get(node.id);
-                div.style.left = pos.x + 'px';
-                div.style.top = pos.y + 'px';
-                canvas.appendChild(div);
-                nodeElements.set(node.id, div);
-            });
-
-            let maxX = 0, maxY = 0;
-            nodePositions.forEach(pos => {
-                maxX = Math.max(maxX, pos.x + 250);
-                maxY = Math.max(maxY, pos.y + 100);
-            });
-
-            svg.setAttribute('width', maxX);
-            svg.setAttribute('height', maxY);
-            canvas.style.width = maxX + 'px';
-            canvas.style.height = maxY + 'px';
-
-            setTimeout(() => {
-                const edgePaths = edges.map(edge => drawEdge(edge.sourceId, edge.targetId, edge.type)).join('');
-                svg.innerHTML = '<defs>' +
-                    '<marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">' +
-                    '<polygon points="0 0, 10 3, 0 6" fill="var(--vscode-panel-border)" />' +
-                    '</marker>' +
-                    '</defs>' + edgePaths;
-                bindEdgeClicks();
-            }, 50);
-        }
 
         function resetZoom() {
             const container = document.getElementById('container');
