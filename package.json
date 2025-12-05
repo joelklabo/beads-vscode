@@ -67,6 +67,11 @@
         "icon": "$(graph)"
       },
       {
+        "command": "beads.exportCsv",
+        "title": "%command.beads.exportCsv%",
+        "icon": "$(table)"
+      },
+      {
         "command": "beads.exportMarkdown",
         "title": "%command.beads.exportMarkdown%"
       },
@@ -194,6 +199,22 @@
           "type": "boolean",
           "default": false,
           "markdownDescription": "Enable the inline status change command for Beads items. When disabled, related commands and menus are hidden."
+        },
+        "beads.exportCsv.enabled": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Enable the experimental CSV export command for the Beads explorer. When disabled, the command and toolbar entry are hidden."
+        },
+        "beads.exportCsv.delimiter": {
+          "type": "string",
+          "default": ",",
+          "markdownDescription": "Delimiter to use for CSV export. Accepts a single character, 'tab', or '\\\\t'."
+        },
+        "beads.exportCsv.includeBom": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Prefix CSV exports with a UTF-8 BOM (useful for Excel or apps that need BOM)."
+        },
         },
         "beads.feedback.enabled": {
           "type": "boolean",
@@ -343,6 +364,11 @@
           "group": "navigation@6"
         },
         {
+          "command": "beads.exportCsv",
+          "when": "view == beadsExplorer && config.beads.exportCsv.enabled",
+          "group": "navigation@7"
+        },
+        {
           "command": "beads.exportMarkdown",
           "when": "view == beadsExplorer && config.beads.exportMarkdown.enabled",
           "group": "navigation@7"
@@ -398,6 +424,11 @@
           "command": "beads.addDependency",
           "when": "view == beadsExplorer && viewItem == bead && config.beads.enableDependencyEditing",
           "group": "navigation@2"
+        },
+        {
+          "command": "beads.exportCsv",
+          "when": "view == beadsExplorer && viewItem == bead && config.beads.exportCsv.enabled",
+          "group": "navigation@3"
         },
         {
           "command": "beads.exportMarkdown",
@@ -467,7 +498,7 @@
     "watch": "tsc -watch -p ./",
     "lint": "eslint . --ext ts",
     "test": "npm run test:unit",
-    "test:unit": "npm run compile && mocha ./out/test/unit/**/*.test.js ./out/test/deps.add.test.js ./out/test/sanitization.test.js ./out/test/littleGlen.command-validation.test.js ./out/test/log-redaction.test.js ./out/test/activityFeed.timestamps.test.js ./out/test/title-format.test.js ./out/test/activityFeed.title-format.test.js ./out/test/multi-root.cli.test.js ./out/test/tooltips.security.test.js ./out/test/export.markdown.test.js ./out/test/bulk.status.test.js ./out/test/favorites.toggle.test.js ./out/test/inline.status.test.js",
+    "test:unit": "npm run compile && mocha ./out/test/unit/**/*.test.js ./out/test/deps.add.test.js ./out/test/sanitization.test.js ./out/test/littleGlen.command-validation.test.js ./out/test/log-redaction.test.js ./out/test/activityFeed.timestamps.test.js ./out/test/title-format.test.js ./out/test/activityFeed.title-format.test.js ./out/test/multi-root.cli.test.js ./out/test/tooltips.security.test.js ./out/test/export.markdown.test.js ./out/test/export.csv.test.js ./out/test/bulk.status.test.js ./out/test/favorites.toggle.test.js ./out/test/inline.status.test.js",
     "test:bd-cli": "npm run compile && mocha ./out/test/bd-cli.test.js",
     "test:integration": "npm run compile && node ./out/test/runTest.js",
     "test:stress": "./scripts/stress-test.sh",
