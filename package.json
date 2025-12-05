@@ -152,6 +152,11 @@
         "command": "beads.clearQuickFilters",
         "title": "%command.beads.clearQuickFilters%",
         "icon": "$(clear-all)"
+      },
+      {
+        "command": "beads.openInProgressPanel",
+        "title": "%command.beads.openInProgressPanel%",
+        "icon": "$(pulse)"
       }
     ],
     "viewsContainers": {
@@ -456,6 +461,11 @@
           "command": "beads.toggleFavorite",
           "when": "view == beadsExplorer && beads.favoritesEnabled",
           "group": "navigation@9"
+        },
+        {
+          "command": "beads.openInProgressPanel",
+          "when": "view == beadsExplorer",
+          "group": "navigation@6.5"
         }
       ],
       "view/item/context": [
@@ -539,6 +549,9 @@
         {
           "command": "beads.clearQuickFilters",
           "when": "beads.quickFiltersEnabled && beads.activeQuickFilter != ''"
+        },
+        {
+          "command": "beads.openInProgressPanel"
         }
       ]
     },

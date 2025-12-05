@@ -325,8 +325,8 @@ export function buildDependencyGraphHtml(
 
             levels.forEach((nodesInLevel, level) => {
                 const sortedNodes = nodesInLevel.sort((a, b) => {
-                    const numA = parseInt(a.id.match(/\d+/)?.[0] || '0', 10);
-                    const numB = parseInt(b.id.match(/\d+/)?.[0] || '0', 10);
+                    const numA = parseInt(a.id.match(/[0-9]+/)?.[0] || '0', 10);
+                    const numB = parseInt(b.id.match(/[0-9]+/)?.[0] || '0', 10);
                     return numA - numB;
                 });
 
