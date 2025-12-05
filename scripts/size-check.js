@@ -4,7 +4,16 @@ const path = require('path');
 const glob = require('glob');
 
 const THRESHOLD = parseInt(process.env.SIZE_CHECK_MAX_LINES || '320', 10);
-const roots = ['src/**/*.ts', 'src/**/*.tsx', 'tui/src/**/*.ts', 'tui/src/**/*.tsx'];
+const roots = [
+  'src/**/*.ts',
+  'src/**/*.tsx',
+  'packages/**/*.ts',
+  'packages/**/*.tsx',
+  'web/src/**/*.ts',
+  'web/src/**/*.tsx',
+  'tui/src/**/*.ts',
+  'tui/src/**/*.tsx'
+];
 
 function countLines(filePath) {
   const content = fs.readFileSync(filePath, 'utf8');

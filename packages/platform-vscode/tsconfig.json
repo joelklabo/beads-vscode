@@ -1,0 +1,22 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "rootDir": "../../src",
+    "outDir": "../../out",
+    "declaration": true,
+    "declarationMap": true,
+    "tsBuildInfoFile": "../../tmp/platform-vscode.tsbuildinfo"
+  },
+  "include": ["../../src/**/*.ts", "../../src/**/*.tsx"],
+  "exclude": [
+    "../../node_modules",
+    "../../.vscode-test",
+    "../../tui",
+    "../../out",
+    "../../tmp"
+  ],
+  "references": [
+    { "path": "../core" }
+  ]
+}

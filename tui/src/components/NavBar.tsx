@@ -24,6 +24,9 @@ const themeColors: Record<ThemeMode, { active: string; inactive: string; badge: 
   auto: { active: 'magenta', inactive: 'gray', badge: 'white' },
 };
 
+type ClickableBoxProps = React.ComponentProps<typeof Box> & { onClick?: () => void };
+const ClickableBox = Box as unknown as React.FC<ClickableBoxProps>;
+
 export const NavBar: React.FC<NavBarProps> = ({ tabs, activeId, onSelect, theme }) => {
   const colors = themeColors[theme];
 
@@ -35,7 +38,7 @@ export const NavBar: React.FC<NavBarProps> = ({ tabs, activeId, onSelect, theme 
         const textColor = isActive ? colors.badge : colors.inactive;
 
         return (
-          <Box
+          <ClickableBox
             key={tab.id}
             paddingX={1}
             paddingY={0}
@@ -48,7 +51,7 @@ export const NavBar: React.FC<NavBarProps> = ({ tabs, activeId, onSelect, theme 
               {tab.label}
               <Text dimColor> ({tab.hotkey})</Text>
             </Text>
-          </Box>
+          </ClickableBox>
         );
       })}
       <Box marginLeft={1}>
