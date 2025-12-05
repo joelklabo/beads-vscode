@@ -3,12 +3,14 @@
   "displayName": "Beads Project Manager",
   "description": "Manage Beads projects directly from VS Code.",
   "version": "0.0.2",
+  "private": true,
   "publisher": "4UtopiaInc",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/kris-hansen/beads-vscode.git"
   },
+  "workspaces": ["packages/*", "tui", "web"],
   "bugs": {
     "url": "https://github.com/kris-hansen/beads-vscode/issues"
   },
@@ -679,13 +681,17 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
-    "postcompile": "tsc-alias -p tsconfig.json",
-    "watch": "tsc -watch -p ./",
+    "compile": "tsc -b packages/platform-vscode/tsconfig.json",
+    "postcompile": "tsc-alias -p packages/platform-vscode/tsconfig.json",
+    "watch": "tsc -b packages/platform-vscode/tsconfig.json --watch --preserveWatchOutput",
+    "build:core": "npm run -w @beads/core build",
+    "build:vscode": "npm run -w @beads/platform-vscode build",
+    "build:tui": "npm run -w @beads/tui build",
+    "build:web": "npm run -w @beads/web build",
     "lint": "eslint . --ext ts",
     "test": "npm run test:unit",
     "test:unit": "npm run compile && npm run test:unit:run",
-    "test:unit:run": "mocha ./out/test/unit/**/*.test.js ./out/test/deps.add.test.js ./out/test/sanitization.test.js ./out/test/littleGlen.command-validation.test.js ./out/test/log-redaction.test.js ./out/test/activityFeed.timestamps.test.js ./out/test/title-format.test.js ./out/test/activityFeed.title-format.test.js ./out/test/multi-root.cli.test.js ./out/test/tooltips.security.test.js ./out/test/export.markdown.test.js ./out/test/export.csv.test.js ./out/test/bulk.status.test.js ./out/test/bulk.results.test.js ./out/test/bulk.labels.test.js ./out/test/favorites.persistence.test.js ./out/test/favorites.validation.test.js ./out/test/favorites.toggle.test.js ./out/test/inline.status.test.js ./out/test/inline.validation.test.js",
+    "test:unit:run": "mocha ./out/test/unit/**/*.test.js ./out/test/deps.add.test.js ./out/test/sanitization.test.js ./out/test/littleGlen.command-validation.test.js ./out/test/log-redaction.test.js ./out/test/activityFeed.timestamps.test.js ./out/test/title-format.test.js ./out/test/activityFeed.title-format.test.js ./out/test/multi-root.cli.test.js ./out/test/tooltips.security.test.js ./out/test/export.markdown.test.js ./out/test/export.csv.test.js ./out/test/bulk.status.test.js ./out/test/bulk.results.test.js ./out/test/bulk.labels.test.js ./out/test/favorites.persistence.test.js ./out/test/favorites.validation.test.js ./out/test/favorites.toggle.test.js ./out/test/inline.status.test.js ./out/test/inline.validation.test.js --exit",
     "test:bd-cli": "npm run compile && mocha ./out/test/bd-cli.test.js",
     "test:integration": "npm run compile && node ./out/test/runTest.js",
     "test:stress": "./scripts/stress-test.sh",

@@ -1,15 +1,25 @@
 {
+  "extends": "../tsconfig.base.json",
   "compilerOptions": {
-    "module": "es2020",
-    "moduleResolution": "node16",
+    "module": "esnext",
+    "moduleResolution": "bundler",
     "target": "es2020",
     "jsx": "react-jsx",
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "strict": true,
-    "types": ["node"],
+    "types": ["node", "mocha"],
     "skipLibCheck": true,
-    "outDir": "out"
+    "outDir": "./out",
+    "rootDir": "./src",
+    "composite": true,
+    "declaration": true,
+    "declarationMap": true,
+    "tsBuildInfoFile": "../tmp/tui.tsbuildinfo"
   },
-  "include": ["src/**/*"]
+  "include": ["./src/**/*"],
+  "exclude": ["./out", "../node_modules", "../tmp"],
+  "references": [
+    { "path": "../packages/platform-vscode" }
+  ]
 }

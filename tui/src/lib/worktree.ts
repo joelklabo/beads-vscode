@@ -1,4 +1,19 @@
 // TUI shim that re-exports the shared worktree core and adds guard helpers
+import {
+  type WorktreeEntry,
+  type WorktreeRegistry,
+  makeWorktreeId,
+  isCanonicalWorktreePath,
+  buildRegistryFromGit,
+  registryPath,
+  writeRegistry,
+  readRegistry,
+  formatWorktreeLabel,
+  filterStaleEntries,
+  syncRegistry,
+  currentWorktreeId,
+} from '@worktree';
+
 export {
   type WorktreeEntry,
   type WorktreeRegistry,
@@ -12,7 +27,7 @@ export {
   filterStaleEntries,
   syncRegistry,
   currentWorktreeId,
-} from '../../src/worktree';
+};
 
 import { execFile } from 'child_process';
 import * as path from 'path';

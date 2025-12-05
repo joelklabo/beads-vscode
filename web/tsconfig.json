@@ -1,0 +1,16 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "rootDir": "./src",
+    "outDir": "./out",
+    "declaration": true,
+    "declarationMap": true,
+    "tsBuildInfoFile": "../tmp/web.tsbuildinfo"
+  },
+  "include": ["./src/**/*"],
+  "exclude": ["./out", "../node_modules", "../tmp"],
+  "references": [
+    { "path": "../packages/core" }
+  ]
+}

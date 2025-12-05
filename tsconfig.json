@@ -1,26 +1,9 @@
 {
-  "compilerOptions": {
-    "module": "commonjs",
-    "target": "es2020",
-    "outDir": "out",
-    "lib": ["es2020"],
-    "sourceMap": true,
-    "rootDir": "src",
-    "baseUrl": "src",
-    "paths": {
-      "@commands/*": ["commands/*"],
-      "@providers/*": ["providers/*"],
-      "@services/*": ["services/*"],
-      "@utils": ["utils"],
-      "@utils/*": ["utils/*"],
-      "@worktree": ["worktree"],
-      "@worktree/*": ["worktree/*"],
-      "@ai/*": ["ai/*"],
-      "@models/*": ["models/*"]
-    },
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true
-  },
-  "exclude": ["node_modules", ".vscode-test", "tui"]
+  "files": [],
+  "references": [
+    { "path": "./packages/core" },
+    { "path": "./packages/platform-vscode" },
+    { "path": "./web" },
+    { "path": "./tui" }
+  ]
 }
