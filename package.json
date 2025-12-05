@@ -215,7 +215,6 @@
           "default": false,
           "markdownDescription": "Prefix CSV exports with a UTF-8 BOM (useful for Excel or apps that need BOM)."
         },
-        },
         "beads.feedback.enabled": {
           "type": "boolean",
           "default": false,
