@@ -35,6 +35,9 @@ import {
   validateLabelInput,
   validateStatusInput,
   sanitizeErrorMessage,
+  collectDependencyEdges,
+  mapBeadsToGraphNodes,
+  GraphEdgeData,
 } from './utils';
 import { ActivityFeedTreeDataProvider, ActivityEventItem } from './activityFeedProvider';
 import { EventType } from './activityFeed';
@@ -58,6 +61,7 @@ import { resolveProjectRoot } from './utils/workspace';
 import { computeFeedbackEnablement } from './feedback/enablement';
 import { getBulkActionsConfig } from './utils/config';
 import { registerSendFeedbackCommand } from './commands/sendFeedback';
+import { buildDependencyGraphHtml } from './graph/view';
 
 const execFileAsync = promisify(execFile);
 const t = vscode.l10n.t;
@@ -228,13 +232,7 @@ interface ActivityFeedStrings {
   eventsLabel: string;
 }
 
-interface DependencyEdge {
-  sourceId: string;
-  targetId: string;
-  type?: string;
-  sourceTitle?: string;
-  targetTitle?: string;
-}
+type DependencyEdge = GraphEdgeData;
 
 const getStatusLabels = (): StatusLabelMap => ({
   open: t('Open'),
@@ -3231,35 +3229,6 @@ async function addDependencyCommand(
   await provider.addDependency(source, target.id);
 }
 
-function collectDependencyEdges(items: BeadItemData[] | undefined): DependencyEdge[] {
-  if (!items || items.length === 0) {
-    return [];
-  }
-
-  const titleMap = new Map(items.map((i) => [i.id, i.title]));
-  const edges: DependencyEdge[] = [];
-
-  for (const item of items) {
-    const raw = item.raw as any;
-    const deps = raw?.dependencies || [];
-    deps.forEach((dep: any) => {
-      const targetId = dep.depends_on_id || dep.id || dep.issue_id;
-      if (!targetId) {
-        return;
-      }
-      edges.push({
-        sourceId: item.id,
-        targetId,
-        type: dep.dep_type || dep.type || 'related',
-        sourceTitle: item.title,
-        targetTitle: titleMap.get(targetId),
-      });
-    });
-  }
-
-  return edges;
-}
-
 async function removeDependencyCommand(provider: BeadsTreeDataProvider, edge?: DependencyEdge, options?: { contextId?: string }): Promise<void> {
   const config = vscode.workspace.getConfiguration('beads');
   const dependencyEditingEnabled = config.get<boolean>('enableDependencyEditing', false);
@@ -3319,17 +3288,11 @@ async function visualizeDependencies(provider: BeadsTreeDataProvider): Promise<v
     }
   );
 
-  // Get all items from the provider
   const items = provider['items'] as BeadItemData[];
+  const nodes = mapBeadsToGraphNodes(items);
+  const edges = collectDependencyEdges(items);
 
-  // DEBUG: Log the items being passed to the visualizer
-  console.log('[Visualizer DEBUG] Number of items from provider:', items?.length ?? 'undefined');
-  console.log('[Visualizer DEBUG] Items array:', JSON.stringify(items?.slice(0, 3), null, 2)); // First 3 items
-  if (items && items.length > 0) {
-    console.log('[Visualizer DEBUG] First item raw data:', JSON.stringify(items[0]?.raw, null, 2));
-  }
-
-  panel.webview.html = getDependencyTreeHtml(items, dependencyStrings, locale, dependencyEditingEnabled);
+  panel.webview.html = buildDependencyGraphHtml(nodes, edges, dependencyStrings, locale, dependencyEditingEnabled);
 
   // Handle messages from the webview
   panel.webview.onDidReceiveMessage(async (message) => {
@@ -3349,14 +3312,26 @@ async function visualizeDependencies(provider: BeadsTreeDataProvider): Promise<v
     } else if (validated.command === 'addDependency') {
       await addDependencyCommand(provider, undefined, { sourceId: validated.sourceId, targetId: validated.targetId });
       const refreshed = provider['items'] as BeadItemData[];
-      panel.webview.html = getDependencyTreeHtml(refreshed, dependencyStrings, locale, dependencyEditingEnabled);
+      panel.webview.html = buildDependencyGraphHtml(
+        mapBeadsToGraphNodes(refreshed),
+        collectDependencyEdges(refreshed),
+        dependencyStrings,
+        locale,
+        dependencyEditingEnabled
+      );
     } else if (validated.command === 'removeDependency') {
       await removeDependencyCommand(provider, validated.sourceId && validated.targetId ? {
         sourceId: validated.sourceId,
         targetId: validated.targetId,
       } : undefined, { contextId: validated.contextId });
       const refreshed = provider['items'] as BeadItemData[];
-      panel.webview.html = getDependencyTreeHtml(refreshed, dependencyStrings, locale, dependencyEditingEnabled);
+      panel.webview.html = buildDependencyGraphHtml(
+        mapBeadsToGraphNodes(refreshed),
+        collectDependencyEdges(refreshed),
+        dependencyStrings,
+        locale,
+        dependencyEditingEnabled
+      );
     }
   });
 }

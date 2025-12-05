@@ -2,6 +2,7 @@
 import * as assert from 'assert';
 import Module = require('module');
 import { BeadItemData } from '../../utils';
+import { validateEdgeAddition, willCreateDependencyCycle, GraphEdgeData } from '../../utils/graph';
 
 describe('Dependency graph helpers', () => {
   let restoreLoad: any;
@@ -86,5 +87,32 @@ describe('Dependency graph helpers', () => {
 
     await addDependencyCommand(provider, undefined, { sourceId: 'A', targetId: 'B' });
     assert.deepStrictEqual(added, { source: 'A', targetId: 'B' });
+  });
+
+  it('prevents duplicate and cyclic edge additions', () => {
+    const edges: GraphEdgeData[] = [
+      { sourceId: 'A', targetId: 'B' },
+      { sourceId: 'B', targetId: 'C' },
+    ];
+
+    const duplicate = validateEdgeAddition(edges, 'A', 'B');
+    assert.strictEqual(duplicate.valid, false);
+    assert.strictEqual(duplicate.reason, 'duplicate');
+
+    const cyclic = validateEdgeAddition(edges, 'C', 'A');
+    assert.strictEqual(cyclic.valid, false);
+    assert.strictEqual(cyclic.reason, 'cycle');
+
+    const ok = validateEdgeAddition(edges, 'C', 'D');
+    assert.strictEqual(ok.valid, true);
+  });
+
+  it('detects cycles for new edges', () => {
+    const edges: GraphEdgeData[] = [
+      { sourceId: 'X', targetId: 'Y' },
+      { sourceId: 'Y', targetId: 'Z' },
+    ];
+    assert.strictEqual(willCreateDependencyCycle(edges, 'Z', 'X'), true);
+    assert.strictEqual(willCreateDependencyCycle(edges, 'Z', 'Y'), true);
   });
 });
