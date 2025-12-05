@@ -137,10 +137,10 @@ suite('Dependency tree flows', () => {
       }
     });
 
-    delete require.cache[require.resolve('../../extension')];
-    delete require.cache[require.resolve('../../dependencyTreeProvider')];
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const extension = require('../../extension');
     BeadsTreeDataProvider = extension.BeadsTreeDataProvider;
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
     DependencyTreeProvider = require('../../dependencyTreeProvider').DependencyTreeProvider;
   });
 
