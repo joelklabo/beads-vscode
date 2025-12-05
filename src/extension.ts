@@ -6,6 +6,7 @@ import { promisify } from 'util';
 import {
   BeadItemData,
   formatError,
+  formatSafeError,
   escapeHtml,
   linkifyText,
   isStale,
@@ -30,6 +31,10 @@ import {
   validateFavoriteTargets,
   sanitizeFavoriteError,
   syncFavoritesState,
+  validateTitleInput,
+  validateLabelInput,
+  validateStatusInput,
+  sanitizeErrorMessage,
 } from './utils';
 import { ActivityFeedTreeDataProvider, ActivityEventItem } from './activityFeedProvider';
 import { EventType } from './activityFeed';
@@ -776,6 +781,19 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   }
 
   async updateStatus(item: BeadItemData, newStatus: string): Promise<void> {
+    const validation = validateStatusInput(newStatus);
+    if (!validation.valid) {
+      void vscode.window.showWarningMessage(t('Invalid status selection.'));
+      return;
+    }
+
+    const normalizedStatus = validation.value as string;
+    const transition = validateStatusChange(item.status, normalizedStatus);
+    if (!transition.allowed) {
+      void vscode.window.showWarningMessage(t('Status update blocked: item is already in that status.'));
+      return;
+    }
+
     const config = vscode.workspace.getConfiguration('beads');
     const projectRoot = resolveProjectRoot(config);
 
@@ -785,16 +803,24 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     }
 
     try {
-      await runBdCommand(['update', item.id, '--status', newStatus], projectRoot);
+      await runBdCommand(['update', item.id, '--status', normalizedStatus], projectRoot);
       await this.refresh();
-      void vscode.window.showInformationMessage(t('Updated status to: {0}', newStatus));
+      void vscode.window.showInformationMessage(t('Updated status to: {0}', normalizedStatus));
     } catch (error) {
-      console.error('Failed to update status', error);
-      void vscode.window.showErrorMessage(formatError(t('Failed to update status'), error));
+      const message = formatSafeError(t('Failed to update status'), error, [projectRoot]);
+      console.error('Failed to update status', message);
+      void vscode.window.showErrorMessage(message);
     }
   }
 
   async updateTitle(item: BeadItemData, newTitle: string): Promise<void> {
+    const validation = validateTitleInput(newTitle);
+    if (!validation.valid) {
+      void vscode.window.showWarningMessage(t('Title must be 1-{0} characters without new lines.', 256));
+      return;
+    }
+
+    const safeTitle = validation.value as string;
     const config = vscode.workspace.getConfiguration('beads');
     const projectRoot = resolveProjectRoot(config);
 
@@ -804,16 +830,24 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     }
 
     try {
-      await runBdCommand(['update', item.id, '--title', newTitle], projectRoot);
+      await runBdCommand(['update', item.id, '--title', safeTitle], projectRoot);
       await this.refresh();
-      void vscode.window.showInformationMessage(t('Updated title to: {0}', newTitle));
+      void vscode.window.showInformationMessage(t('Updated title to: {0}', safeTitle));
     } catch (error) {
-      console.error('Failed to update title', error);
-      void vscode.window.showErrorMessage(formatError(t('Failed to update title'), error));
+      const message = formatSafeError(t('Failed to update title'), error, [projectRoot]);
+      console.error('Failed to update title', message);
+      void vscode.window.showErrorMessage(message);
     }
   }
 
   async addLabel(item: BeadItemData, label: string): Promise<void> {
+    const validation = validateLabelInput(label);
+    if (!validation.valid) {
+      void vscode.window.showWarningMessage(t('Label must be 1-{0} characters and contain only letters, numbers, spaces, and .,:@_-', 64));
+      return;
+    }
+
+    const safeLabel = validation.value as string;
     const config = vscode.workspace.getConfiguration('beads');
     const projectRoot = resolveProjectRoot(config);
 
@@ -823,12 +857,13 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     }
 
     try {
-      await runBdCommand(['label', 'add', item.id, label], projectRoot);
+      await runBdCommand(['label', 'add', item.id, safeLabel], projectRoot);
       await this.refresh();
-      void vscode.window.showInformationMessage(t('Added label: {0}', label));
+      void vscode.window.showInformationMessage(t('Added label: {0}', safeLabel));
     } catch (error) {
-      console.error('Failed to add label', error);
-      void vscode.window.showErrorMessage(formatError(t('Failed to add label'), error));
+      const message = formatSafeError(t('Failed to add label'), error, [projectRoot]);
+      console.error('Failed to add label', message);
+      void vscode.window.showErrorMessage(message);
     }
   }
 
@@ -907,6 +942,13 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   }
 
   async removeLabel(item: BeadItemData, label: string): Promise<void> {
+    const validation = validateLabelInput(label);
+    if (!validation.valid) {
+      void vscode.window.showWarningMessage(t('Label must be 1-{0} characters and contain only letters, numbers, spaces, and .,:@_-', 64));
+      return;
+    }
+
+    const safeLabel = validation.value as string;
     const config = vscode.workspace.getConfiguration('beads');
     const projectRoot = resolveProjectRoot(config);
 
@@ -916,12 +958,13 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     }
 
     try {
-      await runBdCommand(['label', 'remove', item.id, label], projectRoot);
+      await runBdCommand(['label', 'remove', item.id, safeLabel], projectRoot);
       await this.refresh();
-      void vscode.window.showInformationMessage(t('Removed label: {0}', label));
+      void vscode.window.showInformationMessage(t('Removed label: {0}', safeLabel));
     } catch (error) {
-      console.error('Failed to remove label', error);
-      void vscode.window.showErrorMessage(formatError(t('Failed to remove label'), error));
+      const message = formatSafeError(t('Failed to remove label'), error, [projectRoot]);
+      console.error('Failed to remove label', message);
+      void vscode.window.showErrorMessage(message);
     }
   }
 

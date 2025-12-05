@@ -1,4 +1,5 @@
 import { BeadItemData } from './beads';
+import { redactLogContent } from './fs';
 
 export function formatError(prefix: string, error: unknown): string {
   if (error instanceof Error) {
@@ -121,4 +122,15 @@ export function formatRelativeTime(dateString: string | undefined): string {
   } else {
     return `${diffMonths}mo ago`;
   }
+}
+
+export function sanitizeErrorMessage(error: unknown, workspacePaths: string[] = []): string {
+  const raw = error instanceof Error ? error.message : String(error ?? '');
+  const redacted = redactLogContent(raw, { workspacePaths });
+  return redacted.replace(/\s+/g, ' ').trim();
+}
+
+export function formatSafeError(prefix: string, error: unknown, workspacePaths: string[] = []): string {
+  const sanitized = sanitizeErrorMessage(error, workspacePaths);
+  return sanitized ? `${prefix}: ${sanitized}` : prefix;
 }
