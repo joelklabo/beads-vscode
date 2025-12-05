@@ -24,11 +24,15 @@ class DependencyTreeNodeItem extends vscode.TreeItem {
     this.children = children;
     this.sourceId = direction === 'upstream' ? parentId : node.id;
     this.targetId = direction === 'upstream' ? node.id : parentId;
-    this.contextValue = 'dependencyNode';
-    this.description = `${node.type}${node.missing ? ' · missing' : ''}`;
+    this.contextValue = direction === 'upstream' ? 'dependencyNodeUpstream' : 'dependencyNodeDownstream';
+    const relation = direction === 'upstream' ? vscode.l10n.t('blocks this issue') : vscode.l10n.t('blocked by this issue');
+    this.description = `${node.type}${node.missing ? ' · missing' : ''} · ${relation}`;
     this.tooltip = node.missing
-      ? `${node.id} (${node.type}) - missing in current list`
-      : `${node.id} (${node.type})${bead?.status ? ` · ${bead.status}` : ''}`;
+      ? `${node.id} (${node.type}) - ${relation}`
+      : `${node.id} (${node.type})${bead?.status ? ` · ${bead.status}` : ''} · ${relation}`;
+    this.accessibilityInformation = {
+      label: `${node.id} ${node.title ?? ''} ${relation}${bead?.status ? ` · ${bead.status}` : ''}`.trim(),
+    };
     this.iconPath = new vscode.ThemeIcon(direction === 'upstream' ? 'arrow-up' : 'arrow-down');
 
     if (bead) {
@@ -47,7 +51,10 @@ class DependencyGroupItem extends vscode.TreeItem {
       direction === 'upstream' ? vscode.l10n.t('Upstream (depends on)') : vscode.l10n.t('Downstream (blocked by)'),
       children.length > 0 ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.None
     );
-    this.contextValue = 'dependencyGroup';
+    this.contextValue = direction === 'upstream' ? 'dependencyGroupUpstream' : 'dependencyGroupDownstream';
+    this.tooltip = direction === 'upstream'
+      ? vscode.l10n.t('Issues this item depends on')
+      : vscode.l10n.t('Issues blocked by this item');
     this.iconPath = new vscode.ThemeIcon(direction === 'upstream' ? 'arrow-up' : 'arrow-down');
   }
 }

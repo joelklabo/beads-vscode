@@ -524,11 +524,26 @@
           "when": "view == beadsExplorer && viewItem == bead",
           "group": "navigation@1"
         },
-        {
-          "command": "beads.addDependency",
-          "when": "view == beadsExplorer && viewItem == bead && config.beads.enableDependencyEditing",
-          "group": "navigation@2"
-        },
+      {
+        "command": "beads.addDependency",
+        "when": "view == beadsExplorer && viewItem == bead && config.beads.enableDependencyEditing",
+        "group": "navigation@2"
+      },
+      {
+        "command": "beads.dependencyTree.addUpstream",
+        "when": "view == beadsDependencyTree && viewItem == dependencyGroupUpstream && config.beads.enableDependencyEditing",
+        "group": "navigation@1"
+      },
+      {
+        "command": "beads.dependencyTree.addDownstream",
+        "when": "view == beadsDependencyTree && viewItem == dependencyGroupDownstream && config.beads.enableDependencyEditing",
+        "group": "navigation@1"
+      },
+      {
+        "command": "beads.dependencyTree.remove",
+        "when": "view == beadsDependencyTree && (viewItem == dependencyNodeUpstream || viewItem == dependencyNodeDownstream) && config.beads.enableDependencyEditing",
+        "group": "inline@2"
+      },
         {
           "command": "beads.exportCsv",
           "when": "view == beadsExplorer && viewItem == bead && config.beads.exportCsv.enabled",
