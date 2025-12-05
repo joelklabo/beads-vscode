@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import { BeadItemData } from '../utils/beads';
-import { validateDependencyAdd, hasDependency } from '../utils/dependencies';
+import { hasDependency, validateDependencyAdd, validateDependencyAddWithReason } from '../utils/dependencies';
 
 function bead(id: string, deps: string[] = []): BeadItemData {
   return {
@@ -13,28 +13,27 @@ function bead(id: string, deps: string[] = []): BeadItemData {
 }
 
 describe('Dependency validation', () => {
-  it('rejects self-dependency', () => {
-    const items = [bead('A')];
-    const error = validateDependencyAdd(items, 'A', 'A');
-    assert.ok(error && error.includes('same issue'));
-  });
-
-  it('rejects duplicate dependency', () => {
-    const items = [bead('A', ['B']), bead('B')];
-    const error = validateDependencyAdd(items, 'A', 'B');
-    assert.ok(error && error.includes('already exists'));
-  });
-
-  it('rejects cycles', () => {
+  it('returns reason codes for invalid dependencies', () => {
     const items = [bead('A'), bead('B', ['A'])];
-    const error = validateDependencyAdd(items, 'A', 'B');
-    assert.ok(error && error.includes('cycle'));
+
+    const self = validateDependencyAddWithReason(items, 'A', 'A');
+    assert.deepStrictEqual(self, { ok: false, reason: 'self' });
+
+    const duplicate = validateDependencyAddWithReason([bead('A', ['B']), bead('B')], 'A', 'B');
+    assert.deepStrictEqual(duplicate, { ok: false, reason: 'duplicate' });
+
+    const cycle = validateDependencyAddWithReason(items, 'A', 'B');
+    assert.deepStrictEqual(cycle, { ok: false, reason: 'cycle' });
+
+    const validItems = [bead('A'), bead('B')];
+    const valid = validateDependencyAddWithReason(validItems, 'B', 'A');
+    assert.deepStrictEqual(valid, { ok: true });
   });
 
-  it('allows new valid dependency', () => {
-    const items = [bead('A'), bead('B')];
-    const error = validateDependencyAdd(items, 'A', 'B');
-    assert.strictEqual(error, undefined);
+  it('maps reasons to user-friendly messages', () => {
+    const items = [bead('A')];
+    const message = validateDependencyAdd(items, 'A', 'A');
+    assert.ok(message?.toLowerCase().includes('same issue'));
   });
 
   it('hasDependency detects existing edge', () => {
