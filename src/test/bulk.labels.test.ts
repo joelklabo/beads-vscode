@@ -212,6 +212,8 @@ describe('bulkUpdateLabel command', () => {
       return originalLoad(request, parent, isMain);
     };
 
+    delete require.cache[require.resolve('@beads/core')];
+    delete require.cache[require.resolve('@beads/core/out/cliClient')];
     delete require.cache[require.resolve('../utils')];
     delete require.cache[require.resolve('../utils/cli')];
     delete require.cache[require.resolve('../utils/config')];

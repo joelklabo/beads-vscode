@@ -14,8 +14,6 @@ import {
   validateDependencyAdd,
   sanitizeDependencyId,
   getCliExecutionConfig,
-  execCliWithPolicy,
-  buildSafeBdArgs,
   collectCliErrorOutput,
   warnIfDependencyEditingUnsupported as warnIfDependencyEditingUnsupportedCli,
   writeBeadsMarkdownFile,
@@ -24,6 +22,8 @@ import {
   CsvExportHeaders,
   validateStatusChange,
   formatStatusLabel,
+  compareStatus,
+  formatPriorityLabel,
   buildBulkSelection,
   executeBulkStatusUpdate,
   executeBulkLabelUpdate,
@@ -50,6 +50,7 @@ import {
   applyQuickFilter,
   toggleQuickFilter,
   normalizeQuickFilter,
+  BdCliClient,
 } from './utils';
 import { ActivityFeedTreeDataProvider, ActivityEventItem } from './activityFeedProvider';
 import { EventType } from './activityFeed';
@@ -160,8 +161,6 @@ async function warnIfDependencyEditingUnsupported(workspaceFolder?: vscode.Works
 interface BdCommandOptions {
   workspaceFolder?: vscode.WorkspaceFolder;
   requireGuard?: boolean;
-  execCli?: typeof execCliWithPolicy;
-  execOverride?: typeof execCliWithPolicy;
 }
 
 // Surface bd stderr to users while redacting workspace paths to avoid leaking secrets.
@@ -192,15 +191,9 @@ async function runBdCommand(args: string[], projectRoot: string, options: BdComm
   const commandPathSetting = config.get<string>('commandPath', 'bd');
   const commandPath = await findBdCommand(commandPathSetting);
   const cliPolicy = getCliExecutionConfig(config);
-  const execFn = options.execCli ?? options.execOverride ?? execCliWithPolicy;
-  const safeArgs = buildSafeBdArgs(args);
+  const client = new BdCliClient({ commandPath, cwd: projectRoot, policy: cliPolicy, workspacePaths: [projectRoot] });
 
-  await execFn({
-    commandPath,
-    args: safeArgs,
-    cwd: projectRoot,
-    policy: cliPolicy,
-  });
+  await client.run(args);
 }
 
 type TreeItemType = StatusSectionItem | WarningSectionItem | EpicStatusSectionItem | EpicTreeItem | UngroupedSectionItem | BeadTreeItem | BeadDetailItem;
@@ -1822,24 +1815,14 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   }
 
   private sortByStatus(items: BeadItemData[]): BeadItemData[] {
-    // Define status priority order: open first, then in_progress, blocked, closed last
-    const statusPriority: Record<string, number> = {
-      'open': 0,
-      'in_progress': 1,
-      'blocked': 2,
-      'closed': 3
-    };
-
     return [...items].sort((a, b) => {
       const statusA = a.status || 'open';
       const statusB = b.status || 'open';
 
-      const priorityA = statusPriority[statusA] ?? 4;
-      const priorityB = statusPriority[statusB] ?? 4;
-
       // First sort by status priority
-      if (priorityA !== priorityB) {
-        return priorityA - priorityB;
+      const statusCompare = compareStatus(statusA, statusB);
+      if (statusCompare !== 0) {
+        return statusCompare;
       }
 
       // Then sort by ID naturally within each status group
@@ -2039,7 +2022,7 @@ function getBeadDetailHtml(
     'closed': '#73c991'
   }[item.status || 'open'] || '#666';
 
-  const priorityLabel = ['', 'P1', 'P2', 'P3', 'P4'][priority] || '';
+  const priorityLabel = formatPriorityLabel(priority);
 
   const getStatusLabel = (status?: string): string => {
     if (!status) {

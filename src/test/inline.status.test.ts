@@ -127,6 +127,8 @@ describe('Inline status quick change', () => {
       return restoreLoad(request, parent, isMain);
     };
 
+    delete require.cache[require.resolve('@beads/core')];
+    delete require.cache[require.resolve('@beads/core/out/cliClient')];
     delete require.cache[require.resolve('../utils')];
     delete require.cache[require.resolve('../utils/cli')];
     delete require.cache[require.resolve('../extension')];
