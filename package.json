@@ -683,7 +683,12 @@
     "test:tui:smoke": "echo 'TODO: add TUI smoke test' && exit 0",
     "test:web:skeleton": "echo 'Playwright skeleton disabled' && exit 0",
     "test:tui": "tsx tui/src/__tests__/nav.runner.tsx && tsx tui/src/__tests__/eventsStore.test.ts && tsx tui/src/__tests__/graph.test.ts",
-    "check:size": "node scripts/size-check.js"
+    "check:size": "node scripts/size-check.js",
+    "ci:lint": "npm run lint",
+    "ci:test": "npm run test:unit && npm run test:bd-cli",
+    "ci:integration": "npm run test:integration",
+    "ci:coverage": "npx c8 -r lcov -r text-summary npm run test:unit && npx c8 -r text-summary npm run test:bd-cli",
+    "ci:package": "npm run package"
   },
   "devDependencies": {
     "@beads/bd": "^0.29.0",
