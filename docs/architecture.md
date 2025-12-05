@@ -37,7 +37,7 @@ graph TD
 - **@beads/ui-headless**: Renderer-neutral React hooks and actions over the core store/CLI. Accepts adapters for fs/watch, timers, open-url, clipboard, and notifications.
 - **@beads/platform-vscode**: Activation + command registration, VS Code tree/webviews bound to the core store/headless hooks. No domain logic in `extension.ts`; all bd calls enforce `--no-daemon`.
 - **@beads/web**: Vite/React DOM shell consuming `ui-headless`; Node adapter to bd CLI or mock data for CI.
-- **@beads/tui**: Ink renderer consuming `ui-headless`; reuses worktree guard and shared CLI client.
+- **@beads/tui**: Ink renderer consuming `ui-headless`; reuses worktree guard and shared CLI client. CLI path + workspace root come from the same config helpers as VS Code/web, and bd mutations run through `runGuardedBd` (worktree guard + `--no-daemon`).
 
 ## Data flow
 1. Platform resolves project root (multi-root aware) and bd command path; worktree guard + `--no-daemon` enforced before mutations.

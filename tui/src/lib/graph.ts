@@ -1,12 +1,6 @@
-export interface GraphNode {
-  id: string;
-  title?: string;
-}
+import { GraphEdgeData, GraphNodeData } from '@beads/core';
 
-export interface GraphEdge {
-  from: string;
-  to: string;
-}
+export type { GraphNodeData as GraphNode, GraphEdgeData as GraphEdge };
 
 export interface GraphFilter {
   query?: string;
@@ -18,15 +12,23 @@ export interface CycleResult {
   cycles: string[][];
 }
 
-const indexById = (nodes: GraphNode[]): Map<string, GraphNode> => new Map(nodes.map((n) => [n.id, n]));
-
-export const detectCycles = (edges: GraphEdge[]): CycleResult => {
-  const visited = new Set<string>();
-  const stack = new Set<string>();
+/**
+ * Build a simple adjacency map for dependency edges.
+ */
+const adjacencyFromEdges = (edges: GraphEdgeData[]): Map<string, string[]> => {
   const adj = new Map<string, string[]>();
   for (const edge of edges) {
-    adj.set(edge.from, [...(adj.get(edge.from) ?? []), edge.to]);
+    const from = edge.sourceId;
+    const to = edge.targetId;
+    adj.set(from, [...(adj.get(from) ?? []), to]);
   }
+  return adj;
+};
+
+export const detectCycles = (edges: GraphEdgeData[]): CycleResult => {
+  const visited = new Set<string>();
+  const stack = new Set<string>();
+  const adj = adjacencyFromEdges(edges);
   const cycles: string[][] = [];
 
   const dfs = (node: string, path: string[]): void => {
@@ -52,10 +54,10 @@ export const detectCycles = (edges: GraphEdge[]): CycleResult => {
 };
 
 export const filterGraph = (
-  nodes: GraphNode[],
-  edges: GraphEdge[],
+  nodes: GraphNodeData[],
+  edges: GraphEdgeData[],
   filter: GraphFilter = {}
-): { nodes: GraphNode[]; edges: GraphEdge[] } => {
+): { nodes: GraphNodeData[]; edges: GraphEdgeData[] } => {
   if (!filter.query && !filter.focusId) return { nodes, edges };
 
   const query = filter.query?.toLowerCase();
@@ -70,32 +72,36 @@ export const filterGraph = (
 
   const filteredNodes = nodes.filter((n) => allowed.size === 0 || allowed.has(n.id));
   const filteredSet = new Set(filteredNodes.map((n) => n.id));
-  const filteredEdges = edges.filter((e) => filteredSet.has(e.from) && filteredSet.has(e.to));
+  const filteredEdges = edges.filter((e) => filteredSet.has(e.sourceId) && filteredSet.has(e.targetId));
 
   return { nodes: filteredNodes, edges: filteredEdges };
 };
 
 const indentLine = (text: string, depth: number): string => `${'  '.repeat(depth)}${text}`;
 
+/**
+ * Render a simple tree-ish text layout based on dependency edges.
+ * Prefers roots (nodes with no incoming edges) and truncates lines to maxWidth.
+ */
 export const layoutGraph = (
-  nodes: GraphNode[],
-  edges: GraphEdge[],
+  nodes: GraphNodeData[],
+  edges: GraphEdgeData[],
   maxWidth = 80
 ): string[] => {
   const children = new Map<string, string[]>();
   const parentCounts = new Map<string, number>();
   for (const edge of edges) {
-    children.set(edge.from, [...(children.get(edge.from) ?? []), edge.to]);
-    parentCounts.set(edge.to, (parentCounts.get(edge.to) ?? 0) + 1);
+    children.set(edge.sourceId, [...(children.get(edge.sourceId) ?? []), edge.targetId]);
+    parentCounts.set(edge.targetId, (parentCounts.get(edge.targetId) ?? 0) + 1);
   }
   const roots = nodes.filter((n) => !parentCounts.has(n.id)).map((n) => n.id);
-  const nodeMap = indexById(nodes);
+  const nodeMap = new Map(nodes.map((n) => [n.id, n]));
   const lines: string[] = [];
   const seen = new Set<string>();
 
   const render = (id: string, depth: number): void => {
     if (seen.has(id)) {
-      lines.push(indentLine(`↪ ${id} (revisit)`, depth));
+      lines.push(indentLine(`↪ ${id} (revisit)`, depth).slice(0, maxWidth));
       return;
     }
     seen.add(id);

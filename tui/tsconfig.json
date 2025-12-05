@@ -8,7 +8,10 @@
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "strict": true,
-    "types": ["node", "mocha"],
+    "types": [
+      "node",
+      "mocha"
+    ],
     "skipLibCheck": true,
     "outDir": "./out",
     "rootDir": "./src",
@@ -17,9 +20,20 @@
     "declarationMap": true,
     "tsBuildInfoFile": "../tmp/tui.tsbuildinfo"
   },
-  "include": ["./src/**/*"],
-  "exclude": ["./out", "../node_modules", "../tmp"],
+  "include": [
+    "./src/**/*"
+  ],
+  "exclude": [
+    "./out",
+    "../node_modules",
+    "../tmp"
+  ],
   "references": [
-    { "path": "../packages/platform-vscode" }
+    {
+      "path": "../packages/core"
+    },
+    {
+      "path": "../packages/ui-headless"
+    }
   ]
 }
