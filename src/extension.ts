@@ -157,6 +157,7 @@ interface BeadDetailStrings {
   dependencyTreeUpstream: string;
   dependencyTreeDownstream: string;
   editLabel: string;
+  deleteLabel: string;
   doneLabel: string;
   descriptionLabel: string;
   designLabel: string;
@@ -222,6 +223,7 @@ const buildBeadDetailStrings = (statusLabels: StatusLabelMap): BeadDetailStrings
   dependencyTreeUpstream: t('↑ Depends On (upstream)'),
   dependencyTreeDownstream: t('↓ Blocked By This (downstream)'),
   editLabel: t('Edit'),
+  deleteLabel: t('Delete'),
   doneLabel: t('Done'),
   descriptionLabel: t('Description'),
   designLabel: t('Design'),
@@ -1522,6 +1524,20 @@ function getBeadDetailHtml(
         .edit-button:hover {
             background-color: var(--vscode-button-secondaryHoverBackground);
         }
+        .delete-button {
+            background-color: var(--vscode-inputValidation-errorBackground);
+            color: var(--vscode-inputValidation-errorForeground);
+            border: 1px solid var(--vscode-inputValidation-errorBorder);
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 500;
+            display: none;
+        }
+        .delete-button:hover {
+            filter: brightness(0.95);
+        }
         .title {
             font-size: 24px;
             font-weight: 600;
@@ -1805,7 +1821,10 @@ function getBeadDetailHtml(
     <div class="header">
         <div class="header-top">
             <div class="issue-id">${item.id}</div>
-            <button class="edit-button" id="editButton">${escapeHtml(strings.editLabel)}</button>
+            <div style="display:flex; gap:8px;">
+                <button class="delete-button" id="deleteButton">${escapeHtml(strings.deleteLabel)}</button>
+                <button class="edit-button" id="editButton">${escapeHtml(strings.editLabel)}</button>
+            </div>
         </div>
         <h1 class="title" id="issueTitle" contenteditable="false">${escapeHtml(item.title)}</h1>
         <div class="metadata">
@@ -1919,6 +1938,7 @@ function getBeadDetailHtml(
         const statusBadge = document.getElementById('statusBadge');
         const statusDropdown = document.getElementById('statusDropdown');
         const issueTitle = document.getElementById('issueTitle');
+        const deleteButton = document.getElementById('deleteButton');
 
         const labelActions = document.getElementById('labelActions');
         const addInReviewButton = document.getElementById('addInReviewButton');
@@ -1981,6 +2001,9 @@ function getBeadDetailHtml(
 
             if (isEditMode) {
                 editButton.textContent = localized.done;
+                if (deleteButton) {
+                    deleteButton.style.display = 'inline-flex';
+                }
                 statusBadge.classList.add('editable');
                 labelActions.style.display = 'block';
                 issueTitle.contentEditable = 'true';
@@ -1997,6 +2020,9 @@ function getBeadDetailHtml(
                 });
             } else {
                 editButton.textContent = localized.edit;
+                if (deleteButton) {
+                    deleteButton.style.display = 'none';
+                }
                 statusBadge.classList.remove('editable');
                 statusDropdown.classList.remove('show');
                 labelActions.style.display = 'none';
@@ -2025,6 +2051,15 @@ function getBeadDetailHtml(
                 });
             }
         });
+
+        if (deleteButton) {
+            deleteButton.addEventListener('click', () => {
+                vscode.postMessage({
+                    command: 'deleteBead',
+                    beadId: '${item.id}'
+                });
+            });
+        }
 
         statusBadge.addEventListener('click', () => {
             if (isEditMode) {
@@ -2941,6 +2976,7 @@ async function openBead(item: BeadItemData, provider: BeadsTreeDataProvider): Pr
     'removeLabel',
     'addDependency',
     'removeDependency',
+    'deleteBead',
     'openBead',
     'openExternalUrl'
   ];
@@ -2975,6 +3011,33 @@ async function openBead(item: BeadItemData, provider: BeadsTreeDataProvider): Pr
           sourceId: validated.sourceId,
           targetId: validated.targetId,
         } : undefined, { contextId: item.id });
+        return;
+      }
+      case 'deleteBead': {
+        const projectRoot = resolveProjectRoot(vscode.workspace.getConfiguration('beads'));
+        if (!projectRoot) {
+          void vscode.window.showErrorMessage(PROJECT_ROOT_ERROR);
+          return;
+        }
+
+        const deleteLabel = t('Delete');
+        const answer = await vscode.window.showWarningMessage(
+          t('Are you sure you want to delete this bead?\n\n{0}', item.id),
+          { modal: true },
+          deleteLabel
+        );
+        if (answer !== deleteLabel) {
+          return;
+        }
+
+        try {
+          await runBdCommand(['delete', item.id, '--force'], projectRoot);
+          await provider.refresh();
+          panel.dispose();
+        } catch (error) {
+          console.error('Failed to delete bead from detail view', error);
+          void vscode.window.showErrorMessage(formatError(t('Failed to delete bead'), error));
+        }
         return;
       }
       case 'openBead': {
