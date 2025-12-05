@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { collectDependencyEdges, mapBeadsToGraphNodes, filterBeadsByQuery, getStaleInfo, BeadItemData, BeadsStore, WorkspaceTarget, GraphEdgeData, GraphNodeData } from '@beads/core';
+import { collectDependencyEdges, mapBeadsToGraphNodes, filterBeadsByQuery, BeadItemData, BeadsStore, WorkspaceTarget, GraphEdgeData, GraphNodeData } from '@beads/core';
 import { createHeadlessActions, CliAdapter, HeadlessActions } from './actions';
 import { useStoreSnapshot, StoreState } from './store';
 
@@ -91,7 +91,8 @@ export function useFavorites(options: UseFavoritesOptions): FavoritesModel {
   const favorites = useMemo(() => {
     const result = new Set<string>();
     for (const item of storeState.snapshot.items) {
-      const tags = (item.tags ?? item.raw?.labels ?? []) as string[];
+      const rawLabels = typeof item.raw === "object" && item.raw ? (item.raw as any).labels : undefined;
+      const tags = (item.tags ?? rawLabels ?? []) as string[];
       if (tags.some((tag) => tag === label)) {
         result.add(item.id);
       }

@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { BdCliClient, BdCliError, BdCliErrorKind, DEFAULT_CLI_POLICY, buildSafeBdArgs } from '@beads/core';
+import { BdCliClient, BdCliError, DEFAULT_CLI_POLICY, buildSafeBdArgs } from '@beads/core';
 
 describe('BdCliClient', () => {
   it('retries transient errors before succeeding', async () => {

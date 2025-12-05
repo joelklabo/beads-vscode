@@ -6,11 +6,15 @@
     "outDir": "./out",
     "declaration": true,
     "declarationMap": true,
-    "tsBuildInfoFile": "../../tmp/ui-headless.tsbuildinfo"
+    "jsx": "react-jsx",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "tsBuildInfoFile": "../../tmp/ui-ink.tsbuildinfo"
   },
   "include": ["./src/**/*"],
   "exclude": ["./out", "../../node_modules", "../../tmp", "./test"],
   "references": [
-    { "path": "../core" }
+    { "path": "../core" },
+    { "path": "../ui-headless" }
   ]
 }

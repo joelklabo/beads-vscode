@@ -143,7 +143,7 @@ async function runWorktreeGuard(projectRoot: string): Promise<void> {
   await execFileAsync(guardPath, { cwd: projectRoot });
 }
 
-async function ensureWorkspaceTrusted(workspaceFolder?: vscode.WorkspaceFolder): Promise<void> {
+async function ensureWorkspaceTrusted(_workspaceFolder?: vscode.WorkspaceFolder): Promise<void> {
   if (vscode.workspace.isTrusted) {
     return;
   }

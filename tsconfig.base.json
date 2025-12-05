@@ -56,6 +56,12 @@
       ],
       "@beads/ui-web/*": [
         "packages/ui-web/src/*"
+      ],
+      "@beads/ui-ink": [
+        "packages/ui-ink/src"
+      ],
+      "@beads/ui-ink/*": [
+        "packages/ui-ink/src/*"
       ]
     }
   }

@@ -309,10 +309,9 @@ export class BeadsStore {
       if (state.pendingRefresh) {
         state.pendingRefresh = false;
         await this.refreshWorkspace(state.target);
-        return;
+      } else {
+        this.notify(this.getSnapshot());
       }
-
-      this.notify(this.getSnapshot());
     }
   }
 
