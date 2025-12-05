@@ -133,6 +133,13 @@ The extension supports three view modes that you can cycle through using the "To
 2. **Status Grouping**: Beads are grouped into collapsible sections by status (Open, In Progress, Blocked, Closed)
 3. **Epic Grouping**: Beads are grouped under their parent epics. Epics appear as expandable sections with their child tasks nested underneath. Tasks without a parent epic are shown in an "Ungrouped" section.
 
+### Filters and badges
+
+- The explorer toolbar shows the active filter as `Filter: <mode>`; click it or run `Beads: Switch Filter Mode…` to pick between Issues, Epics, Favorites, and other scopes. Tooltips explain what each mode hides or includes.
+- Every row displays an assignee pill and status label. In **assignee sort** (cycle with `Beads: Toggle Sort Mode`), names sort case-insensitively with **Unassigned** always last.
+- Press **Space/Enter** or click the chevron to expand a row for more metadata (labels, priority, updated time) without leaving the list. Focus order and `aria-expanded` are maintained for keyboard and screen reader users.
+- See [docs/filters-assignee.md](docs/filters-assignee.md) for deeper UX/accessibility notes.
+
 ### Dependency tree editing (preview)
 
 1. Turn on the `beads.enableDependencyEditing` setting (requires `bd` ≥ 0.29.0); commands always run with `--no-daemon`.
