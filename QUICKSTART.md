@@ -113,6 +113,11 @@ The tree view shows all your beads with:
 - **Refresh** 🔄 - Reload issues from file
 - **Create** ➕ - Create a new issue (requires `beads` CLI)
 
+**Filter + sort:**
+- The toolbar chip shows `Filter: <mode>` (Issues, Epics, Favorites, etc.). Click it or run `Beads: Switch Filter Mode…` to change scopes; the active label is always visible.
+- Use `Beads: Toggle Sort Mode` to cycle to **assignee sort**; assignees sort case-insensitively with **Unassigned** last.
+- Rows always show assignee and status pills; press Space/Enter or the chevron to expand a row for labels, priority, and updated time.
+
 **Keyboard shortcuts:**
 - Click an issue to open its details
 
