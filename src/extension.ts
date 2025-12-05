@@ -42,6 +42,7 @@ import {
   collectDependencyEdges,
   mapBeadsToGraphNodes,
   GraphEdgeData,
+  buildDependencyTrees,
   QuickFilterPreset,
   applyQuickFilter,
   toggleQuickFilter,
@@ -195,6 +196,12 @@ interface BeadDetailStrings {
   dependencyTreeTitle: string;
   dependencyTreeUpstream: string;
   dependencyTreeDownstream: string;
+  addUpstreamLabel: string;
+  addDownstreamLabel: string;
+  addUpstreamPrompt: string;
+  addDownstreamPrompt: string;
+  dependencyEmptyLabel: string;
+  missingDependencyLabel: string;
   editLabel: string;
   deleteLabel: string;
   doneLabel: string;
@@ -255,6 +262,12 @@ const buildBeadDetailStrings = (statusLabels: StatusLabelMap): BeadDetailStrings
   dependencyTreeTitle: t('Dependency Tree'),
   dependencyTreeUpstream: t('↑ Depends On (upstream)'),
   dependencyTreeDownstream: t('↓ Blocked By This (downstream)'),
+  addUpstreamLabel: t('Add upstream'),
+  addDownstreamLabel: t('Add downstream'),
+  addUpstreamPrompt: t('Enter the ID this issue depends on'),
+  addDownstreamPrompt: t('Enter the ID that should depend on this issue'),
+  dependencyEmptyLabel: t('No dependencies yet'),
+  missingDependencyLabel: t('Missing issue'),
   editLabel: t('Edit'),
   deleteLabel: t('Delete'),
   doneLabel: t('Done'),
@@ -1584,98 +1597,6 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   }
 }
 
-interface DependencyTreeNode {
-  id: string;
-  title: string;
-  status: string;
-  isCurrent: boolean;
-  children: DependencyTreeNode[];
-}
-
-function buildDependencyTree(
-  itemId: string,
-  allItems: BeadItemData[],
-  direction: 'upstream' | 'downstream',
-  visited: Set<string> = new Set()
-): DependencyTreeNode | null {
-  if (visited.has(itemId)) {
-    return null; // Prevent cycles
-  }
-  visited.add(itemId);
-
-  const item = allItems.find(i => i.id === itemId);
-  if (!item) {
-    return null;
-  }
-
-  const raw = item.raw as any;
-  const children: DependencyTreeNode[] = [];
-
-  if (direction === 'upstream') {
-    // Find issues this one depends on (upstream)
-    const dependencies = raw?.dependencies || [];
-    for (const dep of dependencies) {
-      const targetId = dep.depends_on_id || dep.id || dep.issue_id;
-      if (targetId) {
-        const childNode = buildDependencyTree(targetId, allItems, direction, new Set(visited));
-        if (childNode) {
-          children.push(childNode);
-        }
-      }
-    }
-  } else {
-    // Find issues that depend on this one (downstream)
-    for (const otherItem of allItems) {
-      const otherRaw = otherItem.raw as any;
-      const otherDeps = otherRaw?.dependencies || [];
-      for (const dep of otherDeps) {
-        const targetId = dep.depends_on_id || dep.id || dep.issue_id;
-        if (targetId === itemId) {
-          const childNode = buildDependencyTree(otherItem.id, allItems, direction, new Set(visited));
-          if (childNode) {
-            children.push(childNode);
-          }
-        }
-      }
-    }
-  }
-
-  return {
-    id: item.id,
-    title: item.title,
-    status: item.status || 'open',
-    isCurrent: false,
-    children
-  };
-}
-
-function renderTreeHtml(node: DependencyTreeNode, currentId: string, isLast: boolean = true, prefix: string = ''): string {
-  const isCurrent = node.id === currentId;
-  const statusColors: Record<string, string> = {
-    'open': '#3794ff',
-    'in_progress': '#f9c513',
-    'blocked': '#f14c4c',
-    'closed': '#73c991'
-  };
-  const statusColor = statusColors[node.status] || '#666';
-  const connector = isLast ? '└── ' : '├── ';
-  const childPrefix = prefix + (isLast ? '    ' : '│   ');
-  
-  let html = `<div class="tree-node ${isCurrent ? 'current-node' : ''}" data-issue-id="${node.id}">`;
-  html += `<span class="tree-prefix">${prefix}${connector}</span>`;
-  html += `<span class="tree-status-dot" style="background-color: ${statusColor};"></span>`;
-  html += `<span class="tree-id">${node.id}</span>`;
-  html += `<span class="tree-title">${escapeHtml(node.title)}</span>`;
-  html += `</div>`;
-
-  node.children.forEach((child, index) => {
-    const isChildLast = index === node.children.length - 1;
-    html += renderTreeHtml(child, currentId, isChildLast, childPrefix);
-  });
-
-  return html;
-}
-
 function getBeadDetailHtml(
   item: BeadItemData,
   allItems: BeadItemData[] | undefined,
@@ -1700,38 +1621,89 @@ function getBeadDetailHtml(
   const dependencyEditingEnabled = vscode.workspace.getConfiguration('beads').get<boolean>('enableDependencyEditing', false);
 
   // Build dependency trees for visualization
-  let dependencyTreeHtml = '';
-  if (allItems && allItems.length > 0) {
-    const upstreamTree = buildDependencyTree(item.id, allItems, 'upstream');
-    const downstreamTree = buildDependencyTree(item.id, allItems, 'downstream');
-    
-    const hasUpstream = upstreamTree && upstreamTree.children.length > 0;
-    const hasDownstream = downstreamTree && downstreamTree.children.length > 0;
-    
-    if (hasUpstream || hasDownstream) {
-      dependencyTreeHtml = `
-        <div class="dependency-tree-section">
-            <div class="dependency-tree-header" id="treeHeader">
-                <span class="tree-toggle" id="treeToggle">▼</span>
-                <span class="section-title" style="margin: 0;">${escapeHtml(strings.dependencyTreeTitle)}</span>
-            </div>
-            <div class="dependency-tree-container" id="treeContainer">`;
-      
-      if (hasUpstream) {
-        dependencyTreeHtml += `<div class="tree-direction-label">${escapeHtml(strings.dependencyTreeUpstream)}</div>`;
-        dependencyTreeHtml += renderTreeHtml(upstreamTree!, item.id, true, '');
-      }
-      
-      if (hasDownstream) {
-        dependencyTreeHtml += `<div class="tree-direction-label">${escapeHtml(strings.dependencyTreeDownstream)}</div>`;
-        dependencyTreeHtml += renderTreeHtml(downstreamTree!, item.id, true, '');
-      }
-      
-      dependencyTreeHtml += `</div></div>`;
-    }
-  }
+  const treeData = allItems && allItems.length > 0 ? buildDependencyTrees(allItems, item.id) : { upstream: [], downstream: [] };
+  const hasUpstream = treeData.upstream.length > 0;
+  const hasDownstream = treeData.downstream.length > 0;
+  const hasAnyDeps = hasUpstream || hasDownstream;
 
-  // Separate outgoing dependencies (this issue depends on) from incoming (this issue blocks)
+  const statusColors: Record<string, string> = {
+    open: '#3794ff',
+    in_progress: '#f9c513',
+    blocked: '#f14c4c',
+    closed: '#73c991',
+  };
+
+  const renderBranch = (
+    nodes: any[],
+    parentId: string,
+    direction: 'upstream' | 'downstream',
+    depth: number
+  ): string => {
+    return nodes
+      .map((node: any) => {
+        const removeSourceId = direction === 'upstream' ? parentId : node.id;
+        const removeTargetId = direction === 'upstream' ? node.id : parentId;
+        const children = node.children && node.children.length > 0 ? renderBranch(node.children, node.id, direction, depth + 1) : '';
+        const color = statusColors[node.status || 'open'] || statusColors.open;
+        return `
+          <div class="tree-row" data-issue-id="${escapeHtml(node.id)}" data-direction="${direction}" style="--depth:${depth}">
+            <div class="tree-row-main">
+              <div class="tree-left">
+                <span class="status-dot" style="background-color:${color};"></span>
+                <span class="tree-id">${escapeHtml(node.id)}</span>
+                <span class="tree-title">${escapeHtml(node.title || '')}</span>
+                <span class="dep-type dep-${escapeHtml(node.type)}">${escapeHtml(node.type)}</span>
+                ${node.missing ? `<span class="missing-pill">${escapeHtml(strings.missingDependencyLabel)}</span>` : ''}
+              </div>
+              ${
+                dependencyEditingEnabled && !node.missing
+                  ? `<button class="dependency-remove" data-source-id="${escapeHtml(removeSourceId)}" data-target-id="${escapeHtml(removeTargetId)}">${escapeHtml(strings.removeDependencyLabel)}</button>`
+                  : ''
+              }
+            </div>
+            ${children ? `<div class="tree-children">${children}</div>` : ''}
+          </div>
+        `;
+      })
+      .join('');
+  };
+
+  const renderBranchSection = (direction: 'upstream' | 'downstream', nodes: any[], label: string): string => {
+    if (!nodes || nodes.length === 0) {
+      return '';
+    }
+    return `
+      <div class="tree-branch" data-direction="${direction}">
+        <div class="tree-direction-label">${escapeHtml(label)}</div>
+        <div class="tree-branch-nodes">
+          ${renderBranch(nodes, item.id, direction, 0)}
+        </div>
+      </div>
+    `;
+  };
+
+  const dependencyTreeHtml = `
+    <div class="section dependency-tree-section">
+      <div class="section-title tree-title-row">
+        <span>${escapeHtml(strings.dependencyTreeTitle)}</span>
+        ${
+          dependencyEditingEnabled
+            ? `<div class="tree-actions">
+                <button class="edit-button" id="addUpstreamButton">${escapeHtml(strings.addUpstreamLabel)}</button>
+                <button class="edit-button" id="addDownstreamButton">${escapeHtml(strings.addDownstreamLabel)}</button>
+              </div>`
+            : ''
+        }
+      </div>
+      <div class="dependency-tree-container">
+        ${renderBranchSection('upstream', treeData.upstream, strings.dependencyTreeUpstream)}
+        ${renderBranchSection('downstream', treeData.downstream, strings.dependencyTreeDownstream)}
+        ${hasAnyDeps ? '' : `<div class="empty">${escapeHtml(strings.dependencyEmptyLabel)}</div>`}
+      </div>
+    </div>
+  `;
+
+// Separate outgoing dependencies (this issue depends on) from incoming (this issue blocks)
   const dependsOn: any[] = [];
   const blocks: any[] = [];
 
@@ -2070,77 +2042,86 @@ function getBeadDetailHtml(
         .dependency-tree-section {
             margin: 24px 0;
         }
-        .dependency-tree-header {
+        .tree-title-row {
             display: flex;
             align-items: center;
+            justify-content: space-between;
             gap: 8px;
-            cursor: pointer;
-            user-select: none;
         }
-        .dependency-tree-header:hover {
-            opacity: 0.8;
-        }
-        .tree-toggle {
-            font-size: 12px;
-            transition: transform 0.2s;
-        }
-        .tree-toggle.collapsed {
-            transform: rotate(-90deg);
+        .tree-actions {
+            display: flex;
+            gap: 8px;
         }
         .dependency-tree-container {
-            font-family: monospace;
-            font-size: 13px;
-            line-height: 1.8;
             padding: 12px;
             background-color: var(--vscode-textBlockQuote-background);
             border-radius: 4px;
             margin-top: 12px;
-            overflow-x: auto;
         }
-        .dependency-tree-container.collapsed {
-            display: none;
-        }
-        .tree-node {
-            white-space: nowrap;
-            cursor: pointer;
-            padding: 2px 4px;
-            border-radius: 3px;
-        }
-        .tree-node:hover {
-            background-color: var(--vscode-list-hoverBackground);
-        }
-        .tree-node.current-node {
-            background-color: var(--vscode-editor-selectionBackground);
-            font-weight: 600;
-        }
-        .tree-prefix {
+        .tree-direction-label {
+            font-size: 12px;
             color: var(--vscode-descriptionForeground);
+            text-transform: uppercase;
+            font-weight: 600;
+            margin: 8px 0 4px 0;
         }
-        .tree-status-dot {
-            display: inline-block;
+        .tree-branch-nodes {
+            border-left: 1px solid var(--vscode-panel-border);
+            margin-left: 4px;
+            padding-left: 8px;
+        }
+        .tree-children {
+            margin-left: 12px;
+        }
+        .tree-row {
+            padding-left: calc(var(--depth, 0) * 14px);
+            margin: 4px 0;
+        }
+        .tree-row-main {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+        .tree-left {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+        .status-dot {
             width: 8px;
             height: 8px;
             border-radius: 50%;
-            margin-right: 6px;
         }
         .tree-id {
             color: var(--vscode-textLink-foreground);
-            margin-right: 8px;
+            font-weight: 600;
         }
         .tree-title {
             color: var(--vscode-foreground);
         }
-        .tree-direction-label {
+        .dep-type {
             font-size: 11px;
-            color: var(--vscode-descriptionForeground);
-            text-transform: uppercase;
-            font-weight: 600;
-            margin: 16px 0 8px 0;
-            padding-bottom: 4px;
-            border-bottom: 1px solid var(--vscode-panel-border);
+            padding: 2px 6px;
+            border-radius: 10px;
+            background-color: var(--vscode-badge-background);
+            color: var(--vscode-badge-foreground);
+            text-transform: lowercase;
         }
-        .tree-direction-label:first-child {
-            margin-top: 0;
+        .missing-pill {
+            font-size: 11px;
+            color: var(--vscode-errorForeground);
+        }
+        .dependency-remove {
+            border: none;
+            background: transparent;
+            color: var(--vscode-errorForeground);
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .dependency-remove:hover {
+            text-decoration: underline;
         }
     </style>
 </head>
@@ -2219,12 +2200,6 @@ function getBeadDetailHtml(
         </div>
     </div>
 
-    ${dependencyEditingEnabled ? `
-    <div class="section">
-        <button class="edit-button" id="addDependencyButton">${escapeHtml(strings.addDependencyLabel)}</button>
-    </div>
-    ` : ''}
-
     ${dependsOn.length > 0 ? `
     <div class="section">
         <div class="section-title">${escapeHtml(strings.dependsOnLabel)}</div>
@@ -2270,7 +2245,8 @@ function getBeadDetailHtml(
         const labelActions = document.getElementById('labelActions');
         const addInReviewButton = document.getElementById('addInReviewButton');
         const addLabelButton = document.getElementById('addLabelButton');
-        const addDependencyButton = document.getElementById('addDependencyButton');
+        const addUpstreamButton = document.getElementById('addUpstreamButton');
+        const addDownstreamButton = document.getElementById('addDownstreamButton');
         const inReviewButtonText = document.getElementById('inReviewButtonText');
         const labelsContainer = document.getElementById('labelsContainer');
 
@@ -2281,33 +2257,9 @@ function getBeadDetailHtml(
           removeInReview: strings.removeInReviewLabel,
           addLabel: strings.addLabelLabel,
           promptLabel: strings.labelPrompt,
+          addUpstreamPrompt: strings.addUpstreamPrompt,
+          addDownstreamPrompt: strings.addDownstreamPrompt,
         })};
-
-        // Dependency tree toggle
-        const treeHeader = document.getElementById('treeHeader');
-        const treeToggle = document.getElementById('treeToggle');
-        const treeContainer = document.getElementById('treeContainer');
-        
-        if (treeHeader && treeToggle && treeContainer) {
-            treeHeader.addEventListener('click', () => {
-                treeToggle.classList.toggle('collapsed');
-                treeContainer.classList.toggle('collapsed');
-            });
-        }
-
-        // Tree node clicks - navigate to that issue
-        document.querySelectorAll('.tree-node').forEach(node => {
-            node.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const issueId = node.getAttribute('data-issue-id');
-                if (issueId && issueId !== '${item.id}') {
-                    vscode.postMessage({
-                        command: 'openBead',
-                        beadId: issueId
-                    });
-                }
-            });
-        });
 
         let originalTitle = issueTitle.textContent;
 
@@ -2455,11 +2407,40 @@ function getBeadDetailHtml(
             }
         });
 
-        if (addDependencyButton) {
-            addDependencyButton.addEventListener('click', () => {
+        const idPattern = /^[A-Za-z0-9._-]{1,64}$/;
+        const askForId = (promptText) => {
+            const value = prompt(promptText);
+            if (!value) {
+                return undefined;
+            }
+            const trimmed = value.trim();
+            return idPattern.test(trimmed) ? trimmed : undefined;
+        };
+
+        if (addUpstreamButton) {
+            addUpstreamButton.addEventListener('click', () => {
+                const targetId = askForId(localized.addUpstreamPrompt);
+                if (!targetId) {
+                    return;
+                }
                 vscode.postMessage({
                     command: 'addDependency',
-                    issueId: '${item.id}'
+                    sourceId: '${item.id}',
+                    targetId
+                });
+            });
+        }
+
+        if (addDownstreamButton) {
+            addDownstreamButton.addEventListener('click', () => {
+                const sourceId = askForId(localized.addDownstreamPrompt);
+                if (!sourceId) {
+                    return;
+                }
+                vscode.postMessage({
+                    command: 'addDependency',
+                    sourceId,
+                    targetId: '${item.id}'
                 });
             });
         }
@@ -2493,6 +2474,20 @@ function getBeadDetailHtml(
                         command: 'removeDependency',
                         sourceId,
                         targetId,
+                    });
+                }
+            }
+        });
+
+        // Handle dependency tree node clicks
+        document.addEventListener('click', (e) => {
+            const treeRow = e.target.closest('.tree-row');
+            if (treeRow && !e.target.closest('.dependency-remove')) {
+                const issueId = treeRow.getAttribute('data-issue-id');
+                if (issueId && issueId !== '${item.id}') {
+                    vscode.postMessage({
+                        command: 'openBead',
+                        beadId: issueId
                     });
                 }
             }
@@ -3331,7 +3326,10 @@ async function openBead(item: BeadItemData, provider: BeadsTreeDataProvider): Pr
         await provider.removeLabel(item, validated.label);
         return;
       case 'addDependency': {
-        await addDependencyCommand(provider, item);
+        const sourceId = validated.sourceId ?? item.id;
+        const targetId = validated.targetId;
+        const sourceItem = (provider as any)['items']?.find((i: BeadItemData) => i.id === sourceId) ?? item;
+        await addDependencyCommand(provider, sourceItem, targetId ? { sourceId, targetId } : undefined);
         return;
       }
       case 'removeDependency': {
