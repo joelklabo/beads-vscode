@@ -5,6 +5,7 @@ export interface BeadItemData {
   filePath?: string;
   status?: string;
   tags?: string[];
+  assignee?: string;
   updatedAt?: string;
   externalReferenceId?: string;
   externalReferenceDescription?: string;
@@ -82,6 +83,30 @@ export function pickTags(entry: any): string[] | undefined {
   return undefined;
 }
 
+export function pickAssignee(entry: any): string | undefined {
+  if (!entry || typeof entry !== 'object') {
+    return undefined;
+  }
+
+  const candidateKeys = ['assignee', 'assignee_name', 'assigneeName', 'assigned_to', 'owner', 'user', 'author'];
+
+  for (const key of candidateKeys) {
+    const value = (entry as any)[key];
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return value.trim();
+    }
+
+    if (value && typeof value === 'object') {
+      const name = (value as any).name;
+      if (typeof name === 'string' && name.trim().length > 0) {
+        return name.trim();
+      }
+    }
+  }
+
+  return undefined;
+}
+
 export function normalizeBead(entry: any, index = 0): BeadItemData {
   const { value: id, key: idKey } = pickFirstKey(entry, ['id', 'uuid', 'beadId']);
   const title = pickValue(entry, ['title', 'name'], id ?? `bead-${index}`) ?? `bead-${index}`;
@@ -89,6 +114,7 @@ export function normalizeBead(entry: any, index = 0): BeadItemData {
   const filePath = pickValue(entry, ['file', 'path', 'filename']);
   const status = pickValue(entry, ['status', 'state']);
   const tags = pickTags(entry);
+  const assignee = pickAssignee(entry);
   const updatedAt = pickValue(entry, ['updated_at', 'updatedAt', 'modified_at', 'modifiedAt']);
   const issueType = pickValue(entry, ['issue_type', 'issueType', 'type']);
   const { value: externalReferenceRaw, key: externalReferenceKey } = pickFirstKey(entry, [
@@ -129,6 +155,7 @@ export function normalizeBead(entry: any, index = 0): BeadItemData {
     filePath,
     status,
     tags,
+    assignee,
     updatedAt,
     externalReferenceId,
     externalReferenceDescription,

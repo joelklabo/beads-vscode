@@ -1,6 +1,34 @@
 import * as vscode from 'vscode';
 import { BeadItemData, buildPreviewSnippet, formatRelativeTime, getStaleInfo, isStale, sanitizeTooltipText, stripBeadIdPrefix } from '../../utils';
 
+const t = vscode.l10n.t;
+
+const ASSIGNEE_COLOR_EMOJI = ['🔵', '🟢', '🟣', '🟠', '🔴', '🟡', '⚫', '⚪'];
+
+function hashString(value: string): number {
+  let hash = 0;
+  for (let i = 0; i < value.length; i++) {
+    hash = (hash * 31 + value.charCodeAt(i)) >>> 0;
+  }
+  return hash;
+}
+
+function getAssigneeInfo(bead: BeadItemData): { name: string; display: string; dot: string } {
+  const fallback = t('Unassigned');
+  const raw = (bead.assignee ?? '').trim();
+  const name = raw.length > 0 ? raw : fallback;
+  const truncated = name.length > 18 ? `${name.slice(0, 17)}…` : name;
+
+  if (raw.length === 0) {
+    return { name, display: truncated, dot: '⚪' };
+  }
+
+  const colorIndex = hashString(name.toLowerCase()) % ASSIGNEE_COLOR_EMOJI.length;
+  const dot = ASSIGNEE_COLOR_EMOJI[colorIndex] ?? '⚪';
+
+  return { name, display: truncated, dot };
+}
+
 export class StatusSectionItem extends vscode.TreeItem {
   constructor(public readonly status: string, public readonly beads: BeadItemData[], isCollapsed: boolean = false) {
     const statusDisplay = status.split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
@@ -108,7 +136,9 @@ export class BeadTreeItem extends vscode.TreeItem {
     const staleInfo = getStaleInfo(bead);
     const isTaskStale = isStale(bead, thresholdHours);
 
-    const descParts: string[] = [bead.id];
+    const assigneeInfo = getAssigneeInfo(bead);
+
+    const descParts: string[] = [bead.id, `${assigneeInfo.dot} ${assigneeInfo.display}`];
     if (isTaskStale && staleInfo) {
       descParts.push(`⚠️ ${staleInfo.formattedTime}`);
     }
@@ -178,6 +208,7 @@ export class BeadTreeItem extends vscode.TreeItem {
 
     tooltip.appendMarkdown(`**${safeTitle}**\n\n`);
     tooltip.appendMarkdown(`🆔 ${safeId}\n\n`);
+    tooltip.appendMarkdown(`👤 ${sanitizeTooltipText(assigneeInfo.name)}\n\n`);
 
     if (safeDescription) {
       tooltip.appendMarkdown(`${safeDescription}\n\n`);
