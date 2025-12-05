@@ -1,4 +1,5 @@
 import { BeadItemData } from './beads';
+import { DependencyDirection, DependencyLink, DependencyType, extractDependencyLinks } from './dependencies';
 
 export interface DependencyTreeStrings {
   title: string;
@@ -28,6 +29,29 @@ export interface GraphEdgeData {
   targetTitle?: string;
 }
 
+export interface DependencyNeighbor {
+  id: string;
+  title?: string;
+  status?: string;
+  type: DependencyType;
+  direction: DependencyDirection;
+  missing?: boolean;
+}
+
+export interface DependencyTreeNode extends DependencyNeighbor {
+  children: DependencyTreeNode[];
+}
+
+export interface DependencyTrees {
+  upstream: DependencyTreeNode[];
+  downstream: DependencyTreeNode[];
+}
+
+export interface DependencyAdjacency {
+  upstream: DependencyNeighbor[];
+  downstream: DependencyNeighbor[];
+}
+
 export function collectDependencyEdges(items: BeadItemData[] | undefined): GraphEdgeData[] {
   if (!items || items.length === 0) {
     return [];
@@ -39,20 +63,14 @@ export function collectDependencyEdges(items: BeadItemData[] | undefined): Graph
   const edges: GraphEdgeData[] = [];
 
   items.forEach((item) => {
-    const deps = (item.raw as any)?.dependencies || [];
-    deps.forEach((dep: any) => {
-      const targetId = dep.id || dep.depends_on_id || dep.issue_id;
-      if (!targetId) {
-        return;
-      }
-
-      const type = dep.dep_type || dep.type || 'related';
+    const deps = extractDependencyLinks(item.raw);
+    deps.forEach((dep) => {
       edges.push({
         sourceId: item.id,
-        targetId,
-        type,
+        targetId: dep.id,
+        type: dep.type,
         sourceTitle: item.title,
-        targetTitle: nodeTitles.get(targetId),
+        targetTitle: nodeTitles.get(dep.id),
       });
     });
   });
@@ -69,6 +87,130 @@ export function mapBeadsToGraphNodes(items: BeadItemData[] | undefined): GraphNo
     title: item.title,
     status: item.status || 'open',
   }));
+}
+
+function buildDependencyIndex(items: BeadItemData[] | undefined) {
+  const itemById = new Map<string, BeadItemData>();
+  const upstreamById = new Map<string, DependencyLink[]>();
+  const downstreamById = new Map<string, DependencyLink[]>();
+
+  if (!items) {
+    return { itemById, upstreamById, downstreamById };
+  }
+
+  for (const item of items) {
+    if (!item?.id) {
+      continue;
+    }
+    itemById.set(item.id, item);
+
+    const links = extractDependencyLinks(item.raw);
+    if (links.length > 0) {
+      upstreamById.set(item.id, links);
+    }
+
+    for (const link of links) {
+      const dependents = downstreamById.get(link.id) ?? [];
+      dependents.push({ id: item.id, type: link.type });
+      downstreamById.set(link.id, dependents);
+    }
+  }
+
+  return { itemById, upstreamById, downstreamById };
+}
+
+function linksToNeighbors(
+  links: DependencyLink[] | undefined,
+  direction: DependencyDirection,
+  index: ReturnType<typeof buildDependencyIndex>
+): DependencyNeighbor[] {
+  if (!links || links.length === 0) {
+    return [];
+  }
+
+  const seen = new Set<string>();
+  const neighbors: DependencyNeighbor[] = [];
+
+  for (const link of links) {
+    if (seen.has(link.id)) {
+      continue;
+    }
+    seen.add(link.id);
+
+    const match = index.itemById.get(link.id);
+    neighbors.push({
+      id: link.id,
+      title: match?.title,
+      status: match?.status,
+      type: link.type,
+      direction,
+      missing: !match,
+    });
+  }
+
+  return neighbors;
+}
+
+export function buildDependencyAdjacency(items: BeadItemData[] | undefined, rootId: string): DependencyAdjacency {
+  const index = buildDependencyIndex(items);
+  return {
+    upstream: linksToNeighbors(index.upstreamById.get(rootId), 'upstream', index),
+    downstream: linksToNeighbors(index.downstreamById.get(rootId), 'downstream', index),
+  };
+}
+
+function buildBranch(
+  currentId: string,
+  direction: DependencyDirection,
+  index: ReturnType<typeof buildDependencyIndex>,
+  visited: Set<string>
+): DependencyTreeNode[] {
+  const links =
+    direction === 'upstream'
+      ? index.upstreamById.get(currentId) ?? []
+      : index.downstreamById.get(currentId) ?? [];
+
+  const seen = new Set<string>();
+  const nodes: DependencyTreeNode[] = [];
+
+  for (const link of links) {
+    if (seen.has(link.id)) {
+      continue;
+    }
+    seen.add(link.id);
+
+    const match = index.itemById.get(link.id);
+    const node: DependencyTreeNode = {
+      id: link.id,
+      title: match?.title,
+      status: match?.status,
+      type: link.type,
+      direction,
+      missing: !match,
+      children: [],
+    };
+
+    if (!visited.has(link.id)) {
+      const nextVisited = new Set(visited);
+      nextVisited.add(link.id);
+      node.children = buildBranch(link.id, direction, index, nextVisited);
+    }
+
+    nodes.push(node);
+  }
+
+  return nodes;
+}
+
+export function buildDependencyTrees(items: BeadItemData[] | undefined, rootId: string): DependencyTrees {
+  const index = buildDependencyIndex(items);
+  const upstreamVisited = new Set<string>([rootId]);
+  const downstreamVisited = new Set<string>([rootId]);
+
+  return {
+    upstream: buildBranch(rootId, 'upstream', index, upstreamVisited),
+    downstream: buildBranch(rootId, 'downstream', index, downstreamVisited),
+  };
 }
 
 export function willCreateDependencyCycle(
