@@ -8,12 +8,12 @@ import {
   pickFirstKey,
   pickTags,
   pickValue
-} from '../../utils/beads';
+} from '@beads/core';
 import { resolveDataFilePath } from '../../utils/fs';
 import { DEFAULT_STALE_THRESHOLD_HOURS, getStaleInfo, isStale } from '../../utils/stale';
 import { escapeHtml, formatError, formatRelativeTime, linkifyText } from '../../utils/format';
 import { sanitizeInlineText } from '../../utils/sanitize';
-import { formatStatusLabel } from '../../utils/status';
+import { formatStatusLabel } from '@beads/core';
 
 describe('Utility Functions', () => {
 

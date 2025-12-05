@@ -1,7 +1,7 @@
 import * as assert from 'assert';
 import { applyQuickFilter, normalizeQuickFilter } from '../../utils/filters';
 import { sanitizeInlineText } from '../../utils/sanitize';
-import { BeadItemData } from '../../utils/beads';
+import { BeadItemData } from '@beads/core';
 
 describe('Quick filter sanitization', () => {
   const sampleItem: BeadItemData = {

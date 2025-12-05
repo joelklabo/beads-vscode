@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { BeadItemData } from '../utils/beads';
+import { BeadItemData } from '@beads/core';
 import { hasDependency, validateDependencyAdd, validateDependencyAddWithReason } from '../utils/dependencies';
 
 function bead(id: string, deps: string[] = []): BeadItemData {

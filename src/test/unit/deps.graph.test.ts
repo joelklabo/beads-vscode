@@ -1,14 +1,14 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 import * as assert from 'assert';
 import Module = require('module');
-import { BeadItemData } from '../../utils';
+import { BeadItemData } from '@beads/core';
 import {
   buildDependencyAdjacency,
   buildDependencyTrees,
   GraphEdgeData,
   validateEdgeAddition,
   willCreateDependencyCycle,
-} from '../../utils/graph';
+} from '@beads/core';
 
 describe('Dependency graph helpers', () => {
   let restoreLoad: any;

@@ -4,14 +4,8 @@ import { promises as fs } from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { promisify } from 'util';
-import {
-  BeadItemData,
-  normalizeBead,
-  extractBeads,
-  resolveDataFilePath,
-  getCliExecutionConfig,
-  execCliWithPolicy,
-} from '../../utils';
+import { BeadItemData, extractBeads, normalizeBead } from '@beads/core';
+import { execCliWithPolicy, getCliExecutionConfig, resolveDataFilePath } from '../../utils';
 
 const execFileAsync = promisify(execFile);
 

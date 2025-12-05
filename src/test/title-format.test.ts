@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import Module = require('module');
-import { stripBeadIdPrefix } from '../utils/beads';
+import { stripBeadIdPrefix } from '@beads/core';
 import { buildPreviewSnippet } from '../utils/format';
 
 function createVscodeStub() {
