@@ -1,5 +1,6 @@
 import { execFile } from 'child_process';
 import { promisify } from 'util';
+import { sanitizeErrorMessage } from './format';
 
 const execFileAsync = promisify(execFile);
 
@@ -25,6 +26,7 @@ export interface ExecCliOptions {
   env?: NodeJS.ProcessEnv;
   policy: CliExecutionPolicy;
   maxBuffer?: number;
+  redactPaths?: string[];
 }
 
 /**
@@ -93,14 +95,16 @@ function delay(ms: number): Promise<void> {
 }
 
 export async function execCliWithPolicy(options: ExecCliOptions): Promise<{ stdout: string; stderr: string }> {
-  const { commandPath, args, cwd, env, policy, maxBuffer } = options;
+  const { commandPath, args, cwd, env, policy, maxBuffer, redactPaths } = options;
+  const safeArgs = buildSafeBdArgs(args);
+  const redactionPaths = redactPaths ?? (cwd ? [cwd] : []);
   const started = Date.now();
   let attempt = 0;
   let lastError: unknown;
 
   while (attempt <= policy.retryCount) {
     try {
-      return await execFileAsync(commandPath, args, {
+      return await execFileAsync(commandPath, safeArgs, {
         cwd,
         env,
         timeout: policy.timeoutMs,
@@ -108,6 +112,8 @@ export async function execCliWithPolicy(options: ExecCliOptions): Promise<{ stdo
         encoding: 'utf8',
       });
     } catch (error) {
+      const sanitized = sanitizeErrorMessage(error, redactionPaths);
+      (error as any).sanitizedMessage = sanitized;
       lastError = error;
       attempt += 1;
 
@@ -117,6 +123,7 @@ export async function execCliWithPolicy(options: ExecCliOptions): Promise<{ stdo
           `bd command exceeded offline detection threshold (${policy.offlineThresholdMs}ms)`
         );
         (offlineError as any).cause = error;
+        (offlineError as any).sanitizedMessage = sanitized;
         throw offlineError;
       }
 
