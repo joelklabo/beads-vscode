@@ -188,6 +188,24 @@ describe('Extension tree items', () => {
     provider.dispose();
   });
 
+  it('epic view warning excludes closed tasks even if stale', async () => {
+    const context = createContextStub();
+    const provider = new BeadsTreeDataProvider(context as any);
+    const now = Date.now();
+    (provider as any).items = [
+      { id: 'task-stale', title: 'Stale task', issueType: 'task', status: 'in_progress', inProgressSince: new Date(now - 60 * 60 * 1000).toISOString() },
+      { id: 'task-closed-stale', title: 'Closed stale task', issueType: 'task', status: 'closed', inProgressSince: new Date(now - 60 * 60 * 1000).toISOString() },
+    ];
+    (provider as any).sortMode = 'epic';
+
+    const roots = await provider.getChildren();
+    const warning = roots.find((r: any) => r.contextValue === 'warningSection');
+    const warningIds = warning ? warning.beads.map((b: any) => b.id) : [];
+    assert.deepStrictEqual(warningIds, ['task-stale']);
+
+    provider.dispose();
+  });
+
   it('status root sections order warning → in_progress → open → blocked → closed with default collapses', async () => {
     const context = createContextStub();
     const provider = new BeadsTreeDataProvider(context as any);
