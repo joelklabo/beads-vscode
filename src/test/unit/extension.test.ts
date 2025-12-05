@@ -206,6 +206,36 @@ describe('Extension tree items', () => {
     provider.dispose();
   });
 
+  it('stale warning excludes closed epics, both empty and with children', async () => {
+    const context = createContextStub();
+    const provider = new BeadsTreeDataProvider(context as any);
+    const now = Date.now();
+    (provider as any).items = [
+      { id: 'epic-open-empty', title: 'Open empty epic', issueType: 'epic', status: 'open' },
+      { id: 'epic-closed-empty', title: 'Closed empty epic', issueType: 'epic', status: 'closed' },
+      { id: 'epic-closed-has-children', title: 'Closed with kids', issueType: 'epic', status: 'closed' },
+      { id: 'child-open', title: 'Open child', issueType: 'task', status: 'open', parentId: 'epic-closed-has-children' },
+      { id: 'task-stale', title: 'Stale task', issueType: 'task', status: 'in_progress', inProgressSince: new Date(now - 60 * 60 * 1000).toISOString() },
+    ];
+    (provider as any).sortMode = 'epic';
+
+    const roots = await provider.getChildren();
+    const warning = roots.find((r: any) => r.contextValue === 'warningSection');
+    const warningIds = warning ? warning.beads.map((b: any) => b.id).sort() : [];
+    assert.deepStrictEqual(warningIds, ['epic-open-empty', 'task-stale']);
+
+    const closedSection = roots.find((r: any) => r.contextValue === 'epicStatusSection' && r.status === 'closed') as any;
+    const closedEpics = await provider.getChildren(closedSection);
+    const closedIds = closedEpics.map((n: any) => n.epic.id).sort();
+    assert.deepStrictEqual(closedIds, ['epic-closed-empty', 'epic-closed-has-children']);
+
+    const closedWithChildren = closedEpics.find((n: any) => n.epic.id === 'epic-closed-has-children');
+    const children = await provider.getChildren(closedWithChildren);
+    assert.deepStrictEqual(children.map((c: any) => c.bead.id), ['child-open']);
+
+    provider.dispose();
+  });
+
   it('status root sections order warning → in_progress → open → blocked → closed with default collapses', async () => {
     const context = createContextStub();
     const provider = new BeadsTreeDataProvider(context as any);
