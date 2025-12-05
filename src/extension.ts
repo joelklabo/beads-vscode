@@ -39,7 +39,6 @@ import {
   validateTitleInput,
   validateLabelInput,
   validateStatusInput,
-  sanitizeErrorMessage,
   collectDependencyEdges,
   mapBeadsToGraphNodes,
   GraphEdgeData,
