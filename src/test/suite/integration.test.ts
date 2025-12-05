@@ -8,6 +8,7 @@ import * as vscode from 'vscode';
 import { BeadItemData, normalizeBead } from '../../utils/beads';
 import { getStaleInfo, isStale } from '../../utils/stale';
 import { BeadsTreeDataProvider, EpicTreeItem, UngroupedSectionItem, BeadTreeItem } from '../../extension';
+import { EpicStatusSectionItem } from '../../providers/beads/items';
 
 const execFileAsync = promisify(execFile);
 
@@ -197,6 +198,43 @@ suite('BD CLI Integration Test Suite', function() {
     // Note: Actual stale detection is handled by the extension using the isStale helper
     // This test verifies the CLI data supports the feature
     assert.ok(updatedIssue.updated_at, 'Issue should have updated_at timestamp for stale detection');
+  });
+
+  test('epic view groups empty epics into warning section with correct order', async () => {
+    const context: any = {
+      subscriptions: [],
+      workspaceState: {
+        get: (_key: string) => undefined,
+        update: () => Promise.resolve(),
+      },
+    };
+
+    const provider = new BeadsTreeDataProvider(context);
+    (provider as any).sortMode = 'epic';
+    const now = Date.now();
+    (provider as any).items = [
+      { id: 'epic-empty', title: 'No children', issueType: 'epic', status: 'open' },
+      { id: 'epic-open', title: 'Open epic', issueType: 'epic', status: 'open' },
+      { id: 'epic-inprog', title: 'Working', issueType: 'epic', status: 'in_progress' },
+      { id: 'task-stale', title: 'Stale', issueType: 'task', status: 'in_progress', inProgressSince: new Date(now - 60 * 60 * 1000).toISOString(), parentId: 'epic-inprog' },
+      { id: 'task-child', title: 'Child', issueType: 'task', status: 'open', parentId: 'epic-open' },
+    ];
+
+    const roots = await provider.getChildren();
+    const labels = roots.map((r: any) => r.contextValue === 'warningSection' ? 'warning' : r.status);
+    assert.deepStrictEqual(labels, ['warning', 'in_progress', 'open']);
+
+    const warning = roots.find((r: any) => r.contextValue === 'warningSection') as any;
+    const warningIds = warning.beads.map((b: any) => b.id).sort();
+    assert.deepStrictEqual(warningIds, ['epic-empty', 'task-stale']);
+
+    const inprogSection = roots.find((r: any) => r instanceof EpicStatusSectionItem && r.status === 'in_progress') as any;
+    const inprogChildren = await provider.getChildren(inprogSection);
+    assert.ok(inprogChildren.some((node: any) => node instanceof EpicTreeItem && node.epic && node.epic.id === 'epic-inprog'));
+
+    const openSection = roots.find((r: any) => r instanceof EpicStatusSectionItem && r.status === 'open') as any;
+    const openChildren = await provider.getChildren(openSection);
+    assert.ok(openChildren.some((node: any) => node instanceof EpicTreeItem && node.epic && node.epic.id === 'epic-open'));
   });
 });
 
@@ -522,9 +560,13 @@ suite('Epic tree integration', () => {
     provider = setup.provider;
 
     const roots = await provider.getChildren();
-    const epicNode = roots.find(item => item instanceof EpicTreeItem) as EpicTreeItem | undefined;
+    const epicSection = roots.find(item => item instanceof EpicStatusSectionItem) as EpicStatusSectionItem | undefined;
 
-    assert.ok(epicNode, 'Epic node should be present in epic sort mode');
+    assert.ok(epicSection, 'Epic status section should be present in epic sort mode');
+    const epicNodes = await provider.getChildren(epicSection) as EpicTreeItem[];
+    const epicNode = epicNodes[0];
+
+    assert.ok(epicNode, 'Epic node should be present in epic status section');
     assert.strictEqual(epicNode.collapsibleState, vscode.TreeItemCollapsibleState.Expanded);
     assert.strictEqual(epicNode.contextValue, 'epicItem');
   });
@@ -534,7 +576,9 @@ suite('Epic tree integration', () => {
     provider = setup.provider;
 
     const roots = await provider.getChildren();
-    const epicNode = roots.find(item => item instanceof EpicTreeItem) as EpicTreeItem;
+    const epicSection = roots.find(item => item instanceof EpicStatusSectionItem) as EpicStatusSectionItem;
+    const epicNodes = await provider.getChildren(epicSection) as EpicTreeItem[];
+    const epicNode = epicNodes[0];
     const childNodes = await provider.getChildren(epicNode) as BeadTreeItem[];
 
     const childIds = childNodes.map(child => child.bead.id);
@@ -546,7 +590,9 @@ suite('Epic tree integration', () => {
     provider = p;
 
     const roots = await provider.getChildren();
-    const epicNode = roots.find(item => item instanceof EpicTreeItem) as EpicTreeItem;
+    const epicSection = roots.find(item => item instanceof EpicStatusSectionItem) as EpicStatusSectionItem;
+    const epicNodes = await provider.getChildren(epicSection) as EpicTreeItem[];
+    const epicNode = epicNodes[0];
 
     provider.handleCollapseChange(epicNode, true);
     assert.strictEqual(epicNode.collapsibleState, vscode.TreeItemCollapsibleState.Collapsed);

@@ -90,6 +90,7 @@ function createVscodeStub() {
 }
 
 describe('Control tooltips', () => {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
   const nls = require('../../../package.nls.json');
 
   const resolve = (key: string): string => nls[key] ?? '';
@@ -130,6 +131,7 @@ describe('Status bar tooltips', () => {
     };
 
     delete require.cache[require.resolve('../../extension')];
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
     BeadsTreeDataProvider = require('../../extension').BeadsTreeDataProvider;
   });
 
