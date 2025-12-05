@@ -1,13 +1,57 @@
 import { BeadItemData } from './beads';
 
-function extractDependencyIds(raw: any): string[] {
+export type DependencyType = 'blocks' | 'parent-child' | 'related';
+export type DependencyDirection = 'upstream' | 'downstream';
+
+export interface DependencyLink {
+  id: string;
+  type: DependencyType;
+}
+
+export type DependencyValidationReason =
+  | 'missing_source'
+  | 'missing_target'
+  | 'self'
+  | 'duplicate'
+  | 'cycle';
+
+export interface DependencyValidationResult {
+  ok: boolean;
+  reason?: DependencyValidationReason;
+}
+
+export function normalizeDependencyType(rawType: string | undefined): DependencyType {
+  const normalized = (rawType || '').toLowerCase();
+  if (normalized === 'blocks' || normalized === 'block') {
+    return 'blocks';
+  }
+  if (normalized === 'parent-child' || normalized === 'parent_child' || normalized === 'parentchild') {
+    return 'parent-child';
+  }
+  return 'related';
+}
+
+export function extractDependencyLinks(raw: any): DependencyLink[] {
   if (!raw || typeof raw !== 'object') {
     return [];
   }
   const deps = raw.dependencies || [];
-  return deps
-    .map((dep: any) => dep?.depends_on_id || dep?.id || dep?.issue_id)
-    .filter((id: string | undefined) => typeof id === 'string' && id.length > 0);
+  const links = deps.map((dep: any): DependencyLink | undefined => {
+    const id = dep?.depends_on_id || dep?.id || dep?.issue_id;
+    if (!id || typeof id !== 'string') {
+      return undefined;
+    }
+    return {
+      id,
+      type: normalizeDependencyType(dep?.dep_type || dep?.type),
+    } as DependencyLink;
+  });
+
+  return links.filter((value: DependencyLink | undefined): value is DependencyLink => Boolean(value));
+}
+
+export function extractDependencyIds(raw: any): string[] {
+  return extractDependencyLinks(raw).map((dep) => dep.id);
 }
 
 /**
@@ -18,7 +62,7 @@ export function hasDependency(items: BeadItemData[], sourceId: string, targetId:
   if (!source || !source.raw) {
     return false;
   }
-  return extractDependencyIds(source.raw).includes(targetId);
+  return extractDependencyLinks(source.raw).some((dep) => dep.id === targetId);
 }
 
 /**
@@ -33,7 +77,7 @@ export function hasDependencyPath(items: BeadItemData[], fromId: string, toId: s
   }
   visited.add(fromId);
 
-  const nextIds = extractDependencyIds(items.find((i) => i.id === fromId)?.raw);
+  const nextIds = extractDependencyLinks(items.find((i) => i.id === fromId)?.raw).map((dep) => dep.id);
   for (const next of nextIds) {
     if (hasDependencyPath(items, next, toId, visited)) {
       return true;
@@ -42,22 +86,51 @@ export function hasDependencyPath(items: BeadItemData[], fromId: string, toId: s
   return false;
 }
 
+const validationMessages: Record<DependencyValidationReason, string> = {
+  missing_source: 'Source issue is required.',
+  missing_target: 'Target issue is required.',
+  self: 'Cannot create a dependency on the same issue.',
+  duplicate: 'This dependency already exists.',
+  cycle: 'Adding this dependency would create a cycle.',
+};
+
+export function validateDependencyAddWithReason(
+  items: BeadItemData[],
+  sourceId: string | undefined,
+  targetId: string | undefined
+): DependencyValidationResult {
+  if (!sourceId) {
+    return { ok: false, reason: 'missing_source' };
+  }
+
+  if (!targetId) {
+    return { ok: false, reason: 'missing_target' };
+  }
+
+  if (sourceId === targetId) {
+    return { ok: false, reason: 'self' };
+  }
+
+  if (hasDependency(items, sourceId, targetId)) {
+    return { ok: false, reason: 'duplicate' };
+  }
+
+  if (hasDependencyPath(items, targetId, sourceId)) {
+    return { ok: false, reason: 'cycle' };
+  }
+
+  return { ok: true };
+}
+
 /**
  * Validate whether a dependency can be added from sourceId -> targetId.
  * Returns an error message string if invalid, otherwise undefined.
  */
 export function validateDependencyAdd(items: BeadItemData[], sourceId: string, targetId: string): string | undefined {
-  if (sourceId === targetId) {
-    return 'Cannot create a dependency on the same issue.';
+  const result = validateDependencyAddWithReason(items, sourceId, targetId);
+  if (result.ok) {
+    return undefined;
   }
 
-  if (hasDependency(items, sourceId, targetId)) {
-    return 'This dependency already exists.';
-  }
-
-  if (hasDependencyPath(items, targetId, sourceId)) {
-    return 'Adding this dependency would create a cycle.';
-  }
-
-  return undefined;
+  return result.reason ? validationMessages[result.reason] : 'Cannot add this dependency.';
 }
