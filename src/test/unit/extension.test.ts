@@ -173,7 +173,11 @@ describe('Extension tree items', () => {
     (provider as any).sortMode = 'epic';
 
     const roots = await provider.getChildren();
-    const epicNode = roots.find((item: any) => item instanceof EpicTreeItem);
+    const epicSection = roots.find((item: any) => item.contextValue === 'epicStatusSection');
+    assert.ok(epicSection, 'Epic status section should exist');
+
+    const epicNodes = await provider.getChildren(epicSection);
+    const epicNode = epicNodes.find((node: any) => node instanceof EpicTreeItem);
     assert.ok(epicNode, 'Epic node should exist');
 
     const children = await provider.getChildren(epicNode);
