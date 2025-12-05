@@ -1,5 +1,24 @@
 import { BeadItemData } from './beads';
 
+export const BEAD_ID_PATTERN = /^[A-Za-z0-9._-]{1,64}$/;
+
+/**
+ * Normalize and validate an issue/dependency id before using it in CLI calls or DOM attributes.
+ * IDs are intentionally strict to avoid command injection or HTML injection vectors.
+ */
+export function sanitizeDependencyId(input: unknown): string | undefined {
+  if (typeof input !== 'string') {
+    return undefined;
+  }
+
+  const trimmed = input.trim();
+  if (!trimmed || trimmed.length > 64 || !BEAD_ID_PATTERN.test(trimmed)) {
+    return undefined;
+  }
+
+  return trimmed;
+}
+
 export type DependencyType = 'blocks' | 'parent-child' | 'related';
 export type DependencyDirection = 'upstream' | 'downstream';
 
@@ -11,6 +30,8 @@ export interface DependencyLink {
 export type DependencyValidationReason =
   | 'missing_source'
   | 'missing_target'
+  | 'invalid_source'
+  | 'invalid_target'
   | 'self'
   | 'duplicate'
   | 'cycle';
@@ -38,11 +59,12 @@ export function extractDependencyLinks(raw: any): DependencyLink[] {
   const deps = raw.dependencies || [];
   const links = deps.map((dep: any): DependencyLink | undefined => {
     const id = dep?.depends_on_id || dep?.id || dep?.issue_id;
-    if (!id || typeof id !== 'string') {
+    const safeId = sanitizeDependencyId(id);
+    if (!safeId) {
       return undefined;
     }
     return {
-      id,
+      id: safeId,
       type: normalizeDependencyType(dep?.dep_type || dep?.type),
     } as DependencyLink;
   });
@@ -89,6 +111,8 @@ export function hasDependencyPath(items: BeadItemData[], fromId: string, toId: s
 const validationMessages: Record<DependencyValidationReason, string> = {
   missing_source: 'Source issue is required.',
   missing_target: 'Target issue is required.',
+  invalid_source: 'Source issue id is invalid.',
+  invalid_target: 'Target issue id is invalid.',
   self: 'Cannot create a dependency on the same issue.',
   duplicate: 'This dependency already exists.',
   cycle: 'Adding this dependency would create a cycle.',
@@ -107,15 +131,25 @@ export function validateDependencyAddWithReason(
     return { ok: false, reason: 'missing_target' };
   }
 
-  if (sourceId === targetId) {
+  const safeSourceId = sanitizeDependencyId(sourceId);
+  if (!safeSourceId) {
+    return { ok: false, reason: 'invalid_source' };
+  }
+
+  const safeTargetId = sanitizeDependencyId(targetId);
+  if (!safeTargetId) {
+    return { ok: false, reason: 'invalid_target' };
+  }
+
+  if (safeSourceId === safeTargetId) {
     return { ok: false, reason: 'self' };
   }
 
-  if (hasDependency(items, sourceId, targetId)) {
+  if (hasDependency(items, safeSourceId, safeTargetId)) {
     return { ok: false, reason: 'duplicate' };
   }
 
-  if (hasDependencyPath(items, targetId, sourceId)) {
+  if (hasDependencyPath(items, safeTargetId, safeSourceId)) {
     return { ok: false, reason: 'cycle' };
   }
 

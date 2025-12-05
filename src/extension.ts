@@ -12,8 +12,11 @@ import {
   linkifyText,
   isStale,
   validateDependencyAdd,
+  sanitizeDependencyId,
   getCliExecutionConfig,
   execCliWithPolicy,
+  buildSafeBdArgs,
+  collectCliErrorOutput,
   warnIfDependencyEditingUnsupported as warnIfDependencyEditingUnsupportedCli,
   writeBeadsMarkdownFile,
   MarkdownExportHeaders,
@@ -75,6 +78,7 @@ import { DependencyTreeProvider } from './dependencyTreeProvider';
 const execFileAsync = promisify(execFile);
 const t = vscode.l10n.t;
 const PROJECT_ROOT_ERROR = t('Unable to resolve project root. Set "beads.projectRoot" or open a workspace folder.');
+const INVALID_ID_MESSAGE = t('Issue ids must contain only letters, numbers, ._- and be under 64 characters.');
 
 function validationMessage(kind: 'title' | 'label' | 'status', reason?: string): string {
   switch (reason) {
@@ -158,6 +162,18 @@ interface BdCommandOptions {
   execOverride?: typeof execCliWithPolicy;
 }
 
+// Surface bd stderr to users while redacting workspace paths to avoid leaking secrets.
+function formatBdError(prefix: string, error: unknown, projectRoot?: string): string {
+  const workspacePaths = projectRoot ? [projectRoot] : [];
+  const combined = collectCliErrorOutput(error);
+  const sanitized = sanitizeErrorMessage(combined || error, workspacePaths);
+  return sanitized ? `${prefix}: ${sanitized}` : prefix;
+}
+
+function resolveBeadId(input: any): string | undefined {
+  return sanitizeDependencyId(input?.id ?? input?.bead?.id ?? input?.issueId);
+}
+
 async function runBdCommand(args: string[], projectRoot: string, options: BdCommandOptions = {}): Promise<void> {
   const workspaceFolder = options.workspaceFolder ?? vscode.workspace.getWorkspaceFolder(vscode.Uri.file(projectRoot));
   const requireGuard = options.requireGuard !== false;
@@ -175,10 +191,11 @@ async function runBdCommand(args: string[], projectRoot: string, options: BdComm
   const commandPath = await findBdCommand(commandPathSetting);
   const cliPolicy = getCliExecutionConfig(config);
   const execFn = options.execCli ?? options.execOverride ?? execCliWithPolicy;
+  const safeArgs = buildSafeBdArgs(args);
 
   await execFn({
     commandPath,
-    args,
+    args: safeArgs,
     cwd: projectRoot,
     policy: cliPolicy,
   });
@@ -973,6 +990,12 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
       return;
     }
 
+    const itemId = resolveBeadId(item);
+    if (!itemId) {
+      void vscode.window.showWarningMessage(INVALID_ID_MESSAGE);
+      return;
+    }
+
     const config = vscode.workspace.getConfiguration('beads');
     const projectRoot = resolveProjectRoot(config);
 
@@ -982,7 +1005,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     }
 
     try {
-      await runBdCommand(['update', item.id, '--status', normalizedStatus], projectRoot);
+      await runBdCommand(['update', itemId, '--status', normalizedStatus], projectRoot);
       await this.refresh();
       void vscode.window.showInformationMessage(t('Updated status to: {0}', normalizedStatus));
     } catch (error) {
@@ -1000,6 +1023,12 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     }
 
     const safeTitle = validation.value as string;
+    const itemId = resolveBeadId(item);
+    if (!itemId) {
+      void vscode.window.showWarningMessage(INVALID_ID_MESSAGE);
+      return;
+    }
+
     const config = vscode.workspace.getConfiguration('beads');
     const projectRoot = resolveProjectRoot(config);
 
@@ -1009,7 +1038,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     }
 
     try {
-      await runBdCommand(['update', item.id, '--title', safeTitle], projectRoot);
+      await runBdCommand(['update', itemId, '--title', safeTitle], projectRoot);
       await this.refresh();
       void vscode.window.showInformationMessage(t('Updated title to: {0}', safeTitle));
     } catch (error) {
@@ -1027,6 +1056,12 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     }
 
     const safeLabel = validation.value as string;
+    const itemId = resolveBeadId(item);
+    if (!itemId) {
+      void vscode.window.showWarningMessage(INVALID_ID_MESSAGE);
+      return;
+    }
+
     const config = vscode.workspace.getConfiguration('beads');
     const projectRoot = resolveProjectRoot(config);
 
@@ -1036,7 +1071,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     }
 
     try {
-      await runBdCommand(['label', 'add', item.id, safeLabel], projectRoot);
+      await runBdCommand(['label', 'add', itemId, safeLabel], projectRoot);
       await this.refresh();
       void vscode.window.showInformationMessage(t('Added label: {0}', safeLabel));
     } catch (error) {
@@ -1060,19 +1095,33 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
       return;
     }
 
-    const validationError = validateDependencyAdd(this.items, item.id, targetId);
+    const safeSourceId = sanitizeDependencyId(item.id);
+    const safeTargetId = sanitizeDependencyId(targetId);
+    if (!safeSourceId || !safeTargetId) {
+      void vscode.window.showWarningMessage(INVALID_ID_MESSAGE);
+      return;
+    }
+
+    const validationError = validateDependencyAdd(this.items, safeSourceId, safeTargetId);
     if (validationError) {
       void vscode.window.showWarningMessage(t(validationError));
       return;
     }
 
     try {
-      await runBdCommand(['dep', 'add', item.id, targetId], projectRoot);
+      await runBdCommand(['dep', 'add', safeSourceId, safeTargetId], projectRoot);
       await this.refresh();
-      void vscode.window.showInformationMessage(t('Added dependency: {0} → {1}', item.id, targetId));
+      void vscode.window.showInformationMessage(t('Added dependency: {0} → {1}', safeSourceId, safeTargetId));
     } catch (error) {
+      const combined = collectCliErrorOutput(error);
+      const missingTarget = /not\s+found|unknown\s+issue|does\s+not\s+exist/i.test(combined);
+      if (missingTarget) {
+        await this.refresh();
+        void vscode.window.showWarningMessage(t('Target issue not found. Refresh beads and try again.'));
+        return;
+      }
       console.error('Failed to add dependency', error);
-      void vscode.window.showErrorMessage(formatError(t('Failed to add dependency'), error));
+      void vscode.window.showErrorMessage(formatBdError(t('Failed to add dependency'), error, projectRoot));
     }
   }
 
@@ -1090,9 +1139,16 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
       return;
     }
 
+    const safeSourceId = sanitizeDependencyId(sourceId);
+    const safeTargetId = sanitizeDependencyId(targetId);
+    if (!safeSourceId || !safeTargetId) {
+      void vscode.window.showWarningMessage(INVALID_ID_MESSAGE);
+      return;
+    }
+
     const removeLabel = t('Remove');
     const answer = await vscode.window.showWarningMessage(
-      t('Remove dependency {0} → {1}?', sourceId, targetId),
+      t('Remove dependency {0} → {1}?', safeSourceId, safeTargetId),
       { modal: true },
       removeLabel
     );
@@ -1102,21 +1158,19 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     }
 
     try {
-      await runBdCommand(['dep', 'remove', sourceId, targetId], projectRoot);
+      await runBdCommand(['dep', 'remove', safeSourceId, safeTargetId], projectRoot);
       await this.refresh();
-      void vscode.window.showInformationMessage(t('Removed dependency: {0} → {1}', sourceId, targetId));
+      void vscode.window.showInformationMessage(t('Removed dependency: {0} → {1}', safeSourceId, safeTargetId));
     } catch (error: any) {
-      const message = String(error?.message ?? '');
-      const stderr = String((error as any)?.stderr ?? '');
-      const combined = `${message} ${stderr}`.trim();
+      const combined = collectCliErrorOutput(error);
       const alreadyRemoved = /not\s+found|does\s+not\s+exist|no\s+dependency/i.test(combined);
       if (alreadyRemoved) {
         await this.refresh();
-        void vscode.window.showWarningMessage(t('Dependency already removed: {0} → {1}', sourceId, targetId));
+        void vscode.window.showWarningMessage(t('Dependency already removed: {0} → {1}', safeSourceId, safeTargetId));
         return;
       }
       console.error('Failed to remove dependency', error);
-      void vscode.window.showErrorMessage(formatError(t('Failed to remove dependency'), error));
+      void vscode.window.showErrorMessage(formatBdError(t('Failed to remove dependency'), error, projectRoot));
     }
   }
 
@@ -1128,6 +1182,12 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     }
 
     const safeLabel = validation.value as string;
+    const itemId = resolveBeadId(item);
+    if (!itemId) {
+      void vscode.window.showWarningMessage(INVALID_ID_MESSAGE);
+      return;
+    }
+
     const config = vscode.workspace.getConfiguration('beads');
     const projectRoot = resolveProjectRoot(config);
 
@@ -1137,7 +1197,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     }
 
     try {
-      await runBdCommand(['label', 'remove', item.id, safeLabel], projectRoot);
+      await runBdCommand(['label', 'remove', itemId, safeLabel], projectRoot);
       await this.refresh();
       void vscode.window.showInformationMessage(t('Removed label: {0}', safeLabel));
     } catch (error) {
@@ -2542,13 +2602,20 @@ function getDependencyTreeHtml(items: BeadItemData[], strings: DependencyTreeStr
   }
 
   items.forEach((item, idx) => {
-    nodeMap.set(item.id, item);
+    const safeId = sanitizeDependencyId(item.id);
+    if (!safeId) {
+      console.warn('[getDependencyTreeHtml DEBUG] Skipping item with invalid id', item?.id);
+      return;
+    }
+
+    const safeItem = safeId === item.id ? item : { ...item, id: safeId };
+    nodeMap.set(safeId, safeItem);
     const raw = item.raw as any;
     const dependencies = raw?.dependencies || [];
 
     // DEBUG: Log dependency info for first few items
     if (idx < 3) {
-      console.log(`[getDependencyTreeHtml DEBUG] Item ${idx} (${item.id}):`, {
+      console.log(`[getDependencyTreeHtml DEBUG] Item ${idx} (${safeId}):`, {
         title: item.title,
         status: item.status,
         hasDependencies: dependencies.length > 0,
@@ -2559,10 +2626,10 @@ function getDependencyTreeHtml(items: BeadItemData[], strings: DependencyTreeStr
 
     dependencies.forEach((dep: any) => {
       const depType = dep.dep_type || dep.type || 'related';
-      const targetId = dep.id || dep.depends_on_id || dep.issue_id;
+      const targetId = sanitizeDependencyId(dep.id || dep.depends_on_id || dep.issue_id);
       if (targetId) {
         edges.push({
-          from: item.id,
+          from: safeId,
           to: targetId,
           type: depType
         });
@@ -2591,8 +2658,9 @@ function getDependencyTreeHtml(items: BeadItemData[], strings: DependencyTreeStr
       status: item.status || 'open'
     }));
 
-  const nodesJson = JSON.stringify(sortedNodes);
-  const edgesJson = JSON.stringify(edges);
+  const serializeForScript = (value: unknown) => JSON.stringify(value).replace(/</g, '\u003c').replace(/>/g, '\u003e');
+  const nodesJson = serializeForScript(sortedNodes);
+  const edgesJson = serializeForScript(edges);
 
   return `<!DOCTYPE html>
 <html lang="${escapeHtml(locale)}">
@@ -2992,12 +3060,27 @@ function getDependencyTreeHtml(items: BeadItemData[], strings: DependencyTreeStr
         function createNode(node) {
             const div = document.createElement('div');
             div.className = 'node status-' + node.status;
-            div.innerHTML = '<div class="node-id">' +
-                '<span class="status-indicator ' + node.status + '"></span>' +
-                node.id +
-                '</div>' +
-                '<div class="node-title" title="' + node.title + '">' + node.title + '</div>';
             div.dataset.nodeId = node.id;
+
+            const idRow = document.createElement('div');
+            idRow.className = 'node-id';
+
+            const statusIndicator = document.createElement('span');
+            statusIndicator.className = 'status-indicator ' + node.status;
+
+            const idText = document.createElement('span');
+            idText.textContent = node.id;
+
+            idRow.appendChild(statusIndicator);
+            idRow.appendChild(idText);
+
+            const titleRow = document.createElement('div');
+            titleRow.className = 'node-title';
+            titleRow.title = node.title || '';
+            titleRow.textContent = node.title || '';
+
+            div.appendChild(idRow);
+            div.appendChild(titleRow);
 
             // Mouse down to prepare for dragging
             div.addEventListener('mousedown', (e) => {
@@ -3051,20 +3134,37 @@ function getDependencyTreeHtml(items: BeadItemData[], strings: DependencyTreeStr
             return div;
         }
 
+        function buildArrowheadDefs() {
+            const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+            const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+            marker.setAttribute('id', 'arrowhead');
+            marker.setAttribute('markerWidth', '10');
+            marker.setAttribute('markerHeight', '10');
+            marker.setAttribute('refX', '9');
+            marker.setAttribute('refY', '3');
+            marker.setAttribute('orient', 'auto');
+
+            const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+            polygon.setAttribute('points', '0 0, 10 3, 0 6');
+            polygon.setAttribute('fill', 'var(--vscode-panel-border)');
+            marker.appendChild(polygon);
+            defs.appendChild(marker);
+            return defs;
+        }
+
         function drawEdge(from, to, type) {
             const fromPos = nodePositions.get(from);
             const toPos = nodePositions.get(to);
 
-            if (!fromPos || !toPos) return '';
+            if (!fromPos || !toPos) return null;
 
             const fromEl = nodeElements.get(from);
             const toEl = nodeElements.get(to);
 
-            if (!fromEl || !toEl) return '';
+            if (!fromEl || !toEl) return null;
 
             const fromRect = fromEl.getBoundingClientRect();
             const toRect = toEl.getBoundingClientRect();
-            const containerRect = document.getElementById('canvas').getBoundingClientRect();
 
             const x1 = fromPos.x + (fromRect.width / 2);
             const y1 = fromPos.y + fromRect.height;
@@ -3075,7 +3175,26 @@ function getDependencyTreeHtml(items: BeadItemData[], strings: DependencyTreeStr
             const midY = (y1 + y2) / 2;
             const path = 'M ' + x1 + ' ' + y1 + ' C ' + x1 + ' ' + midY + ', ' + x2 + ' ' + midY + ', ' + x2 + ' ' + y2;
 
-            return '<path d="' + path + '" class="edge ' + type + '" data-from="' + from + '" data-to="' + to + '" />';
+            const pathEl = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            pathEl.setAttribute('d', path);
+            pathEl.setAttribute('class', 'edge ' + (type || ''));
+            pathEl.setAttribute('data-from', from);
+            pathEl.setAttribute('data-to', to);
+            return pathEl;
+        }
+
+        function paintEdges(svg) {
+            while (svg.firstChild) {
+                svg.removeChild(svg.firstChild);
+            }
+            svg.appendChild(buildArrowheadDefs());
+            edges.forEach((edge) => {
+                const pathEl = drawEdge(edge.from, edge.to, edge.type);
+                if (pathEl) {
+                    svg.appendChild(pathEl);
+                }
+            });
+            bindEdgeClicks();
         }
 
         function render() {
@@ -3114,19 +3233,8 @@ function getDependencyTreeHtml(items: BeadItemData[], strings: DependencyTreeStr
             // Draw edges
             setTimeout(() => {
                 console.log('[Dependency Tree] Drawing', edges.length, 'edges');
-                const edgePaths = edges.map(edge =>
-                    drawEdge(edge.from, edge.to, edge.type)
-                ).join('');
-
-                console.log('[Dependency Tree] Edge paths generated:', edgePaths.substring(0, 200));
-                svg.innerHTML = '<defs>' +
-                    '<marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">' +
-                    '<polygon points="0 0, 10 3, 0 6" fill="var(--vscode-panel-border)" />' +
-                    '</marker>' +
-                    '</defs>' +
-                    edgePaths;
-                bindEdgeClicks();
-                console.log('[Dependency Tree] SVG innerHTML set');
+                paintEdges(svg);
+                console.log('[Dependency Tree] SVG edges rendered');
             }, 100);
         }
 
@@ -3170,17 +3278,8 @@ function getDependencyTreeHtml(items: BeadItemData[], strings: DependencyTreeStr
 
         function redrawEdges() {
             const svg = document.getElementById('svg');
-            const edgePaths = edges.map(edge =>
-                drawEdge(edge.from, edge.to, edge.type)
-            ).join('');
-
-            svg.innerHTML = '<defs>' +
-                '<marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">' +
-                '<polygon points="0 0, 10 3, 0 6" fill="var(--vscode-panel-border)" />' +
-                '</marker>' +
-                '</defs>' +
-                edgePaths;
-            bindEdgeClicks();
+            if (!svg) return;
+            paintEdges(svg);
         }
         function bindEdgeClicks() {
             const edgeEls = Array.from(document.querySelectorAll('path.edge')) as any[];
@@ -3469,30 +3568,45 @@ async function addDependencyCommand(
   }
 
   const items = (provider as any)['items'] as BeadItemData[] | undefined;
+  const safeEdgeSource = edge?.sourceId ? sanitizeDependencyId(edge.sourceId) : undefined;
+  const safeEdgeTarget = edge?.targetId ? sanitizeDependencyId(edge.targetId) : undefined;
+
+  if ((edge?.sourceId && !safeEdgeSource) || (edge?.targetId && !safeEdgeTarget)) {
+    void vscode.window.showWarningMessage(INVALID_ID_MESSAGE);
+    return;
+  }
+
   const source =
     sourceItem ??
-    (edge?.sourceId ? items?.find((i) => i.id === edge.sourceId) : undefined) ??
+    (safeEdgeSource ? items?.find((i) => i.id === safeEdgeSource) : undefined) ??
     (await pickBeadQuick(items, t('Select the issue that depends on another item')));
 
   if (!source) {
     return;
   }
 
-  const target = edge?.targetId
-    ? items?.find((i) => i.id === edge.targetId)
+  const target = safeEdgeTarget
+    ? items?.find((i) => i.id === safeEdgeTarget)
     : await pickBeadQuick(items, t('Select the issue {0} depends on', source.id), source.id);
 
   if (!target) {
     return;
   }
 
-  const validationError = validateDependencyAdd(items ?? [], source.id, target.id);
+  const safeSourceId = sanitizeDependencyId(source.id);
+  const safeTargetId = sanitizeDependencyId(target.id);
+  if (!safeSourceId || !safeTargetId) {
+    void vscode.window.showWarningMessage(INVALID_ID_MESSAGE);
+    return;
+  }
+
+  const validationError = validateDependencyAdd(items ?? [], safeSourceId, safeTargetId);
   if (validationError) {
     void vscode.window.showWarningMessage(t(validationError));
     return;
   }
 
-  await provider.addDependency(source, target.id);
+  await provider.addDependency(source, safeTargetId);
 }
 
 async function removeDependencyCommand(provider: BeadsTreeDataProvider, edge?: DependencyEdge, options?: { contextId?: string }): Promise<void> {
@@ -3504,12 +3618,27 @@ async function removeDependencyCommand(provider: BeadsTreeDataProvider, edge?: D
   }
 
   const items = (provider as any)['items'] as BeadItemData[] | undefined;
+  const safeContextId = options?.contextId ? sanitizeDependencyId(options.contextId) : undefined;
+  if (options?.contextId && !safeContextId) {
+    void vscode.window.showWarningMessage(INVALID_ID_MESSAGE);
+    return;
+  }
+
   const edges = collectDependencyEdges(items);
-  const scopedEdges = options?.contextId
-    ? edges.filter((e) => e.sourceId === options.contextId || e.targetId === options.contextId)
+  const scopedEdges = safeContextId
+    ? edges.filter((e) => e.sourceId === safeContextId || e.targetId === safeContextId)
     : edges;
 
   let selectedEdge = edge;
+  if (selectedEdge) {
+    const safeProvidedSource = sanitizeDependencyId(selectedEdge.sourceId);
+    const safeProvidedTarget = sanitizeDependencyId(selectedEdge.targetId);
+    if (!safeProvidedSource || !safeProvidedTarget) {
+      void vscode.window.showWarningMessage(INVALID_ID_MESSAGE);
+      return;
+    }
+    selectedEdge = { ...selectedEdge, sourceId: safeProvidedSource, targetId: safeProvidedTarget };
+  }
 
   if (!selectedEdge) {
     if (scopedEdges.length === 0) {

@@ -6,6 +6,7 @@ type ExecCall = { file: any; args: any; options: any };
 describe('Inline edit validation', () => {
   let vscodeStub: any;
   let execCalls: ExecCall[];
+  const normalizeArgs = (args: any[]) => (Array.isArray(args) && args[0] === '--no-daemon' ? args.slice(1) : args);
   let restoreLoad: any;
   let BeadsTreeDataProvider: any;
   let BeadTreeItem: any;
@@ -103,8 +104,9 @@ describe('Inline edit validation', () => {
               cb = opts;
               opts = undefined;
             }
-            const id = Array.isArray(args) ? args[1] : undefined;
-            const error = id && failIds.has(id) ? new Error(`cli failed for ${id} at /tmp/project/token xoxb-123456`) : null;
+            const normalizedArgs = normalizeArgs(args);
+            const id = Array.isArray(normalizedArgs) ? normalizedArgs[1] : undefined;
+            const error = id && failIds.has(id) ? new Error(`cli failed for ${id} at /tmp/project/token xoxb-1234567890`) : null;
             execCalls.push({ file, args, options: opts });
             cb(error, { stdout: '', stderr: '' });
           },

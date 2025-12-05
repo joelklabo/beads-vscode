@@ -27,6 +27,28 @@ export interface ExecCliOptions {
   maxBuffer?: number;
 }
 
+/**
+ * Validate bd CLI arguments before execution. Enforces string-only args, blocks newlines,
+ * and injects --no-daemon to keep calls in direct mode (avoids daemon state reuse).
+ */
+export function buildSafeBdArgs(rawArgs: string[]): string[] {
+  if (!Array.isArray(rawArgs)) {
+    throw new Error('bd arguments must be an array');
+  }
+
+  const args = rawArgs.map((arg, index) => {
+    if (typeof arg !== 'string') {
+      throw new Error(`bd argument ${index} must be a string`);
+    }
+    if (/\r|\n/.test(arg)) {
+      throw new Error('bd arguments cannot contain newlines');
+    }
+    return arg;
+  });
+
+  return args.includes('--no-daemon') ? args : ['--no-daemon', ...args];
+}
+
 export function parseCliVersion(raw: string): CliVersion {
   const trimmed = (raw || '').trim();
   const match = trimmed.match(/(\d+)\.(\d+)\.(\d+)/);
@@ -127,4 +149,30 @@ export async function warnIfDependencyEditingUnsupported(
   } catch (error) {
     onWarn?.('Could not determine bd version; dependency editing may be unsupported.');
   }
+}
+
+/**
+ * Combine message + stderr into a short, user-displayable string. Useful for surfacing bd failures.
+ */
+export function formatCliError(prefix: string, error: unknown): string {
+  const message = typeof (error as any)?.message === 'string' ? (error as any).message.trim() : '';
+  const stderr = typeof (error as any)?.stderr === 'string' ? (error as any).stderr.trim() : '';
+  const combined = [message, stderr].filter(Boolean).join(' — ');
+  return combined ? `${prefix}: ${combined}` : prefix;
+}
+
+/**
+ * Raw combined message+stderr string for pattern matching (cycle/not-found detection, etc.).
+ */
+export function collectCliErrorOutput(error: unknown): string {
+  const parts: string[] = [];
+  const message = (error as any)?.message;
+  const stderr = (error as any)?.stderr;
+  if (typeof message === 'string') {
+    parts.push(message);
+  }
+  if (typeof stderr === 'string') {
+    parts.push(stderr);
+  }
+  return parts.map((p) => p.trim()).filter(Boolean).join(' ');
 }

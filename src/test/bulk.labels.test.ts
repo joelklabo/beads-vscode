@@ -163,6 +163,7 @@ describe('bulkUpdateLabel command', () => {
   let moduleAny: any;
   let restoreLoad: any;
   let execCalls: Array<{ file: any; args: any; options: any }>;
+  const normalizeArgs = (args: any[]) => (Array.isArray(args) && args[0] === '--no-daemon' ? args.slice(1) : args);
   let failIds: Set<string>;
   let vscodeStub: any;
   let bulkUpdateLabel: any;
@@ -200,7 +201,8 @@ describe('bulkUpdateLabel command', () => {
               cb = optionsArg;
               optionsArg = undefined;
             }
-            const id = Array.isArray(args) ? args[2] : undefined;
+            const normalizedArgs = normalizeArgs(args);
+            const id = Array.isArray(normalizedArgs) ? normalizedArgs[2] : undefined;
             const error = failIds.has(id) ? new Error('cli failed') : null;
             execCalls.push({ file, args, options: optionsArg });
             cb?.(error, { stdout: '', stderr: error ? 'cli failed' : '' });
@@ -237,8 +239,11 @@ describe('bulkUpdateLabel command', () => {
     const treeView = makeSelection(['A', 'A', 'B']);
     await bulkUpdateLabel(provider, treeView, 'add');
 
-    const labelCalls = execCalls.filter((call) => Array.isArray(call.args) && call.args[0] === 'label');
-    assert.deepStrictEqual(labelCalls.map((c) => c.args[2]), ['A', 'B']);
+    const labelCalls = execCalls
+      .map((call) => ({ ...call, normalized: normalizeArgs(call.args) }))
+      .filter((call) => Array.isArray(call.normalized) && call.normalized[0] === 'label');
+    assert.deepStrictEqual(labelCalls.map((c) => c.normalized[2]), ['A', 'B']);
+    assert.ok(labelCalls.every((c) => Array.isArray(c.args) && c.args[0] === '--no-daemon'));
     assert.ok((provider as any)._refreshed, 'provider.refresh should be called');
     assert.ok(vscodeStub._info.some((msg: string) => msg.toLowerCase().includes('label')));
   });
@@ -251,7 +256,9 @@ describe('bulkUpdateLabel command', () => {
     const treeView = makeSelection(['A', 'B']);
     await bulkUpdateLabel(provider, treeView, 'remove');
 
-    const labelCalls = execCalls.filter((call) => Array.isArray(call.args) && call.args[0] === 'label');
+    const labelCalls = execCalls
+      .map((call) => ({ ...call, normalized: normalizeArgs(call.args) }))
+      .filter((call) => Array.isArray(call.normalized) && call.normalized[0] === 'label');
     assert.strictEqual(labelCalls.length, 2);
     assert.ok(vscodeStub._warnings.some((msg: string) => msg.includes('B')));
   });
@@ -263,7 +270,9 @@ describe('bulkUpdateLabel command', () => {
     const treeView = makeSelection(['A']);
     await bulkUpdateLabel(provider, treeView, 'add');
 
-    const labelCalls = execCalls.filter((call) => Array.isArray(call.args) && call.args[0] === 'label');
+    const labelCalls = execCalls
+      .map((call) => ({ ...call, normalized: normalizeArgs(call.args) }))
+      .filter((call) => Array.isArray(call.normalized) && call.normalized[0] === 'label');
     assert.strictEqual(labelCalls.length, 0, 'No CLI calls expected for invalid label');
     assert.ok(vscodeStub._warnings.some((msg: string) => msg.toLowerCase().includes('label')));
   });
@@ -274,7 +283,9 @@ describe('bulkUpdateLabel command', () => {
 
     await bulkUpdateLabel(provider, treeView, 'add');
 
-    const labelCalls = execCalls.filter((call) => Array.isArray(call.args) && call.args[0] === 'label');
+    const labelCalls = execCalls
+      .map((call) => ({ ...call, normalized: normalizeArgs(call.args) }))
+      .filter((call) => Array.isArray(call.normalized) && call.normalized[0] === 'label');
     assert.strictEqual(labelCalls.length, 0);
     assert.ok(vscodeStub._warnings.some((msg: string) => msg.toLowerCase().includes('bulk')));
   });
