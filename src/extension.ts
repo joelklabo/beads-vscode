@@ -25,6 +25,10 @@ import {
   getFavoriteLabel,
   getLocalFavorites,
   saveLocalFavorites,
+  sanitizeFavoriteLabel,
+  isValidFavoriteLabel,
+  validateFavoriteTargets,
+  sanitizeFavoriteError,
 } from './utils';
 import { ActivityFeedTreeDataProvider, ActivityEventItem } from './activityFeedProvider';
 import { EventType } from './activityFeed';
@@ -3685,11 +3689,34 @@ async function toggleFavorites(
   }
 
   const useLabelStorage = config.get<boolean>('favorites.useLabelStorage', true);
-  const favoriteLabel = getFavoriteLabel(config);
+  const favoriteLabelRaw = getFavoriteLabel(config);
+
+  if (!isValidFavoriteLabel(favoriteLabelRaw)) {
+    void vscode.window.showErrorMessage(
+      t('Favorite label is invalid. Use letters, numbers, spaces, ".", ":", "_" or "-".')
+    );
+    return;
+  }
+
+  const favoriteLabel = sanitizeFavoriteLabel(favoriteLabelRaw);
 
   const selection = treeView.selection.filter((item): item is BeadTreeItem => item instanceof BeadTreeItem);
   if (selection.length === 0) {
     void vscode.window.showWarningMessage(t('Select one or more beads to toggle favorites.'));
+    return;
+  }
+
+  const { valid, invalidIds, duplicateIds } = validateFavoriteTargets(selection.map((item) => item.bead));
+
+  if (invalidIds.length > 0) {
+    void vscode.window.showErrorMessage(t('Invalid bead id(s): {0}', invalidIds.join(', ')));
+  }
+
+  if (duplicateIds.length > 0) {
+    void vscode.window.showWarningMessage(t('Ignoring duplicate selection(s): {0}', duplicateIds.join(', ')));
+  }
+
+  if (valid.length === 0) {
     return;
   }
 
@@ -3705,8 +3732,7 @@ async function toggleFavorites(
   let toggledOn = 0;
   let toggledOff = 0;
 
-  for (const item of selection) {
-    const bead = item.bead;
+  for (const bead of valid) {
     const labels: string[] = Array.isArray((bead.raw as any)?.labels) ? (bead.raw as any).labels : [];
     const hasLabel = labels.includes(favoriteLabel);
     const isFavorite = hasLabel || localFavorites.has(bead.id);
@@ -3732,7 +3758,7 @@ async function toggleFavorites(
       successes.push(bead.id);
     } catch (error) {
       applyLocal();
-      const message = error instanceof Error ? error.message : String(error);
+      const message = sanitizeFavoriteError(error, projectRoot ? [projectRoot] : []);
       failures.push({ id: bead.id, error: message });
     }
   }
