@@ -154,9 +154,19 @@
         "icon": "$(clear-all)"
       },
       {
-        "command": "beads.selectWorkspace",
-        "title": "%command.beads.selectWorkspace%",
-        "icon": "$(root-folder)"
+        "command": "beads.openInProgressPanel",
+        "title": "%command.beads.openInProgressPanel%",
+        "icon": "$(pulse)"
+      },
+      {
+        "command": "beads.inlineEditTitle",
+        "title": "%command.beads.inlineEditTitle%",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "beads.inlineEditLabels",
+        "title": "%command.beads.inlineEditLabels%",
+        "icon": "$(tag)"
       }
     ],
     "viewsContainers": {
@@ -463,9 +473,9 @@
           "group": "navigation@9"
         },
         {
-          "command": "beads.selectWorkspace",
-          "when": "view == beadsExplorer && beads.multiRootAvailable",
-          "group": "navigation@0"
+          "command": "beads.openInProgressPanel",
+          "when": "view == beadsExplorer",
+          "group": "navigation@6.5"
         }
       ],
       "view/item/context": [
@@ -523,6 +533,16 @@
           "command": "beads.toggleFavorite",
           "when": "view == beadsExplorer && viewItem == bead && beads.favoritesEnabled",
           "group": "7_modification@5"
+        },
+        {
+          "command": "beads.inlineEditTitle",
+          "when": "view == beadsExplorer && viewItem == bead && config.beads.inlineStatusChange.enabled",
+          "group": "navigation@4"
+        },
+        {
+          "command": "beads.inlineEditLabels",
+          "when": "view == beadsExplorer && viewItem == bead && config.beads.inlineStatusChange.enabled",
+          "group": "navigation@4"
         }
       ],
       "commandPalette": [
@@ -551,8 +571,19 @@
           "when": "beads.quickFiltersEnabled && beads.activeQuickFilter != ''"
         },
         {
-          "command": "beads.selectWorkspace",
-          "when": "beads.multiRootAvailable"
+          "command": "beads.openInProgressPanel"
+        },
+        {
+          "command": "beads.inlineEditTitle",
+          "when": "config.beads.inlineStatusChange.enabled"
+        },
+        {
+          "command": "beads.inlineEditLabels",
+          "when": "config.beads.inlineStatusChange.enabled"
+        },
+        {
+          "command": "beads.inlineStatusChange",
+          "when": "config.beads.inlineStatusChange.enabled"
         }
       ]
     },
@@ -572,6 +603,22 @@
         "command": "beads.activityFeed.openSelected",
         "key": "space",
         "when": "focusedView == activityFeed && listHasSelectionOrFocus && !inputFocus"
+      },
+      {
+        "command": "beads.inlineStatusChange",
+        "key": "enter",
+        "when": "focusedView == beadsExplorer && listHasSelectionOrFocus && config.beads.inlineStatusChange.enabled && !inputFocus"
+      },
+      {
+        "command": "beads.inlineEditTitle",
+        "key": "f2",
+        "when": "focusedView == beadsExplorer && listHasSelectionOrFocus && config.beads.inlineStatusChange.enabled && !inputFocus"
+      },
+      {
+        "command": "beads.inlineEditLabels",
+        "key": "ctrl+shift+l",
+        "when": "focusedView == beadsExplorer && listHasSelectionOrFocus && config.beads.inlineStatusChange.enabled && !inputFocus",
+        "mac": "cmd+shift+l"
       }
     ]
   },
@@ -582,7 +629,7 @@
     "watch": "tsc -watch -p ./",
     "lint": "eslint . --ext ts",
     "test": "npm run test:unit",
-    "test:unit": "npm run compile && mocha ./out/test/unit/**/*.test.js ./out/test/deps.add.test.js ./out/test/sanitization.test.js ./out/test/littleGlen.command-validation.test.js ./out/test/log-redaction.test.js ./out/test/activityFeed.timestamps.test.js ./out/test/title-format.test.js ./out/test/activityFeed.title-format.test.js ./out/test/multi-root.cli.test.js ./out/test/tooltips.security.test.js ./out/test/export.markdown.test.js ./out/test/export.csv.test.js ./out/test/bulk.status.test.js ./out/test/bulk.results.test.js ./out/test/multi-root.tree.test.js ./out/test/bulk.labels.test.js ./out/test/favorites.persistence.test.js ./out/test/favorites.validation.test.js ./out/test/favorites.toggle.test.js ./out/test/inline.status.test.js ./out/test/inline.validation.test.js",
+    "test:unit": "npm run compile && mocha ./out/test/unit/**/*.test.js ./out/test/deps.add.test.js ./out/test/sanitization.test.js ./out/test/littleGlen.command-validation.test.js ./out/test/log-redaction.test.js ./out/test/activityFeed.timestamps.test.js ./out/test/title-format.test.js ./out/test/activityFeed.title-format.test.js ./out/test/multi-root.cli.test.js ./out/test/tooltips.security.test.js ./out/test/export.markdown.test.js ./out/test/export.csv.test.js ./out/test/bulk.status.test.js ./out/test/bulk.results.test.js ./out/test/bulk.labels.test.js ./out/test/favorites.persistence.test.js ./out/test/favorites.validation.test.js ./out/test/favorites.toggle.test.js ./out/test/inline.status.test.js ./out/test/inline.validation.test.js",
     "test:bd-cli": "npm run compile && mocha ./out/test/bd-cli.test.js",
     "test:integration": "npm run compile && node ./out/test/runTest.js",
     "test:stress": "./scripts/stress-test.sh",
