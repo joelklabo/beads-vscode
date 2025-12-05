@@ -46,11 +46,10 @@ Please be respectful and constructive in all interactions with the project. We a
 
 2. Make your changes and test thoroughly
 
-3. Run tests and linting:
+3. Run tests and linting (from your task worktree root):
    ```bash
-   npm run test:unit
-   npm run lint
-   npm run compile
+   npm run ci:verify        # lint + localization + compile + unit + headless integration
+   npm run ci:coverage      # optional: unit coverage report in coverage/
    ```
 
 4. Commit your changes with clear, descriptive messages:
@@ -77,8 +76,8 @@ Please be respectful and constructive in all interactions with the project. We a
 
 - Write unit tests for new utility functions in `src/test/unit/`
 - Add integration tests for VSCode-specific features in `src/test/suite/`
-- Ensure all tests pass: `npm run test:unit`
-- See [TESTING.md](TESTING.md) for detailed testing guidelines
+- Before pushing, run `npm run ci:verify` (mirrors CI) from your worktree; use `npm run ci:integration` for a quicker headless pass and `npm run ci:coverage` when updating tests significantly.
+- See [TESTING.md](TESTING.md) for detailed testing guidelines (worktrees, headless runs, and instance IDs).
 
 ## Submitting Changes
 

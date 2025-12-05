@@ -1,0 +1,11 @@
+{
+  "reporter": ["text", "lcov"],
+  "exclude": [
+    "out/test/**",
+    "**/*.test.js",
+    "coverage/**",
+    "scripts/**",
+    "tui/**"
+  ],
+  "extension": [".js"]
+}

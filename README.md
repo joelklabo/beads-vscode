@@ -3,6 +3,9 @@
 
 ![Beads VS Code Extension](beads-visual.png)
 
+[![Test status](https://github.com/joelklabo/beads-vscode/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/joelklabo/beads-vscode/actions/workflows/test.yml)
+[![Coverage](https://codecov.io/gh/joelklabo/beads-vscode/branch/main/graph/badge.svg)](https://codecov.io/gh/joelklabo/beads-vscode)
+
 This Visual Studio Code extension provides a simple explorer view for [Beads](https://github.com/steveyegge/beads) projects so that you can manage your beads without leaving the editor.
 
 ## Features
@@ -149,14 +152,21 @@ Run the test suite:
 # Run unit tests (default, fast, no VSCode required)
 npm test
 
-# Run integration tests (requires VSCode, may not work on all macOS versions)
-npm run test:integration
+# Run integration tests (headless; set VSCODE_TEST_CHANNEL=stable|insiders as needed)
+npm run test:integration:headless
 
 # Run linter
 npm run lint
 ```
 
 See [TESTING.md](TESTING.md) for more information about the test infrastructure.
+
+### CI & coverage parity
+
+- `npm run ci:verify` mirrors the GitHub Actions **Test** workflow (lint + localization + unit + headless integration). Use `VSCODE_TEST_CHANNEL` / `VSCODE_TEST_INSTANCE_ID` to match the matrix locally.
+- `npm run ci:integration` runs a single headless integration pass; use `ci:unit` for just the compiled unit suite.
+- `npm run ci:coverage` generates text and LCOV coverage reports in `coverage/` (open `coverage/lcov-report/index.html`).
+- Workflow details and badges: [docs/ci.md](docs/ci.md).
 
 ### Install local build (auto-reload)
 
