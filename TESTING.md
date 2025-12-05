@@ -74,6 +74,22 @@ go install github.com/steveyegge/beads@latest
 bd version
 ```
 
+
+### Headless & channel selection
+
+- Linux: `npm run test:integration:headless` wraps `xvfb-run -a` to keep runs fully headless.
+- Stable vs Insiders: `npm run test:integration:stable` (default) or `npm run test:integration:insiders`.
+- Environment variables:
+  - `VSCODE_TEST_CHANNEL` (`stable`|`insiders`, defaults to `stable`).
+  - `VSCODE_TEST_INSTANCE_ID` (auto-generated when omitted). Set one per terminal/worktree to isolate tmp paths and parallel agents.
+- Temp `user-data-dir` and `extensions-dir` live under the repo `tmp/` directory (not `/tmp`) and are removed after runs.
+- Clean up stale runs (e.g., after aborts): `npm run test:clean-temp`.
+
+### Multi-agent guidance
+- Always run tests inside your task worktree.
+- Provide unique `VSCODE_TEST_INSTANCE_ID` values when multiple agents/terminals run integration tests concurrently.
+- Avoid GUI pop-ups: prefer headless scripts above; macOS/Windows get focus-suppression launch args automatically.
+
 ## Test Files
 
 - `src/test/unit/utils.test.ts` - Unit tests for utility functions

@@ -1,4 +1,5 @@
 # Beads VS Code Extension
+[![CI](https://github.com/joelklabo/beads-vscode/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/joelklabo/beads-vscode/actions/workflows/test.yml) [![VS Code Channels](https://img.shields.io/badge/vscode%20channels-stable%20%7C%20insiders-blue)](docs/testing-headless.md) [![Coverage](https://img.shields.io/badge/coverage-pending-lightgrey)](#testing)
 
 ![Beads VS Code Extension](beads-visual.png)
 
@@ -32,6 +33,13 @@ This Visual Studio Code extension provides a simple explorer view for [Beads](ht
 - **Feedback entry points**: When the feedback feature flag is enabled and configured, submit feedback from the command palette, the Beads explorer toolbar, bead context menu, or the status bar (when no stale warning is showing).
 
 The extension integrates with the Beads CLI (`bd`) and reads from the Beads database (`.beads/*.db`). Changes are automatically reflected in the UI through file system watchers.
+
+## CI & Testing
+- CI: see the Test workflow badge above (runs lint, unit, integration on Ubuntu/macOS/Windows, Node 18/20).
+- Headless/channel scripts: `npm run test:integration:stable`, `npm run test:integration:insiders`, `npm run test:integration:headless` (Linux wraps `xvfb-run -a`).
+- Env: set `VSCODE_TEST_CHANNEL` and optional `VSCODE_TEST_INSTANCE_ID` to isolate parallel runs; temp dirs live under `tmp/` in the repo and are auto-cleaned after runs.
+- Cleanup: remove stale temp dirs with `npm run test:clean-temp`.
+- Details: see [docs/testing-headless.md](docs/testing-headless.md).
 
 ## Commands
 
