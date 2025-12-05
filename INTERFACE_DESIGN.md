@@ -221,6 +221,20 @@ Test with mocked `execFile`:
 - Error cases throw appropriate errors
 - Verify refresh called after mutations
 
+## Dependency Tree Editing UX
+
+- **Gate + version**: Controlled by `beads.enableDependencyEditing`; editing controls render only when the flag is true and `bd --version >= 0.29.0`. Otherwise the tree stays read-only with a warning banner that links to docs/deps/dependency-ux.md.
+- **Direction labels**: Section headers read "Upstream (blocks this)" and "Downstream (blocked by this)". Each node shows `ID - title` with a secondary line for `status / type` and a small direction pill (`Up`/`Down`) for mixed contexts (search results, quick picks). Upstream items display with an up-arrow icon; downstream with a down-arrow icon.
+- **Inline controls**: When editing is enabled, section headers always show `+ Upstream` / `+ Downstream` buttons. Individual nodes expose a `Remove` icon button on hover/focus with aria-labels like "Remove upstream link to <ID>". Context menus mirror the same actions so keyboard users have parity.
+- **BD contract**:
+  - Read tree: `bd deps <id> --json --no-daemon` returns `upstream[]` and `downstream[]` issue summaries.
+  - Add: `bd dependency add <from> <to> --no-daemon` where upstream = `<to>` blocks `<from>`, downstream = `<from>` blocks `<to>`.
+  - Remove: `bd dependency remove <from> <to> --no-daemon` using the same direction mapping.
+  - Preflight: reject self-links, duplicates, and locally detected cycles before calling the CLI; still surface CLI stderr when server-side validation fails.
+  - Post-mutation: rerun `bd show <id> --json` and `bd deps <id> --json` to refresh the tree and badges.
+- **Accessibility**: `role=tree` on the container; `role=treeitem` plus `aria-level`/`aria-expanded` on nodes. Focus order: header -> add buttons -> items. Arrow keys move focus; Left/Right collapse or expand; Enter/Space opens the bead; Delete/Backspace triggers Remove when its button is focused. Success and errors announce via an `aria-live="assertive"` region in the webview plus host `showInformationMessage`/`showErrorMessage` for redundancy.
+- **Error handling**: Cycle or duplicate -> inline error and focus stays on the form; missing or unknown id -> "Issue not found" with a Refresh action; permission or lock errors -> surface stderr and disable buttons until refetch; stale data hint -> background refetch after any bd error mentioning staleness and a manual Refresh button in the header.
+
 ## Future Enhancements
 
 ### Phase 1 (Current)
