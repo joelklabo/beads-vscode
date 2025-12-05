@@ -23,8 +23,10 @@ import {
   buildBulkSelection,
   executeBulkStatusUpdate,
   executeBulkLabelUpdate,
+  summarizeBulkResult,
   BulkLabelAction,
   BulkOperationFailure,
+  BulkOperationResult,
   getFavoriteLabel,
   getLocalFavorites,
   saveLocalFavorites,
@@ -3815,9 +3817,76 @@ async function exportBeadsMarkdown(provider: BeadsTreeDataProvider, treeView: vs
   }
 }
 
+async function confirmBulkAction(actionDescription: string, count: number): Promise<boolean> {
+  const proceed = t('Proceed');
+  const response = await vscode.window.showWarningMessage(
+    t('Apply {0} to {1} bead(s)?', actionDescription, count),
+    { modal: true },
+    proceed
+  );
+
+  return response === proceed;
+}
+
+async function showBulkResultSummary(
+  actionDescription: string,
+  result: BulkOperationResult,
+  projectRoot: string
+): Promise<void> {
+  const sanitizedResult: BulkOperationResult = {
+    successes: result.successes,
+    failures: result.failures.map((failure) => ({
+      ...failure,
+      error: sanitizeErrorMessage(failure.error, [projectRoot]),
+    })),
+  };
+
+  const summary = summarizeBulkResult(sanitizedResult);
+
+  if (summary.failureCount === 0) {
+    void vscode.window.showInformationMessage(
+      t('{0} succeeded for {1} bead(s)', actionDescription, summary.successCount)
+    );
+    return;
+  }
+
+  const failureList = summary.failureList || summary.failureIds.join(', ');
+  const message =
+    summary.successCount === 0
+      ? t('{0} failed for {1} bead(s): {2}', actionDescription, summary.failureCount, failureList)
+      : t(
+          '{0} completed with {1} success(es); failed for {2}: {3}',
+          actionDescription,
+          summary.successCount,
+          summary.failureCount,
+          failureList
+        );
+
+  const copyAction = t('Copy failures');
+  const viewAction = t('View failed IDs');
+  const selection =
+    summary.successCount === 0
+      ? await vscode.window.showErrorMessage(message, copyAction, viewAction)
+      : await vscode.window.showWarningMessage(message, copyAction, viewAction);
+
+  if (selection === copyAction) {
+    await vscode.env.clipboard.writeText(failureList);
+    void vscode.window.showInformationMessage(t('Copied failed ids to clipboard'));
+  } else if (selection === viewAction) {
+    const pick = await vscode.window.showQuickPick(summary.failureIds, {
+      placeHolder: t('Select a failed bead id to copy'),
+    });
+    if (pick) {
+      await vscode.env.clipboard.writeText(pick);
+      void vscode.window.showInformationMessage(t('Copied {0}', pick));
+    }
+  }
+}
+
 async function bulkUpdateStatus(
   provider: BeadsTreeDataProvider,
-  treeView: vscode.TreeView<TreeItemType>
+  treeView: vscode.TreeView<TreeItemType>,
+  runCommand: RunBdCommandFn = runBdCommand
 ): Promise<void> {
   const bulkConfig = getBulkActionsConfig();
 
@@ -3860,6 +3929,12 @@ async function bulkUpdateStatus(
     return;
   }
 
+  const actionDescription = t('set status to "{0}"', statusPick.label);
+  const confirmed = await confirmBulkAction(actionDescription, ids.length);
+  if (!confirmed) {
+    return;
+  }
+
   const config = vscode.workspace.getConfiguration('beads');
   const projectRoot = resolveProjectRoot(config);
 
@@ -3870,48 +3945,31 @@ async function bulkUpdateStatus(
 
   const progressTitle = t('Updating status to "{0}" for {1} bead(s)...', statusPick.label, ids.length);
 
-  await vscode.window.withProgress(
+  const result = await vscode.window.withProgress(
     { location: vscode.ProgressLocation.Notification, title: progressTitle },
     async (progress) => {
-      const result = await executeBulkStatusUpdate(
+      return executeBulkStatusUpdate(
         ids,
         statusPick.value,
         async (id) => {
-          await runBdCommand(['update', id, '--status', statusPick.value], projectRoot);
+          await runCommand(['update', id, '--status', statusPick.value], projectRoot);
         },
         (completed, total) => {
           progress.report({ message: t('{0}/{1} updated', completed, total) });
         }
       );
-
-      await provider.refresh();
-
-      if (result.failures.length === 0) {
-        void vscode.window.showInformationMessage(
-          t('Updated {0} bead(s) to {1}', result.successes.length, statusPick.label)
-        );
-        return;
-      }
-
-      const failureList = result.failures.map((failure) => `${failure.id}: ${failure.error}`).join('; ');
-
-      if (result.successes.length === 0) {
-        void vscode.window.showErrorMessage(
-          t('Failed to update status for {0} bead(s): {1}', result.failures.length, failureList)
-        );
-      } else {
-        void vscode.window.showWarningMessage(
-          t('Updated {0} bead(s); failed for {1}: {2}', result.successes.length, result.failures.length, failureList)
-        );
-      }
     }
   );
+
+  await provider.refresh();
+  await showBulkResultSummary(actionDescription, result, projectRoot);
 }
 
 async function bulkUpdateLabel(
   provider: BeadsTreeDataProvider,
   treeView: vscode.TreeView<TreeItemType>,
-  action: BulkLabelAction
+  action: BulkLabelAction,
+  runCommand: RunBdCommandFn = runBdCommand
 ): Promise<void> {
   const bulkConfig = getBulkActionsConfig();
 
@@ -3957,6 +4015,13 @@ async function bulkUpdateLabel(
   }
 
   const label = labelResult.value;
+  const actionDescription = action === 'add' ? t('add label "{0}"', label) : t('remove label "{0}"', label);
+
+  const confirmed = await confirmBulkAction(actionDescription, ids.length);
+  if (!confirmed) {
+    return;
+  }
+
   const config = vscode.workspace.getConfiguration('beads');
   const projectRoot = resolveProjectRoot(config);
 
@@ -3977,7 +4042,7 @@ async function bulkUpdateLabel(
         label,
         action,
         async (id) => {
-          await runBdCommand(['label', action, id, label], projectRoot);
+          await runCommand(['label', action, id, label], projectRoot);
         },
         (completed, total) => {
           progress.report({ message: t('{0}/{1} updated', completed, total) });
@@ -3987,25 +4052,8 @@ async function bulkUpdateLabel(
   );
 
   await provider.refresh();
-
-  if (result.failures.length === 0) {
-    const verb = action === 'add' ? t('Added') : t('Removed');
-    void vscode.window.showInformationMessage(t('{0} label "{1}" for {2} bead(s)', verb, label, result.successes.length));
-    return;
-  }
-
-  const failureList = result.failures.map((failure) => `${failure.id}: ${failure.error}`).join('; ');
-  if (result.successes.length === 0) {
-    void vscode.window.showErrorMessage(
-      t('Failed to update label for {0} bead(s): {1}', result.failures.length, failureList)
-    );
-  } else {
-    void vscode.window.showWarningMessage(
-      t('Updated {0} bead(s); failed for {1}: {2}', result.successes.length, result.failures.length, failureList)
-    );
-  }
+  await showBulkResultSummary(actionDescription, result, projectRoot);
 }
-
 type RunBdCommandFn = (args: string[], projectRoot: string, options?: BdCommandOptions) => Promise<void>;
 
 async function toggleFavorites(

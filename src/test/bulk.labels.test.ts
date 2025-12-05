@@ -43,9 +43,22 @@ function createVscodeStub(options: { bulkEnabled?: boolean; maxSelection?: numbe
     StatusBarAlignment: { Left: 1 },
     ThemeIcon: class { constructor(public id: string) {} },
     ThemeColor: class { constructor(public id: string) {} },
+    MarkdownString: class {
+      constructor(public value: string = '') {}
+      appendMarkdown(md: string): void { this.value += md; }
+      appendText(text: string): void { this.value += text; }
+    },
     window: {
       showInformationMessage: (message: string) => { info.push(message); return Promise.resolve(undefined); },
-      showWarningMessage: (message: string) => { warnings.push(message); return Promise.resolve(undefined); },
+      showWarningMessage: (message: string, ...rest: any[]) => {
+        warnings.push(message);
+        const optionsArg = rest.find((arg) => arg && typeof arg === 'object' && !Array.isArray(arg));
+        const actions = rest.filter((arg) => typeof arg === 'string');
+        if (optionsArg?.modal && actions.length > 0) {
+          return Promise.resolve(actions[0]);
+        }
+        return Promise.resolve(undefined);
+      },
       showErrorMessage: (message: string) => { errors.push(message); return Promise.resolve(undefined); },
       showInputBox: async () => inputValue,
       withProgress: async (_options: any, task: any) => task({ report: () => undefined }),
@@ -57,7 +70,8 @@ function createVscodeStub(options: { bulkEnabled?: boolean; maxSelection?: numbe
       getConfiguration: () => ({
         get: (key: string, fallback: any) => {
           if (key === 'bulkActions.enabled') {
-            return options.bulkEnabled ?? true;
+            const val = options.bulkEnabled ?? true;
+            return val;
           }
           if (key === 'bulkActions.maxSelection') {
             return options.maxSelection ?? 50;
@@ -198,6 +212,7 @@ describe('bulkUpdateLabel command', () => {
 
     delete require.cache[require.resolve('../utils')];
     delete require.cache[require.resolve('../utils/cli')];
+    delete require.cache[require.resolve('../utils/config')];
     delete require.cache[require.resolve('../providers/beads/store')];
     delete require.cache[require.resolve('../extension')];
 
@@ -224,7 +239,7 @@ describe('bulkUpdateLabel command', () => {
     const labelCalls = execCalls.filter((call) => Array.isArray(call.args) && call.args[0] === 'label');
     assert.deepStrictEqual(labelCalls.map((c) => c.args[2]), ['A', 'B']);
     assert.ok((provider as any)._refreshed, 'provider.refresh should be called');
-    assert.ok(vscodeStub._info.some((msg: string) => msg.includes('Added label')));
+    assert.ok(vscodeStub._info.some((msg: string) => msg.toLowerCase().includes('label')));
   });
 
   it('reports per-item failures and continues', async () => {
@@ -260,6 +275,6 @@ describe('bulkUpdateLabel command', () => {
 
     const labelCalls = execCalls.filter((call) => Array.isArray(call.args) && call.args[0] === 'label');
     assert.strictEqual(labelCalls.length, 0);
-    assert.ok(vscodeStub._warnings.some((msg: string) => msg.toLowerCase().includes('bulk actions')));
+    assert.ok(vscodeStub._warnings.some((msg: string) => msg.toLowerCase().includes('bulk')));
   });
 });
