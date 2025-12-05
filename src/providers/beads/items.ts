@@ -221,6 +221,10 @@ export class BeadTreeItem extends vscode.TreeItem {
 
     const preview = buildPreviewSnippet(bead.description, 80);
     const safePreview = sanitizeInlineText(preview);
+    if (safePreview) {
+      const previewSnippet = truncate(safePreview, 80);
+      this.description = `${this.description} · ${previewSnippet}`;
+    }
     const relTime = bead.updatedAt ? formatRelativeTime(bead.updatedAt) : undefined;
     const labels = (bead.tags && bead.tags.length > 0) ? sanitizeInlineText(bead.tags.join(', ')) : t('None');
     const priority = (bead as any).priority !== undefined && (bead as any).priority !== null ? String((bead as any).priority) : t('Unset');
