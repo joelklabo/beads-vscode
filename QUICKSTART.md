@@ -2,7 +2,20 @@
 
 ## Installing the Extension
 
-### Option 1: Install from .vsix (Fastest for now)
+### Option 1: One-command local install (auto reload)
+
+```bash
+npm install
+npm run install-local
+```
+
+This packages the extension, installs the freshest `.vsix` via the VS Code CLI, and triggers `workbench.action.reloadWindow` so the updated build is active immediately.
+
+- CLI resolution order: `code-insiders`, then `code` (override with `VSCODE_BIN`).
+- Skip the reload by setting `NO_RELOAD_AFTER_INSTALL_LOCAL=1`.
+- If no CLI is found, the command leaves the VSIX on disk and prints a warning so you can install manually.
+
+### Option 2: Install from .vsix manually
 
 1. **Package the extension:**
    ```bash
@@ -26,7 +39,7 @@
 
 3. **Reload VSCode** (Cmd/Ctrl+Shift+P → "Developer: Reload Window")
 
-### Option 2: Symlink for Development
+### Option 3: Symlink for Development
 
 If you're actively developing:
 

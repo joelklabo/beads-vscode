@@ -142,6 +142,18 @@ npm run lint
 
 See [TESTING.md](TESTING.md) for more information about the test infrastructure.
 
+### Install local build (auto-reload)
+
+Use the built-in helper to package, install, and reload the active VS Code window in one step:
+
+```bash
+npm run install-local
+```
+
+- Prefers `code-insiders` if available, otherwise falls back to `code` (override with `VSCODE_BIN`).
+- Skips the reload when `NO_RELOAD_AFTER_INSTALL_LOCAL=1` is set; otherwise it runs `workbench.action.reloadWindow` after install so the new VSIX is active immediately.
+- If no VS Code CLI is found, the script leaves the VSIX on disk and prints a warning so you can install manually.
+
 ### Multi-Agent Workflow
 
 For the hardened worktree-based multi-agent flow (atomic claims, merge queue, heartbeats, WAL), see [docs/MULTI_AGENT_ORCHESTRATION.md](docs/MULTI_AGENT_ORCHESTRATION.md).
