@@ -95,6 +95,14 @@ The extension supports three view modes that you can cycle through using the "To
 2. **Status Grouping**: Beads are grouped into collapsible sections by status (Open, In Progress, Blocked, Closed)
 3. **Epic Grouping**: Beads are grouped under their parent epics. Epics appear as expandable sections with their child tasks nested underneath. Tasks without a parent epic are shown in an "Ungrouped" section.
 
+### Dependency tree editing (preview)
+
+1. Turn on the `beads.enableDependencyEditing` setting (requires `bd` ≥ 0.29.0); commands always run with `--no-daemon`.
+2. Open the **Dependency Tree** view in the Beads sidebar—selecting an issue in the main tree syncs the upstream/downstream branches shown here.
+3. Use the view toolbar actions **Add Upstream** and **Add Downstream** to link issues; the quick pick blocks self-links, duplicates, and cycles before calling `bd dep add`.
+4. Remove a link via the command palette (`Beads: Dependency Tree: Remove`) or the remove buttons in the issue detail panel; failures surface as warnings without breaking focus.
+5. See [docs/dependency-tree.md](docs/dependency-tree.md) for keyboard/a11y notes and troubleshooting.
+
 ### Issue Type Icons
 
 Each issue type displays with a distinctive icon based on status color:
