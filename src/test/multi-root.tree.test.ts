@@ -106,16 +106,44 @@ describe('Workspace selection', () => {
         return vscodeStub;
       }
       if (request.endsWith('providers/beads/store') || request.includes('providers/beads/store')) {
+        class StubStore {
+          private listener?: (snapshot: any) => void;
+          private snapshot: any = { items: [], workspaces: [] };
+
+          onDidChange(listener: (snapshot: any) => void): () => void {
+            this.listener = listener;
+            return () => {
+              this.listener = undefined;
+            };
+          }
+
+          async refresh(workspaceTargets: any[]): Promise<any> {
+            this.snapshot.workspaces = workspaceTargets.map((target: any) => {
+              loadCalls.push(target.root);
+              return {
+                target,
+                items: [{ id: `${target.root}-id`, title: `${target.root}-title`, raw: {}, status: 'open' }],
+                document: { filePath: `${target.root}/.beads/issues.db` },
+              };
+            });
+            this.snapshot.items = this.snapshot.workspaces.flatMap((ws: any) => ws.items);
+            if (this.listener) {
+              this.listener(this.snapshot);
+            }
+            return this.snapshot;
+          }
+
+          dispose(): void {}
+        }
+
         return {
-          loadBeads: async (projectRoot: string) => {
-            loadCalls.push(projectRoot);
-            return {
-              items: [{ id: `${projectRoot}-id`, title: `${projectRoot}-title`, raw: {}, status: 'open' }],
-              document: { filePath: `${projectRoot}/.beads/issues.db` },
-            } as any;
-          },
+          createBeadsStore: () => new StubStore(),
+          createWorkspaceTarget: ({ projectRoot, workspaceId }: any) => ({ id: workspaceId, root: projectRoot, config: {} }),
+          createVsCodeWatchAdapter: () => ({} as any),
+          WatcherManager: class {},
+          naturalSort: (a: any, b: any) => (a.id || '').localeCompare(b.id || ''),
           findBdCommand: async () => 'bd',
-        };
+        } as any;
       }
       return restoreLoad(request, parent, isMain);
     };

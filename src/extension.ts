@@ -66,8 +66,14 @@ import {
 } from './providers/beads/items';
 import {
   BeadsDocument,
+  BeadsStore,
+  BeadsStoreSnapshot,
+  WorkspaceTarget,
+  WatcherManager,
+  createBeadsStore,
+  createWorkspaceTarget,
+  createVsCodeWatchAdapter,
   findBdCommand,
-  loadBeads,
   naturalSort,
   saveBeadsDocument,
 } from './providers/beads/store';
@@ -221,13 +227,7 @@ async function runBdCommand(args: string[], projectRoot: string, options: BdComm
   const commandPath = await findBdCommand(commandPathSetting);
   const cliPolicy = getCliExecutionConfig(config);
   const worktreeId = currentWorktreeId(projectRoot);
-  const client = new BdCliClient({
-    commandPath,
-    cwd: projectRoot,
-    policy: cliPolicy,
-    workspacePaths: [projectRoot],
-    worktreeId,
-  });
+  const client = new BdCliClient({ commandPath, cwd: projectRoot, policy: cliPolicy, workspacePaths: [projectRoot], worktreeId });
 
   await client.run(args);
 }
@@ -415,15 +415,15 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
 
   private items: BeadItemData[] = [];
   private document: BeadsDocument | undefined;
-  private fileWatchers: vscode.FileSystemWatcher[] = [];
-  private watcherSubscriptions: vscode.Disposable[] = [];
-  private watchedFilePaths: Set<string> = new Set();
+  private readonly watchManager: WatcherManager;
+  private readonly store: BeadsStore;
+  private storeSubscription?: () => void;
+  private primaryConfigForFavorites: vscode.WorkspaceConfiguration | undefined;
   private openPanels: Map<string, vscode.WebviewPanel> = new Map();
   private searchQuery: string = '';
   private refreshInProgress: boolean = false;
   private quickFilter: QuickFilterPreset | undefined;
   private pendingRefresh: boolean = false;
-  private debounceTimer: NodeJS.Timeout | undefined;
   private staleRefreshTimer: NodeJS.Timeout | undefined;
   private treeView: vscode.TreeView<TreeItemType> | undefined;
   private statusBarItem: vscode.StatusBarItem | undefined;
@@ -448,7 +448,12 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   // Expanded state for bead rows (id -> expanded)
   private expandedRows: Set<string> = new Set();
 
-  constructor(private readonly context: vscode.ExtensionContext) {
+  constructor(private readonly context: vscode.ExtensionContext, watchManager?: WatcherManager) {
+    this.watchManager = watchManager ?? new WatcherManager(createVsCodeWatchAdapter());
+    this.store = createBeadsStore({ watchManager: this.watchManager });
+    this.storeSubscription = this.store.onDidChange((snapshot) => {
+      void this.applyStoreSnapshot(snapshot);
+    });
     // Load persisted sort order
     this.loadSortOrder();
     // Load persisted sort mode
@@ -487,7 +492,8 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
       this.statusBarItem.dispose();
       this.statusBarItem = undefined;
     }
-    this.disposeWatcher();
+    this.storeSubscription?.();
+    this.store.dispose();
   }
 
   setTreeView(treeView: vscode.TreeView<TreeItemType>): void {
@@ -763,80 +769,26 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   }
 
   async refresh(): Promise<void> {
-    console.log('[Provider DEBUG] refresh() called');
-    // If a refresh is already in progress, mark that we need another one
     if (this.refreshInProgress) {
-      console.log('[Provider DEBUG] Refresh already in progress, queuing');
       this.pendingRefresh = true;
       return;
     }
 
     this.refreshInProgress = true;
     try {
-      const workspaceFolders = vscode.workspace.workspaceFolders ?? [];
-      const targets = this.activeWorkspaceFolder ? [this.activeWorkspaceFolder] : workspaceFolders;
+      const workspaceTargets = this.buildWorkspaceTargets();
 
-      if (targets.length === 0) {
+      if (workspaceTargets.length === 0) {
         this.items = [];
         this.document = undefined;
+        this.updateBadge();
         this.onDidChangeTreeDataEmitter.fire();
         return;
       }
 
-      const aggregatedItems: BeadItemData[] = [];
-      const documentPaths: string[] = [];
-      let primaryConfig: vscode.WorkspaceConfiguration | undefined;
-      let primaryDocument: BeadsDocument | undefined;
-
-      for (const folder of targets) {
-        const config = vscode.workspace.getConfiguration('beads', folder);
-        const projectRoot = resolveProjectRoot(config, folder);
-        if (!projectRoot) {
-          continue;
-        }
-        if (!primaryConfig) {
-          primaryConfig = config;
-        }
-        const result = await loadBeads(projectRoot, config);
-        aggregatedItems.push(...result.items);
-        documentPaths.push(result.document.filePath);
-        if (!primaryDocument) {
-          primaryDocument = result.document;
-        }
-      }
-
-      this.items = aggregatedItems;
-      this.document = primaryDocument;
-
-      const favoritesConfig = primaryConfig ?? vscode.workspace.getConfiguration('beads');
-      const favoritesEnabled = favoritesConfig.get<boolean>('favorites.enabled', false);
-      if (favoritesEnabled && this.items.length > 0) {
-        const favoriteLabel = getFavoriteLabel(favoritesConfig);
-        const useLabelStorage = favoritesConfig.get<boolean>('favorites.useLabelStorage', true);
-        await syncFavoritesState({
-          context: this.context,
-          items: this.items,
-          favoriteLabel,
-          useLabelStorage,
-        });
-      }
-
-      console.log('[Provider DEBUG] After loadBeads, items count:', this.items.length);
-      console.log('[Provider DEBUG] Items IDs:', this.items.map(i => i.id).slice(0, 10));
-      if (documentPaths.length > 0) {
-        this.ensureWatcher(documentPaths);
-      }
-
-      // Update badge with stale count
-      this.updateBadge();
-
-      this.onDidChangeTreeDataEmitter.fire();
-
-      // Refresh all open webview panels
-      this.refreshOpenPanels();
+      await this.store.refresh(workspaceTargets);
     } catch (error) {
       console.error('Failed to refresh beads', error);
-      console.error('[Provider DEBUG] Refresh error:', error);
       void vscode.window.showErrorMessage(formatError(t('Unable to refresh beads list'), error));
     } finally {
       this.refreshInProgress = false;
@@ -847,6 +799,57 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
         void this.refresh();
       }
     }
+  }
+
+  private buildWorkspaceTargets(): WorkspaceTarget[] {
+    const workspaceFolders = vscode.workspace.workspaceFolders ?? [];
+    const targets = this.activeWorkspaceFolder ? [this.activeWorkspaceFolder] : workspaceFolders;
+    const workspaceTargets: WorkspaceTarget[] = [];
+    this.primaryConfigForFavorites = undefined;
+
+    for (const folder of targets) {
+      const config = vscode.workspace.getConfiguration('beads', folder);
+      const projectRoot = resolveProjectRoot(config, folder);
+      if (!projectRoot) {
+        continue;
+      }
+
+      if (!this.primaryConfigForFavorites) {
+        this.primaryConfigForFavorites = config;
+      }
+
+      workspaceTargets.push(
+        createWorkspaceTarget({
+          workspaceId: folder.uri.toString(),
+          projectRoot,
+          config,
+        })
+      );
+    }
+
+    return workspaceTargets;
+  }
+
+  private async applyStoreSnapshot(snapshot: BeadsStoreSnapshot): Promise<void> {
+    this.items = snapshot.items;
+    this.document = snapshot.workspaces[0]?.document;
+
+    const favoritesConfig = this.primaryConfigForFavorites ?? vscode.workspace.getConfiguration('beads');
+    const favoritesEnabled = favoritesConfig.get<boolean>('favorites.enabled', false);
+    if (favoritesEnabled && this.items.length > 0) {
+      const favoriteLabel = getFavoriteLabel(favoritesConfig);
+      const useLabelStorage = favoritesConfig.get<boolean>('favorites.useLabelStorage', true);
+      await syncFavoritesState({
+        context: this.context,
+        items: this.items,
+        favoriteLabel,
+        useLabelStorage,
+      });
+    }
+
+    this.updateBadge();
+    this.onDidChangeTreeDataEmitter.fire();
+    this.refreshOpenPanels();
   }
 
   registerPanel(beadId: string, panel: vscode.WebviewPanel): void {
@@ -1364,67 +1367,6 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
 
     return treeItem;
   }
-
-  private debouncedRefresh(): void {
-    if (this.debounceTimer) {
-      clearTimeout(this.debounceTimer);
-    }
-    // Use a longer debounce (1 second) to avoid rapid refreshes from SQLite WAL activity
-    this.debounceTimer = setTimeout(() => {
-      void this.refresh();
-    }, 1000);
-  }
-
-  private ensureWatcher(filePaths: string | string[]): void {
-    const paths = Array.isArray(filePaths) ? filePaths : [filePaths];
-    const uniquePaths = new Set(paths.filter(Boolean));
-
-    if (uniquePaths.size === 0) {
-      this.disposeWatcher();
-      return;
-    }
-
-    const samePaths = uniquePaths.size === this.watchedFilePaths.size && [...uniquePaths].every(p => this.watchedFilePaths.has(p));
-    if (samePaths && this.fileWatchers.length > 0) {
-      return;
-    }
-
-    this.disposeWatcher();
-
-    try {
-      for (const filePath of uniquePaths) {
-        const pattern = new vscode.RelativePattern(filePath, '*.db');
-        const watcher = vscode.workspace.createFileSystemWatcher(pattern);
-        const onChange = watcher.onDidChange(() => this.debouncedRefresh());
-        const onCreate = watcher.onDidCreate(() => this.debouncedRefresh());
-        const onDelete = watcher.onDidDelete(async () => {
-          this.items = [];
-          this.document = undefined;
-          this.onDidChangeTreeDataEmitter.fire();
-        });
-
-        this.context.subscriptions.push(watcher, onChange, onCreate, onDelete);
-        this.fileWatchers.push(watcher);
-        this.watcherSubscriptions.push(onChange, onCreate, onDelete);
-      }
-      this.watchedFilePaths = uniquePaths;
-    } catch (error) {
-      console.warn('Failed to start watcher for beads database', error);
-    }
-  }
-
-  private disposeWatcher(): void {
-    for (const watcher of this.fileWatchers) {
-      watcher.dispose();
-    }
-    this.fileWatchers = [];
-    for (const subscription of this.watcherSubscriptions) {
-      subscription.dispose();
-    }
-    this.watcherSubscriptions = [];
-    this.watchedFilePaths = new Set();
-  }
-
 
   // Drag and drop implementation
   async handleDrag(source: readonly TreeItemType[], dataTransfer: vscode.DataTransfer, _token: vscode.CancellationToken): Promise<void> {
@@ -5675,7 +5617,10 @@ async function inlineStatusQuickChange(
 }
 
 export function activate(context: vscode.ExtensionContext): void {
-  const provider = new BeadsTreeDataProvider(context);
+  const watchManager = new WatcherManager(createVsCodeWatchAdapter());
+  context.subscriptions.push({ dispose: () => watchManager.dispose() });
+
+  const provider = new BeadsTreeDataProvider(context, watchManager);
   const treeView = vscode.window.createTreeView('beadsExplorer', {
     treeDataProvider: provider,
     dragAndDropController: provider,
@@ -5752,7 +5697,7 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push({ dispose: () => provider.dispose() });
 
   // Activity Feed Provider
-  const activityFeedProvider = new ActivityFeedTreeDataProvider(context);
+  const activityFeedProvider = new ActivityFeedTreeDataProvider(context, { watchManager });
   const activityFeedView = vscode.window.createTreeView('activityFeed', {
     treeDataProvider: activityFeedProvider,
   });
@@ -5765,6 +5710,7 @@ export function activate(context: vscode.ExtensionContext): void {
       activityFeedView.message = undefined;
     }
   });
+  context.subscriptions.push({ dispose: () => activityFeedProvider.dispose() });
 
   const openActivityFeedEvent = async (issueId?: string): Promise<void> => {
     const selectedId =

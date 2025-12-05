@@ -5,3 +5,5 @@ export * from './status';
 export * from './config';
 export * from './cliClient';
 export * from './security/sanitize';
+export * from './store/beadsStore';
+export * from './store/watchers';
