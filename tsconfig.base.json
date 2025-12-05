@@ -2,7 +2,9 @@
   "compilerOptions": {
     "module": "commonjs",
     "target": "es2020",
-    "lib": ["es2020"],
+    "lib": [
+      "es2020"
+    ],
     "sourceMap": true,
     "strict": true,
     "esModuleInterop": true,
@@ -10,15 +12,45 @@
     "resolveJsonModule": true,
     "baseUrl": ".",
     "paths": {
-      "@commands/*": ["src/commands/*"],
-      "@providers/*": ["src/providers/*"],
-      "@services/*": ["src/services/*"],
-      "@utils": ["src/utils"],
-      "@utils/*": ["src/utils/*"],
-      "@worktree": ["src/worktree"],
-      "@worktree/*": ["src/worktree/*"],
-      "@ai/*": ["src/ai/*"],
-      "@models/*": ["src/models/*"]
+      "@commands/*": [
+        "src/commands/*"
+      ],
+      "@providers/*": [
+        "src/providers/*"
+      ],
+      "@services/*": [
+        "src/services/*"
+      ],
+      "@utils": [
+        "src/utils"
+      ],
+      "@utils/*": [
+        "src/utils/*"
+      ],
+      "@worktree": [
+        "src/worktree"
+      ],
+      "@worktree/*": [
+        "src/worktree/*"
+      ],
+      "@ai/*": [
+        "src/ai/*"
+      ],
+      "@models/*": [
+        "src/models/*"
+      ],
+      "@beads/core": [
+        "packages/core/src"
+      ],
+      "@beads/core/*": [
+        "packages/core/src/*"
+      ],
+      "@beads/ui-headless": [
+        "packages/ui-headless/src"
+      ],
+      "@beads/ui-headless/*": [
+        "packages/ui-headless/src/*"
+      ]
     }
   }
 }
