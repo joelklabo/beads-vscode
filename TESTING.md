@@ -44,6 +44,9 @@ npm run test:all
 # Run just unit tests (default, fast)
 npm test
 
+# Lint GitHub workflows (downloads actionlint if missing)
+npm run lint:workflows
+
 # Run local test script (recommended)
 ./scripts/test-local.sh
 ```
