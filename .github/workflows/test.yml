@@ -1,5 +1,13 @@
 name: Test
 
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches: [ main, develop ]
@@ -17,10 +25,10 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@f43a0e5ff2bd29460692e8b7e5f3f194e7e5d25f
 
     - name: Setup Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@5e21e1f2e03c5b06f8947f125addcfa407e0a87f
       with:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
@@ -38,7 +46,7 @@ jobs:
       run: npm run compile
 
     - name: Install Go (for bd CLI)
-      uses: actions/setup-go@v5
+      uses: actions/setup-go@0a12f487e83f25d3956515f8241f1411bcd9c0ea
       with:
         go-version: '1.21'
 
@@ -73,7 +81,7 @@ jobs:
 
     - name: Upload test results
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@26f96dfa697d77e86c5c3e1535090e205b947cbc
       with:
         name: test-results-${{ matrix.os }}-node${{ matrix.node-version }}
         path: |
@@ -87,10 +95,10 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@f43a0e5ff2bd29460692e8b7e5f3f194e7e5d25f
 
     - name: Setup Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@5e21e1f2e03c5b06f8947f125addcfa407e0a87f
       with:
         node-version: '20.x'
         cache: 'npm'
@@ -105,7 +113,7 @@ jobs:
       run: npm run package
 
     - name: Upload VSIX
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@26f96dfa697d77e86c5c3e1535090e205b947cbc
       with:
         name: vscode-extension
         path: '*.vsix'

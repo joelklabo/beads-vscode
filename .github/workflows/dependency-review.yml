@@ -1,0 +1,19 @@
+name: Dependency Review
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+
+permissions:
+  contents: read
+  pull-requests: read
+  security-events: write
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@f43a0e5ff2bd29460692e8b7e5f3f194e7e5d25f
+      - name: Dependency Review
+        uses: actions/dependency-review-action@27c070264bd6f55af01a59ca88acaf0b3f668252
