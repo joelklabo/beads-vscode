@@ -2,7 +2,7 @@ import { escapeHtml } from '../utils';
 import { DependencyTreeStrings, GraphEdgeData, GraphNodeData } from '../utils/graph';
 
 function stringify(data: unknown): string {
-  return JSON.stringify(data);
+  return JSON.stringify(data).replace(/</g, '\u003c').replace(/>/g, '\u003e');
 }
 
 export function buildDependencyGraphHtml(
@@ -324,6 +324,168 @@ export function buildDependencyGraphHtml(
 
 
 
+        function createNode(node) {
+            const div = document.createElement('div');
+            div.className = 'node status-' + (node.status || 'open');
+            div.dataset.nodeId = node.id;
+
+            const idRow = document.createElement('div');
+            idRow.className = 'node-id';
+
+            const statusIndicator = document.createElement('span');
+            statusIndicator.className = 'status-indicator ' + (node.status || 'open');
+
+            const idText = document.createElement('span');
+            idText.textContent = node.id;
+
+            idRow.appendChild(statusIndicator);
+            idRow.appendChild(idText);
+
+            const titleRow = document.createElement('div');
+            titleRow.className = 'node-title';
+            titleRow.title = node.title || '';
+            titleRow.textContent = node.title || '';
+
+            div.appendChild(idRow);
+            div.appendChild(titleRow);
+
+            div.addEventListener('mousedown', (e) => {
+                if (e.button !== 0) return;
+                draggedNode = div;
+                draggedNodeId = node.id;
+                mouseDownPos = {x: e.clientX, y: e.clientY};
+
+                const pos = nodePositions.get(node.id);
+                dragOffset.x = e.clientX - pos.x;
+                dragOffset.y = e.clientY - pos.y;
+
+                e.preventDefault();
+            });
+
+            div.addEventListener('click', (e) => {
+                if (isDragging) {
+                    return;
+                }
+
+                if (dependencyEditingEnabled && (e.shiftKey || linkSourceId)) {
+                    if (!linkSourceId) {
+                        linkSourceId = node.id;
+                        updateHint('Select a target for ' + node.id);
+                    } else if (linkSourceId === node.id) {
+                        linkSourceId = null;
+                        updateHint('Link cancelled');
+                    } else {
+                        attemptAddDependency(linkSourceId, node.id);
+                    }
+                    return;
+                }
+
+                selectedEdge = null;
+                lastSelectedNodeId = node.id;
+                vscode.setState({ nodePositions: savedPositions, lastSelectedNodeId });
+                vscode.postMessage({ command: 'openBead', beadId: node.id });
+            });
+
+            return div;
+        }
+
+        function buildArrowheadDefs() {
+            const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+            const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+            marker.setAttribute('id', 'arrowhead');
+            marker.setAttribute('markerWidth', '10');
+            marker.setAttribute('markerHeight', '10');
+            marker.setAttribute('refX', '9');
+            marker.setAttribute('refY', '3');
+            marker.setAttribute('orient', 'auto');
+
+            const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+            polygon.setAttribute('points', '0 0, 10 3, 0 6');
+            polygon.setAttribute('fill', 'var(--vscode-panel-border)');
+            marker.appendChild(polygon);
+            defs.appendChild(marker);
+            return defs;
+        }
+
+        function drawEdge(edge) {
+            const fromPos = nodePositions.get(edge.sourceId);
+            const toPos = nodePositions.get(edge.targetId);
+
+            if (!fromPos || !toPos) return null;
+
+            const fromEl = nodeElements.get(edge.sourceId);
+            const toEl = nodeElements.get(edge.targetId);
+
+            if (!fromEl || !toEl) return null;
+
+            const fromRect = fromEl.getBoundingClientRect();
+            const toRect = toEl.getBoundingClientRect();
+
+            const x1 = fromPos.x + (fromRect.width / 2);
+            const y1 = fromPos.y + fromRect.height;
+            const x2 = toPos.x + (toRect.width / 2);
+            const y2 = toPos.y;
+
+            const midY = (y1 + y2) / 2;
+            const path = 'M ' + x1 + ' ' + y1 + ' C ' + x1 + ' ' + midY + ', ' + x2 + ' ' + midY + ', ' + x2 + ' ' + y2;
+
+            const pathEl = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            pathEl.setAttribute('d', path);
+            pathEl.setAttribute('class', 'edge ' + (edge.type || ''));
+            pathEl.setAttribute('data-from', edge.sourceId);
+            pathEl.setAttribute('data-to', edge.targetId);
+            return pathEl;
+        }
+
+        function paintEdges(svg) {
+            while (svg.firstChild) {
+                svg.removeChild(svg.firstChild);
+            }
+            svg.appendChild(buildArrowheadDefs());
+            edges.forEach((edge) => {
+                const el = drawEdge(edge);
+                if (el) {
+                    svg.appendChild(el);
+                }
+            });
+            bindEdgeClicks();
+        }
+
+        function render() {
+            const canvas = document.getElementById('canvas');
+            const svg = document.getElementById('svg');
+            if (!canvas || !svg) return;
+
+            canvas.innerHTML = '';
+            nodeElements.clear();
+
+            calculateLayout();
+
+            nodes.forEach((node) => {
+                const div = createNode(node);
+                const pos = nodePositions.get(node.id) || { x: 40, y: 40 };
+                div.style.left = pos.x + 'px';
+                div.style.top = pos.y + 'px';
+                canvas.appendChild(div);
+                nodeElements.set(node.id, div);
+            });
+
+            let maxX = 0, maxY = 0;
+            nodePositions.forEach(pos => {
+                maxX = Math.max(maxX, pos.x + 250);
+                maxY = Math.max(maxY, pos.y + 100);
+            });
+
+            svg.setAttribute('width', String(maxX));
+            svg.setAttribute('height', String(maxY));
+            canvas.style.width = maxX + 'px';
+            canvas.style.height = maxY + 'px';
+
+            setTimeout(() => {
+                paintEdges(svg);
+            }, 50);
+        }
+
         function resetZoom() {
             const container = document.getElementById('container');
             let minX = Infinity, minY = Infinity;
@@ -350,13 +512,8 @@ export function buildDependencyGraphHtml(
 
         function redrawEdges() {
             const svg = document.getElementById('svg');
-            const edgePaths = edges.map(edge => drawEdge(edge.sourceId, edge.targetId, edge.type)).join('');
-            svg.innerHTML = '<defs>' +
-                '<marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">' +
-                '<polygon points="0 0, 10 3, 0 6" fill="var(--vscode-panel-border)" />' +
-                '</marker>' +
-                '</defs>' + edgePaths;
-            bindEdgeClicks();
+            if (!svg) return;
+            paintEdges(svg);
         }
 
         function bindEdgeClicks() {

@@ -88,6 +88,7 @@ function createVscodeStub(enableFlag = true) {
 describe('Inline status quick change', () => {
   let vscodeStub: any;
   let execCalls: Array<{ file: any; args: any; options: any }>;
+  const normalizeArgs = (args: any[]) => (Array.isArray(args) && args[0] === '--no-daemon' ? args.slice(1) : args);
   let restoreLoad: any;
   let BeadsTreeDataProvider: any;
   let BeadTreeItem: any;
@@ -115,7 +116,8 @@ describe('Inline status quick change', () => {
               cb = opts;
               opts = undefined;
             }
-            const id = Array.isArray(args) ? args[1] : undefined;
+            const normalizedArgs = normalizeArgs(args);
+            const id = Array.isArray(normalizedArgs) ? normalizedArgs[1] : undefined;
             const error = failIds.has(id) ? new Error('cli failed') : null;
             execCalls.push({ file, args, options: opts });
             cb(error, { stdout: '', stderr: '' });
@@ -158,8 +160,9 @@ describe('Inline status quick change', () => {
     await inlineStatusQuickChange(provider, treeView, undefined);
 
     assert.strictEqual(execCalls.length, 2);
-    assert.deepStrictEqual(execCalls[0].args, ['update', 'A', '--status', 'closed']);
-    assert.deepStrictEqual(execCalls[1].args, ['update', 'B', '--status', 'closed']);
+    assert.deepStrictEqual(normalizeArgs(execCalls[0].args), ['update', 'A', '--status', 'closed']);
+    assert.deepStrictEqual(normalizeArgs(execCalls[1].args), ['update', 'B', '--status', 'closed']);
+    assert.ok(execCalls.every((c) => Array.isArray(c.args) && c.args[0] === '--no-daemon'));
     assert.ok((provider as any)._refreshed, 'provider.refresh should be called');
     assert.ok(vscodeStub._info.some((msg: string) => msg.includes('Updated status')));
   });
