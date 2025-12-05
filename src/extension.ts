@@ -103,6 +103,9 @@ let dependencyVersionWarned = false;
 
 const MIN_DEPENDENCY_CLI = '0.29.0';
 
+const STATUS_SECTION_ORDER: string[] = ['in_progress', 'open', 'blocked', 'closed'];
+const DEFAULT_COLLAPSED_SECTION_KEYS: string[] = [...STATUS_SECTION_ORDER, 'ungrouped'];
+
 async function runWorktreeGuard(projectRoot: string): Promise<void> {
   const config = vscode.workspace.getConfiguration('beads');
   const guardEnabled = config.get<boolean>('enableWorktreeGuard', true);
@@ -371,7 +374,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   private sortMode: 'id' | 'status' | 'epic' = 'id';
   
   // Collapsed state for status sections
-  private collapsedSections: Set<string> = new Set();
+  private collapsedSections: Set<string> = new Set(DEFAULT_COLLAPSED_SECTION_KEYS);
   // Collapsed state for epics (id -> collapsed)
   private collapsedEpics: Map<string, boolean> = new Map();
 
@@ -544,11 +547,9 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     const staleItems = items.filter(item => isStale(item, thresholdHours));
     
     // Group items by status
-    const statusOrder = ['open', 'in_progress', 'blocked', 'closed'];
     const grouped: Record<string, BeadItemData[]> = {};
     
-    // Initialize all status groups
-    statusOrder.forEach(status => {
+    STATUS_SECTION_ORDER.forEach(status => {
       grouped[status] = [];
     });
     
@@ -575,12 +576,19 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
       sections.push(new WarningSectionItem(staleItems, thresholdMinutes, isCollapsed));
     }
     
-    // Add status sections for non-empty groups
-    statusOrder.forEach(status => {
-      if (grouped[status].length > 0) {
-        const isCollapsed = this.collapsedSections.has(status);
-        sections.push(new StatusSectionItem(status, grouped[status], isCollapsed));
+    const orderedStatuses = [
+      ...STATUS_SECTION_ORDER,
+      ...Object.keys(grouped).filter(status => !STATUS_SECTION_ORDER.includes(status))
+    ];
+
+    // Add status sections for non-empty groups in desired order
+    orderedStatuses.forEach(status => {
+      const bucket = grouped[status];
+      if (!bucket || bucket.length === 0) {
+        return;
       }
+      const isCollapsed = this.collapsedSections.has(status);
+      sections.push(new StatusSectionItem(status, bucket, isCollapsed));
     });
     
     return sections;
@@ -629,12 +637,10 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     const sections: (EpicStatusSectionItem | UngroupedSectionItem | WarningSectionItem | EpicTreeItem)[] = [];
 
     const emptyEpics: BeadItemData[] = [];
-    const statusBuckets: Record<string, EpicTreeItem[]> = {
-      in_progress: [],
-      open: [],
-      blocked: [],
-      closed: [],
-    };
+    const statusBuckets: Record<string, EpicTreeItem[]> = {};
+    STATUS_SECTION_ORDER.forEach(status => {
+      statusBuckets[status] = [];
+    });
 
     // Sort epics and assign to buckets (skip empty for main buckets)
     const sortedEpics = Array.from(epicMap.values()).sort(naturalSort);
@@ -660,7 +666,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     }
 
     // Status-ordered epic sections
-    const statusOrder = ['in_progress', 'open', 'blocked', 'closed'];
+    const statusOrder = STATUS_SECTION_ORDER;
     statusOrder.forEach(status => {
       const epics = statusBuckets[status] || [];
       if (epics.length === 0) {
@@ -1300,7 +1306,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   
   private loadCollapsedSections(): void {
     const savedSections = this.context.workspaceState.get<string[]>('beads.collapsedSections');
-    if (savedSections) {
+    if (savedSections !== undefined) {
       this.collapsedSections = new Set(savedSections.filter(key => !key.startsWith('epic-')));
       // Migration: legacy epic keys stored in collapsedSections (epic-<id>)
       savedSections.forEach(key => {
@@ -1309,6 +1315,8 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
           this.collapsedEpics.set(epicId, true);
         }
       });
+    } else {
+      this.collapsedSections = new Set(DEFAULT_COLLAPSED_SECTION_KEYS);
     }
 
     const savedEpics = this.context.workspaceState.get<Record<string, boolean>>('beads.collapsedEpics');
