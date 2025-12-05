@@ -1,6 +1,7 @@
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { CliExecutionPolicy, DEFAULT_CLI_POLICY, mergeCliPolicy } from './config';
+import { sanitizeCliOutput } from './security/sanitize';
 
 const execFileAsync = promisify(execFile);
 
@@ -29,6 +30,7 @@ export interface BdCliClientOptions {
   env?: NodeJS.ProcessEnv;
   policy?: Partial<CliExecutionPolicy>;
   workspacePaths?: string[];
+  worktreeId?: string;
   maxBufferBytes?: number;
   execImplementation?: (command: string, args: string[], options: ExecOptions) => Promise<BdCliResult>;
 }
@@ -49,6 +51,7 @@ export interface ExecCliOptions {
   policy: CliExecutionPolicy;
   maxBuffer?: number;
   workspacePaths?: string[];
+  worktreeId?: string;
   execImplementation?: BdCliClientOptions['execImplementation'];
 }
 
@@ -106,24 +109,15 @@ export function collectCliErrorOutput(error: unknown): string {
   return parts.map((p) => p.trim()).filter(Boolean).join(' ');
 }
 
-export function sanitizeCliOutput(raw: string, workspacePaths: string[] = []): string {
-  if (!raw) return raw;
-  return workspacePaths.reduce((current, workspacePath) => {
-    if (!workspacePath) return current;
-    const escaped = workspacePath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    return current.replace(new RegExp(escaped, 'g'), '<workspace>');
-  }, raw);
-}
-
-export function formatCliError(prefix: string, error: unknown, workspacePaths: string[] = []): string {
+export function formatCliError(prefix: string, error: unknown, workspacePaths: string[] = [], worktreeId?: string): string {
   const combined = collectCliErrorOutput(error);
-  const sanitized = sanitizeCliOutput(combined || String(error ?? ''), workspacePaths);
+  const sanitized = sanitizeCliOutput(combined || String(error ?? ''), { workspacePaths, worktreeId });
   const message = sanitized.trim();
   return message ? `${prefix}: ${message}` : prefix;
 }
 
 export async function execCliWithPolicy(options: ExecCliOptions): Promise<BdCliResult> {
-  const { commandPath, args, cwd, env, policy, maxBuffer, workspacePaths, execImplementation } = options;
+  const { commandPath, args, cwd, env, policy, maxBuffer, workspacePaths, worktreeId, execImplementation } = options;
   const started = Date.now();
   let attempt = 0;
   let lastError: unknown;
@@ -149,13 +143,13 @@ export async function execCliWithPolicy(options: ExecCliOptions): Promise<BdCliR
       if (elapsed >= policy.offlineThresholdMs) {
         const offlineMessage = sanitizeCliOutput(
           collectCliErrorOutput(error) || 'bd command exceeded offline detection threshold',
-          workspacePaths
+          { workspacePaths, worktreeId }
         );
         throw new BdCliError(offlineMessage, 'offline', (error as any)?.stdout, (error as any)?.stderr);
       }
 
       if (attempt > policy.retryCount || !isRetriableError(error)) {
-        const combined = sanitizeCliOutput(collectCliErrorOutput(error), workspacePaths);
+        const combined = sanitizeCliOutput(collectCliErrorOutput(error), { workspacePaths, worktreeId });
         const kind: BdCliErrorKind = isTimeoutError(error)
           ? 'timeout'
           : CYCLE_PATTERN.test(combined)
@@ -195,6 +189,10 @@ export class BdCliClient {
     return workspacePaths ?? this.defaults.workspacePaths ?? [];
   }
 
+  private resolveWorktreeId(worktreeId?: string): string | undefined {
+    return worktreeId ?? this.defaults.worktreeId;
+  }
+
   async run(args: string[], options: BdCliRunOptions = {}): Promise<BdCliResult> {
     const policy = this.resolvePolicy(options.policy);
     const commandPath = this.resolveCommandPath(options.commandPath);
@@ -207,6 +205,7 @@ export class BdCliClient {
       policy,
       maxBuffer: options.maxBufferBytes ?? this.defaults.maxBufferBytes ?? policy.maxBufferBytes,
       workspacePaths: this.resolveWorkspacePaths(options.workspacePaths),
+      worktreeId: this.resolveWorktreeId(options.worktreeId),
       execImplementation: options.execImplementation ?? this.defaults.execImplementation,
     });
   }

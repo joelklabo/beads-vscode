@@ -77,6 +77,7 @@ import { getBulkActionsConfig } from './utils/config';
 import { registerSendFeedbackCommand } from './commands/sendFeedback';
 import { buildDependencyGraphHtml } from './graph/view';
 import { DependencyTreeProvider } from './dependencyTreeProvider';
+import { currentWorktreeId } from './worktree';
 
 const execFileAsync = promisify(execFile);
 const t = vscode.l10n.t;
@@ -136,6 +137,31 @@ async function runWorktreeGuard(projectRoot: string): Promise<void> {
   await execFileAsync(guardPath, { cwd: projectRoot });
 }
 
+async function ensureWorkspaceTrusted(workspaceFolder?: vscode.WorkspaceFolder): Promise<void> {
+  if (vscode.workspace.isTrusted) {
+    return;
+  }
+
+  const isTestEnv = process.env.NODE_ENV === 'test' || process.env.VSCODE_TEST === 'true' || !!process.env.VSCODE_TEST_INSTANCE_ID;
+  const requestTrust = (vscode.workspace as any).requestWorkspaceTrust;
+
+  if (vscode.workspace.isTrusted || isTestEnv || typeof requestTrust !== 'function') {
+    return;
+  }
+
+  const trustLabel = t('Trust workspace');
+  const message = t('Beads needs a trusted workspace before it can modify issues.');
+  const choice = await vscode.window.showWarningMessage(message, trustLabel, t('Cancel'));
+  if (choice === trustLabel) {
+    const granted = await requestTrust.call(vscode.workspace);
+    if (granted || vscode.workspace.isTrusted) {
+      return;
+    }
+  }
+
+  throw new Error(t('Operation blocked: workspace is not trusted.'));
+}
+
 async function warnIfDependencyEditingUnsupported(workspaceFolder?: vscode.WorkspaceFolder): Promise<void> {
   const config = vscode.workspace.getConfiguration('beads', workspaceFolder);
   if (!config.get<boolean>('enableDependencyEditing', false) || dependencyVersionWarned) {
@@ -166,8 +192,9 @@ interface BdCommandOptions {
 // Surface bd stderr to users while redacting workspace paths to avoid leaking secrets.
 function formatBdError(prefix: string, error: unknown, projectRoot?: string): string {
   const workspacePaths = projectRoot ? [projectRoot] : [];
+  const worktreeId = projectRoot ? currentWorktreeId(projectRoot) : undefined;
   const combined = collectCliErrorOutput(error);
-  const sanitized = sanitizeErrorMessage(combined || error, workspacePaths);
+  const sanitized = sanitizeErrorMessage(combined || error, workspacePaths, worktreeId);
   return sanitized ? `${prefix}: ${sanitized}` : prefix;
 }
 
@@ -178,6 +205,8 @@ function resolveBeadId(input: any): string | undefined {
 async function runBdCommand(args: string[], projectRoot: string, options: BdCommandOptions = {}): Promise<void> {
   const workspaceFolder = options.workspaceFolder ?? vscode.workspace.getWorkspaceFolder(vscode.Uri.file(projectRoot));
   const requireGuard = options.requireGuard !== false;
+
+  await ensureWorkspaceTrusted(workspaceFolder);
 
   if (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0 && !workspaceFolder) {
     throw new Error(t('Project root {0} is not within an open workspace folder', projectRoot));
@@ -191,11 +220,13 @@ async function runBdCommand(args: string[], projectRoot: string, options: BdComm
   const commandPathSetting = config.get<string>('commandPath', 'bd');
   const commandPath = await findBdCommand(commandPathSetting);
   const cliPolicy = getCliExecutionConfig(config);
+  const worktreeId = currentWorktreeId(projectRoot);
   const client = new BdCliClient({
     commandPath,
     cwd: projectRoot,
     policy: cliPolicy,
     workspacePaths: [projectRoot],
+    worktreeId,
   });
 
   await client.run(args);
