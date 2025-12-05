@@ -678,7 +678,7 @@
     "bd": "./scripts/bd-wrapper.sh",
     "package": "vsce package",
     "publish": "vsce publish",
-    "install-local": "npm run package && \"/Applications/Visual Studio Code - Insiders.app/Contents/Resources/app/bin/code\" --install-extension beads-vscode-*.vsix --force",
+    "install-local": "npm run package && ./scripts/install-local.sh",
     "test:harness": "bash ./scripts/agent-harness/run-placeholder.sh",
     "test:tui:smoke": "echo 'TODO: add TUI smoke test' && exit 0",
     "test:web:skeleton": "echo 'Playwright skeleton disabled' && exit 0",
