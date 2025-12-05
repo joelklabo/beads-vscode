@@ -17,6 +17,7 @@
   "command.beads.activityFeed.openSelected": "Beads: Open Selected Activity Feed Item (Space)",
   "command.beads.openActivityFeedPanel": "Beads: Open Activity Feed Panel (full view)",
   "command.beads.deleteBeads": "Beads: Delete (Del/Backspace)",
+  "command.beads.exportCsv": "Beads: Export to CSV (selection or view)",
   "command.beads.exportMarkdown": "Beads: Export to Markdown (selection or view)",
   "command.beads.inlineStatusChange": "Beads: Change Status (Inline)",
   "webview.dependencyTree.title": "Beads Dependency Tree",

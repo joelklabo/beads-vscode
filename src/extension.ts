@@ -15,6 +15,8 @@ import {
   warnIfDependencyEditingUnsupported as warnIfDependencyEditingUnsupportedCli,
   writeBeadsMarkdownFile,
   MarkdownExportHeaders,
+  writeBeadsCsvFile,
+  CsvExportHeaders,
   canTransition,
   formatStatusLabel,
   buildBulkSelection,
@@ -3457,6 +3459,66 @@ async function openActivityFeedPanel(activityFeedProvider: ActivityFeedTreeDataP
   });
 }
 
+async function exportBeadsCsv(provider: BeadsTreeDataProvider, treeView: vscode.TreeView<TreeItemType>): Promise<void> {
+  const config = vscode.workspace.getConfiguration('beads');
+  const featureEnabled = config.get<boolean>('exportCsv.enabled', false);
+
+  if (!featureEnabled) {
+    void vscode.window.showInformationMessage(
+      t('Enable the "beads.exportCsv.enabled" setting to export beads to CSV.')
+    );
+    return;
+  }
+
+  const selectedBeads = treeView.selection
+    .filter((item): item is BeadTreeItem => item instanceof BeadTreeItem)
+    .map((item) => item.bead);
+
+  const beadsToExport = selectedBeads.length > 0 ? selectedBeads : provider.getVisibleBeads();
+
+  if (!beadsToExport || beadsToExport.length === 0) {
+    void vscode.window.showInformationMessage(t('No beads to export. Adjust your selection or filters and try again.'));
+    return;
+  }
+
+  const defaultWorkspace = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  const defaultUri = defaultWorkspace
+    ? vscode.Uri.file(path.join(defaultWorkspace, 'beads-export.csv'))
+    : undefined;
+
+  const saveUri = await vscode.window.showSaveDialog({
+    defaultUri,
+    filters: { CSV: ['csv'], 'All Files': ['*'] },
+    saveLabel: t('Export'),
+  });
+
+  if (!saveUri) {
+    return;
+  }
+
+  const headers: CsvExportHeaders = {
+    id: t('ID'),
+    title: t('Title'),
+    status: t('Status'),
+    type: t('Type'),
+    labels: t('Labels'),
+    updated: t('Updated'),
+  };
+
+  try {
+    await writeBeadsCsvFile(beadsToExport, headers, saveUri.fsPath, {
+      delimiter: config.get<string>('exportCsv.delimiter', ','),
+      includeBom: config.get<boolean>('exportCsv.includeBom', false),
+    });
+    void vscode.window.showInformationMessage(
+      t('Exported {0} bead(s) to {1}', beadsToExport.length, path.basename(saveUri.fsPath))
+    );
+  } catch (error) {
+    console.error('Failed to export beads', error);
+    void vscode.window.showErrorMessage(formatError(t('Failed to export beads'), error));
+  }
+}
+
 async function exportBeadsMarkdown(provider: BeadsTreeDataProvider, treeView: vscode.TreeView<TreeItemType>): Promise<void> {
   const config = vscode.workspace.getConfiguration('beads');
   const featureEnabled = config.get<boolean>('exportMarkdown.enabled', false);
@@ -3911,6 +3973,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('beads.addDependency', (item?: BeadItemData) => addDependencyCommand(provider, item)),
     vscode.commands.registerCommand('beads.removeDependency', (item?: BeadItemData) => removeDependencyCommand(provider, undefined, { contextId: item?.id })),
     vscode.commands.registerCommand('beads.visualizeDependencies', () => visualizeDependencies(provider)),
+    vscode.commands.registerCommand('beads.exportCsv', () => exportBeadsCsv(provider, treeView)),
     vscode.commands.registerCommand('beads.exportMarkdown', () => exportBeadsMarkdown(provider, treeView)),
     vscode.commands.registerCommand('beads.bulkUpdateStatus', () => bulkUpdateStatus(provider, treeView)),
     vscode.commands.registerCommand('beads.toggleFavorite', () => toggleFavorites(provider, treeView, context)),
