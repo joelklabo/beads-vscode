@@ -575,7 +575,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     const thresholdHours = thresholdMinutes / 60;
     
     // Find stale items
-    const staleItems = items.filter(item => isStale(item, thresholdHours));
+    const staleItems = items.filter(item => item.status !== 'closed' && isStale(item, thresholdHours));
     
     // Group items by status
     const grouped: Record<string, BeadItemData[]> = {};
@@ -632,7 +632,9 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     const thresholdHours = thresholdMinutes / 60;
     
     // Find stale items so we can surface them above the tree (tasks only)
-    const staleItems = items.filter(item => item.issueType !== 'epic' && isStale(item, thresholdHours));
+    const staleItems = items.filter(
+      item => item.issueType !== 'epic' && item.status !== 'closed' && isStale(item, thresholdHours)
+    );
     
     // Build maps for epics and their children
     const epicMap = new Map<string, BeadItemData>();
@@ -677,12 +679,14 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     const sortedEpics = Array.from(epicMap.values()).sort(naturalSort);
     sortedEpics.forEach(epic => {
       const children = childrenMap.get(epic.id) || [];
-      if (children.length === 0) {
+      const status = epic.status || 'open';
+      const epicItem = new EpicTreeItem(epic, children, this.collapsedEpics.get(epic.id) === true);
+
+      if (children.length === 0 && status !== 'closed') {
         emptyEpics.push(epic);
         return;
       }
-      const epicItem = new EpicTreeItem(epic, children, this.collapsedEpics.get(epic.id) === true);
-      const status = epic.status || 'open';
+
       if (!statusBuckets[status]) {
         statusBuckets[status] = [];
       }
