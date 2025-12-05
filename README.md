@@ -4,7 +4,7 @@
 ![Beads VS Code Extension](beads-visual.png)
 
 [![Test status](https://github.com/joelklabo/beads-vscode/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/joelklabo/beads-vscode/actions/workflows/test.yml)
-[![Coverage](https://img.shields.io/badge/coverage-local--run-lightgrey)](docs/ci.md#coverage)
+[![Coverage](https://codecov.io/gh/joelklabo/beads-vscode/branch/main/graph/badge.svg)](https://codecov.io/gh/joelklabo/beads-vscode)
 
 This Visual Studio Code extension provides a simple explorer view for [Beads](https://github.com/steveyegge/beads) projects so that you can manage your beads without leaving the editor.
 
