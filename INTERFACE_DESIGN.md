@@ -419,3 +419,11 @@ User collapse/expand choices persist and override defaults on subsequent loads. 
 - Empty closed epics are hidden; empty open epics show a single placeholder row.
 - Ungrouped items (no parentId) remain in an expanded "Ungrouped" section.
 - Manual sort order is unchanged after toggling collapse states or switching between status/epic modes.
+
+## Filter & Assignee UX Contract (beads-0c6)
+- Surfaces: primary filter control lives in the Beads toolbar as chips (aria-pressed toggles) with a command palette mirror; label pattern `Filter: <mode>` where mode is `Issues`, `Epics`, `Favorites`, etc.
+- Mode clarity: toolbar tooltips describe scope (e.g., "Issues only" vs "Epics + children"); quick pick groups options by category with a short one-line hint per entry.
+- Assignee badges: text-only pill showing display name + status dot; fallback label `Unassigned`; case-insensitive sorting with unassigned last; truncate to ~18 chars with full name in tooltip.
+- Expand/collapse affordance: chevron button (aria-expanded) on each row to reveal metadata (labels, priority, updated-at, external refs) without changing selection; keyboard: Space/Enter toggles, Left/Right collapse/expand.
+- Accessibility: chips are `button` with `aria-pressed`, rows expose `aria-level` and `aria-expanded`; focus order is toolbar → list → expanded metadata. All labels/assignees are HTML-escaped and sanitized before render.
+- See `docs/filters-assignee.md` for detailed states, sorting keys, and copy blocks.
