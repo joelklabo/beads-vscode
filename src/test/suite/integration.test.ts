@@ -5,7 +5,7 @@ import * as os from 'os';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import * as vscode from 'vscode';
-import { BeadItemData, normalizeBead } from '../../utils/beads';
+import { BeadItemData, normalizeBead } from '@beads/core';
 import { getStaleInfo, isStale } from '../../utils/stale';
 import { BeadsTreeDataProvider, EpicTreeItem, UngroupedSectionItem, BeadTreeItem } from '../../extension';
 import { EpicStatusSectionItem } from '../../providers/beads/items';

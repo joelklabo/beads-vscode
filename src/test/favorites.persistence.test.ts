@@ -1,7 +1,7 @@
 import * as assert from 'assert';
 import Module = require('module');
 import { syncFavoritesState } from '../utils/favorites';
-import { BeadItemData } from '../utils/beads';
+import { BeadItemData } from '@beads/core';
 
 function createContext(seed: string[] = []) {
   const store = new Map<string, any>([['beads.favorites.local', seed]]);

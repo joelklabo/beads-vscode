@@ -24,6 +24,8 @@ import {
   CsvExportHeaders,
   validateStatusChange,
   formatStatusLabel,
+  compareStatus,
+  formatPriorityLabel,
   buildBulkSelection,
   executeBulkStatusUpdate,
   executeBulkLabelUpdate,
@@ -1822,24 +1824,14 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   }
 
   private sortByStatus(items: BeadItemData[]): BeadItemData[] {
-    // Define status priority order: open first, then in_progress, blocked, closed last
-    const statusPriority: Record<string, number> = {
-      'open': 0,
-      'in_progress': 1,
-      'blocked': 2,
-      'closed': 3
-    };
-
     return [...items].sort((a, b) => {
       const statusA = a.status || 'open';
       const statusB = b.status || 'open';
 
-      const priorityA = statusPriority[statusA] ?? 4;
-      const priorityB = statusPriority[statusB] ?? 4;
-
       // First sort by status priority
-      if (priorityA !== priorityB) {
-        return priorityA - priorityB;
+      const statusCompare = compareStatus(statusA, statusB);
+      if (statusCompare !== 0) {
+        return statusCompare;
       }
 
       // Then sort by ID naturally within each status group
@@ -2039,7 +2031,7 @@ function getBeadDetailHtml(
     'closed': '#73c991'
   }[item.status || 'open'] || '#666';
 
-  const priorityLabel = ['', 'P1', 'P2', 'P3', 'P4'][priority] || '';
+  const priorityLabel = formatPriorityLabel(priority);
 
   const getStatusLabel = (status?: string): string => {
     if (!status) {

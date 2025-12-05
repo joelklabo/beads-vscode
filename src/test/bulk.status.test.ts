@@ -1,7 +1,7 @@
 import * as assert from 'assert';
 import Module = require('module');
 import { buildBulkSelection, executeBulkStatusUpdate } from '../utils/bulk';
-import { BeadItemData } from '../utils/beads';
+import { BeadItemData } from '@beads/core';
 
 describe('Bulk status helpers', () => {
   it('dedupes selection and enforces max selection', () => {
