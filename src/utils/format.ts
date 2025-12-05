@@ -1,5 +1,7 @@
 import { BeadItemData } from './beads';
 import { redactLogContent } from './fs';
+import { formatStatusLabel } from './status';
+import { buildAssigneeSortKey } from './filters';
 
 export function formatError(prefix: string, error: unknown): string {
   if (error instanceof Error) {
@@ -133,4 +135,29 @@ export function sanitizeErrorMessage(error: unknown, workspacePaths: string[] = 
 export function formatSafeError(prefix: string, error: unknown, workspacePaths: string[] = []): string {
   const sanitized = sanitizeErrorMessage(error, workspacePaths);
   return sanitized ? `${prefix}: ${sanitized}` : prefix;
+}
+
+export interface ExpandedMetadata {
+  assigneeLabel: string;
+  assigneeSortKey: string;
+  statusLabel: string;
+  labels: string[];
+  priority?: string;
+  updatedRelative: string;
+}
+
+export function formatExpandedMetadata(bead: BeadItemData): ExpandedMetadata {
+  const statusLabel = bead.status ? formatStatusLabel(bead.status) : '';
+  const assigneeLabel = bead.assigneeInfo?.name || bead.assignee || 'Unassigned';
+  const assigneeSortKey = bead.assigneeInfo?.sortKey || buildAssigneeSortKey(bead.assignee);
+  const labels = bead.tags ?? [];
+  const updatedRelative = formatRelativeTime(bead.updatedAt);
+  return {
+    assigneeLabel,
+    assigneeSortKey,
+    statusLabel,
+    labels,
+    priority: bead.priority,
+    updatedRelative,
+  };
 }

@@ -6,8 +6,11 @@ import {
   normalizeBead,
   pickFirstKey,
   pickTags,
-  pickValue
+  pickValue,
+  deriveAssigneeInfo
 } from '../../utils/beads';
+import { buildAssigneeSortKey } from '../../utils/filters';
+import { formatExpandedMetadata } from '../../utils/format';
 import { resolveDataFilePath } from '../../utils/fs';
 import { DEFAULT_STALE_THRESHOLD_HOURS, getStaleInfo, isStale } from '../../utils/stale';
 import { escapeHtml, formatError, formatRelativeTime, linkifyText } from '../../utils/format';

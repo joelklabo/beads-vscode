@@ -6,6 +6,13 @@ export type QuickFilterPreset =
   | { kind: 'label'; value?: string }
   | { kind: 'stale' };
 
+export function buildAssigneeSortKey(name?: string): string {
+  if (!name || name.trim().length === 0) {
+    return '~unassigned';
+  }
+  return name.trim().toLowerCase();
+}
+
 export function applyQuickFilter(items: BeadItemData[], preset?: QuickFilterPreset): BeadItemData[] {
   if (!preset) {
     return items;

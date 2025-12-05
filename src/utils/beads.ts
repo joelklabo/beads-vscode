@@ -21,7 +21,26 @@ export interface BeadItemData {
   parentId?: string;
   /** Number of child issues (for epics) */
   childCount?: number;
+
+  /** Optional priority value if present on the item */
+  priority?: string;
+
+  /**
+   * Optional assignee display info (normalized for badges/sorting).
+   * name: displayable label; fallbackName: placeholder like "Unassigned" when missing; sortKey: case-insensitive key with unassigned last.
+   */
+  assigneeInfo?: AssigneeInfo;
 }
+
+export interface AssigneeInfo {
+  name: string; // display name or sanitized id
+  fallbackName: string; // e.g., "Unassigned"
+  sortKey: string; // lowercase name, or sentinel to push unassigned last
+  raw?: string; // original value if available
+}
+
+const UNASSIGNED_LABEL = 'Unassigned';
+const UNASSIGNED_SORT_SENTINEL = '~unassigned';
 
 export function pickValue(entry: any, keys: string[], fallback?: string): string | undefined {
   if (!entry || typeof entry !== 'object') {
@@ -107,6 +126,25 @@ export function pickAssignee(entry: any): string | undefined {
   return undefined;
 }
 
+export function deriveAssigneeInfo(rawAssignee?: string): AssigneeInfo {
+  const trimmed = typeof rawAssignee === 'string' ? rawAssignee.trim() : '';
+  if (!trimmed) {
+    return {
+      name: UNASSIGNED_LABEL,
+      fallbackName: UNASSIGNED_LABEL,
+      sortKey: UNASSIGNED_SORT_SENTINEL,
+    };
+  }
+
+  const name = trimmed;
+  return {
+    name,
+    fallbackName: name,
+    sortKey: name.toLowerCase(),
+    raw: rawAssignee,
+  };
+}
+
 export function normalizeBead(entry: any, index = 0): BeadItemData {
   const { value: id, key: idKey } = pickFirstKey(entry, ['id', 'uuid', 'beadId']);
   const title = pickValue(entry, ['title', 'name'], id ?? `bead-${index}`) ?? `bead-${index}`;
@@ -115,6 +153,8 @@ export function normalizeBead(entry: any, index = 0): BeadItemData {
   const status = pickValue(entry, ['status', 'state']);
   const tags = pickTags(entry);
   const assignee = pickAssignee(entry);
+  const priority = pickPriority(entry);
+  const assigneeInfo = deriveAssigneeInfo(assignee);
   const updatedAt = pickValue(entry, ['updated_at', 'updatedAt', 'modified_at', 'modifiedAt']);
   const issueType = pickValue(entry, ['issue_type', 'issueType', 'type']);
   const { value: externalReferenceRaw, key: externalReferenceKey } = pickFirstKey(entry, [
@@ -156,6 +196,8 @@ export function normalizeBead(entry: any, index = 0): BeadItemData {
     status,
     tags,
     assignee,
+    assigneeInfo,
+    priority,
     updatedAt,
     externalReferenceId,
     externalReferenceDescription,
@@ -220,4 +262,8 @@ export function stripBeadIdPrefix(title: string, id: string): string {
   }
 
   return normalizedTitle;
+}
+
+export function pickPriority(entry: any): string | undefined {
+  return pickValue(entry, ['priority', 'prio', 'p'], undefined);
 }
