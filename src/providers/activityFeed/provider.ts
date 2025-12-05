@@ -8,6 +8,7 @@ import {
   createStatisticItems,
   createTimeGroups,
   StatisticsSectionItem,
+  TimeGroupItem,
 } from './items';
 import ActivityFeedStore, { TimeRange } from './store';
 
@@ -35,8 +36,8 @@ export class ActivityFeedTreeDataProvider implements vscode.TreeDataProvider<Act
       return createStatisticItems(element.statistics);
     }
 
-    if (element instanceof ActivityEventItem) {
-      return [];
+    if (element instanceof TimeGroupItem) {
+      return element.events.map((event) => new ActivityEventItem(event, event.worktreeId));
     }
 
     if (element) {

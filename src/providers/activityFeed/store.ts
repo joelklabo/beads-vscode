@@ -20,7 +20,7 @@ export interface ActivityStatistics {
 export class ActivityFeedStore {
   private events: EventData[] = [];
   private totalEvents = 0;
-  private pageSize = 100;
+  private pageSize = 200;
   private currentPage = 0;
   private filterEventTypes: EventType[] | undefined;
   private filterIssueId: string | undefined;
