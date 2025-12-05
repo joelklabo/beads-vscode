@@ -10,3 +10,4 @@ export * from './utils/environment';
 export * from './utils/cli';
 export * from './utils/dependencies';
 export * from './utils/markdown';
+export * from './utils/favorites';
