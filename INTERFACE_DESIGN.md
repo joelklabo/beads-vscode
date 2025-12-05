@@ -427,3 +427,11 @@ User collapse/expand choices persist and override defaults on subsequent loads. 
 - Expand/collapse affordance: chevron button (aria-expanded) on each row to reveal metadata (labels, priority, updated-at, external refs) without changing selection; keyboard: Space/Enter toggles, Left/Right collapse/expand.
 - Accessibility: chips are `button` with `aria-pressed`, rows expose `aria-level` and `aria-expanded`; focus order is toolbar → list → expanded metadata. All labels/assignees are HTML-escaped and sanitized before render.
 - See `docs/filters-assignee.md` for detailed states, sorting keys, and copy blocks.
+
+## install-local reload flow (beads-5g4)
+- Goal: after `npm run install-local`, reload the active VS Code window so the newly installed VSIX is active without manual action.
+- Trigger: shell script invoked by npm script runs the VS Code CLI command `workbench.action.reloadWindow`.
+- Binary resolution order: use env `VSCODE_BIN` when set; otherwise prefer `code-insiders`, then `code`; emit a warning if no CLI is found but do not fail the install.
+- Opt-out: env `NO_RELOAD_AFTER_INSTALL_LOCAL=1` skips reload while leaving install behavior unchanged.
+- Safety: reload is attempted only after the VSIX install succeeds; errors during reload are surfaced as warnings (non-fatal).
+- Compatibility: works for stable and insiders; no assumptions about window focus beyond the active window the CLI targets.
