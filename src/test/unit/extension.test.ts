@@ -186,4 +186,41 @@ describe('Extension tree items', () => {
 
     provider.dispose();
   });
+
+  it('epic root sections order warning → in_progress → open → blocked → closed with empty epics in warning', async () => {
+    const context = createContextStub();
+    const provider = new BeadsTreeDataProvider(context as any);
+    const now = Date.now();
+    (provider as any).items = [
+      { id: 'epic-empty', title: 'No children', issueType: 'epic', status: 'closed' },
+      { id: 'epic-open', title: 'Open epic', issueType: 'epic', status: 'open' },
+      { id: 'epic-progress', title: 'Working epic', issueType: 'epic', status: 'in_progress' },
+      { id: 'epic-blocked', title: 'Blocked epic', issueType: 'epic', status: 'blocked' },
+      { id: 'task-stale', title: 'Stale task', issueType: 'task', status: 'in_progress', inProgressSince: new Date(now - 60 * 60 * 1000).toISOString(), parentId: 'epic-progress' },
+      { id: 'task-open', title: 'Child open', issueType: 'task', status: 'open', parentId: 'epic-open' },
+      { id: 'task-blocked', title: 'Child blocked', issueType: 'task', status: 'blocked', parentId: 'epic-blocked' },
+    ];
+    (provider as any).sortMode = 'epic';
+
+    const roots = await provider.getChildren();
+    const orderLabels = roots.map((r: any) => r.contextValue === 'warningSection' ? 'warning' : (r.status || r.contextValue));
+    assert.deepStrictEqual(orderLabels, ['warning', 'in_progress', 'open', 'blocked']);
+
+    const warning = roots.find((r: any) => r.contextValue === 'warningSection');
+    assert.ok(warning);
+    const warningIds = warning!.beads.map((b: any) => b.id).sort();
+    assert.deepStrictEqual(warningIds, ['epic-empty', 'task-stale']);
+
+    const progressSection = roots.find((r: any) => r.contextValue === 'epicStatusSection' && r.status === 'in_progress') as any;
+    const progressChildren = await provider.getChildren(progressSection);
+    assert.ok(progressChildren.some((n: any) => n.epic.id === 'epic-progress'), 'in_progress section should include non-empty epics only');
+
+    const closedSection = roots.find((r: any) => r.contextValue === 'epicStatusSection' && r.status === 'closed') as any;
+    if (closedSection) {
+      const closedChildren = await provider.getChildren(closedSection);
+      assert.ok(!closedChildren.some((n: any) => n.epic.id === 'epic-empty'), 'empty epic must not appear outside warning');
+    }
+
+    provider.dispose();
+  });
 });
