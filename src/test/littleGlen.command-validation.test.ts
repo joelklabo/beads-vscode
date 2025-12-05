@@ -48,6 +48,18 @@ describe('Little Glen command validation', () => {
     assert.strictEqual(msg, undefined);
   });
 
+  it('accepts deleteBead with valid id', () => {
+    const msg = validateLittleGlenMessage({ command: 'deleteBead', beadId: 'TASK-1' }, ['deleteBead']);
+    assert.ok(msg);
+    assert.strictEqual(msg!.command, 'deleteBead');
+    assert.strictEqual((msg as any).beadId, 'TASK-1');
+  });
+
+  it('rejects deleteBead with invalid id', () => {
+    const msg = validateLittleGlenMessage({ command: 'deleteBead', beadId: 'bad id' }, ['deleteBead']);
+    assert.strictEqual(msg, undefined);
+  });
+
   it('validates bead id helper', () => {
     assert.ok(isValidBeadId('ABC_123-xyz'));
     assert.ok(!isValidBeadId(''));

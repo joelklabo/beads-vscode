@@ -11,7 +11,8 @@ export type LittleGlenCommand =
   | { command: 'updateTitle'; title: string }
   | { command: 'addLabel' | 'removeLabel'; label: string }
   | { command: 'addDependency'; issueId?: string; sourceId?: string; targetId?: string }
-  | { command: 'removeDependency'; sourceId?: string; targetId?: string; contextId?: string };
+  | { command: 'removeDependency'; sourceId?: string; targetId?: string; contextId?: string }
+  | { command: 'deleteBead'; beadId?: string };
 
 export type AllowedLittleGlenCommand = LittleGlenCommand['command'];
 
@@ -115,6 +116,13 @@ export function validateLittleGlenMessage(
         && (contextId === undefined || isValidBeadId(contextId));
       if (idsValid) {
         return { command, sourceId, targetId, contextId };
+      }
+      return undefined;
+    }
+    case 'deleteBead': {
+      const beadId = (message as any).beadId;
+      if (beadId === undefined || isValidBeadId(beadId)) {
+        return { command, beadId };
       }
       return undefined;
     }
