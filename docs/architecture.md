@@ -50,6 +50,7 @@ graph TD
 - Build per surface: `npm run build:core`, `npm run build:vscode`, `npm run build:tui`, `npm run build:web` (web build skips when the workspace is absent).
 - Tests: `npm run test:unit` (VS Code), `npm run test:core`, `npm run test:tui`, `npm run test:web:skeleton`, `npm run test:all` for the full sweep. CI entrypoints mirror these (`ci:*`).
 - Temp/test artifacts live under `tmp/`; clean with `npm run test:clean-temp`.
+- TUI visual regression plan: see `docs/design/tui-visual-testing.md`; when enabled, use `npm run test:tui:visual` (or `-- --update` to refresh baselines) gated by `TUI_VISUAL_ENABLED` to avoid slowing default CI.
 
 ## Safety & security
 - All bd invocations must include `--no-daemon` (BdCliClient injects it and sanitizes stderr). Worktree guard scripts run before mutating commands when enabled.
