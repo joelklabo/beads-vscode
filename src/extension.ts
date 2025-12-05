@@ -3758,7 +3758,8 @@ async function exportBeadsMarkdown(provider: BeadsTreeDataProvider, treeView: vs
 
 async function bulkUpdateStatus(
   provider: BeadsTreeDataProvider,
-  treeView: vscode.TreeView<TreeItemType>
+  treeView: vscode.TreeView<TreeItemType>,
+  runCommand: RunBdCommandFn = runBdCommand
 ): Promise<void> {
   const bulkConfig = getBulkActionsConfig();
 
@@ -3818,7 +3819,7 @@ async function bulkUpdateStatus(
         ids,
         statusPick.value,
         async (id) => {
-          await runBdCommand(['update', id, '--status', statusPick.value], projectRoot);
+          await runCommand(['update', id, '--status', statusPick.value], projectRoot);
         },
         (completed, total) => {
           progress.report({ message: t('{0}/{1} updated', completed, total) });
@@ -4107,12 +4108,20 @@ export function activate(context: vscode.ExtensionContext): void {
   // Set tree view reference for badge updates
   provider.setTreeView(treeView);
 
+  const updateBulkSelectionContext = (): void => {
+    const hasSelection = treeView.selection.some((item): item is BeadTreeItem => item instanceof BeadTreeItem);
+    void vscode.commands.executeCommand('setContext', 'beads.bulkActionsHasSelection', hasSelection);
+  };
+
   // Track expand/collapse to update icons and persist state
   const expandListener = treeView.onDidExpandElement(event => {
     provider.handleCollapseChange(event.element, false);
   });
   const collapseListener = treeView.onDidCollapseElement(event => {
     provider.handleCollapseChange(event.element, true);
+  });
+  const selectionListener = treeView.onDidChangeSelection(() => {
+    updateBulkSelectionContext();
   });
 
   // Create and register status bar item for stale count
@@ -4124,6 +4133,7 @@ export function activate(context: vscode.ExtensionContext): void {
     const bulkConfig = getBulkActionsConfig();
     void vscode.commands.executeCommand('setContext', 'beads.bulkActionsEnabled', bulkConfig.enabled);
     void vscode.commands.executeCommand('setContext', 'beads.bulkActionsMaxSelection', bulkConfig.maxSelection);
+    updateBulkSelectionContext();
   };
 
   const applyFavoritesContext = (): void => {
@@ -4168,6 +4178,7 @@ export function activate(context: vscode.ExtensionContext): void {
     treeView,
     expandListener,
     collapseListener,
+    selectionListener,
     activityFeedView,
     vscode.commands.registerCommand('beads.refresh', () => provider.refresh()),
     vscode.commands.registerCommand('beads.search', () => provider.search()),
@@ -4385,4 +4396,5 @@ export {
   collectDependencyEdges,
   addDependencyCommand,
   inlineStatusQuickChange,
+  bulkUpdateStatus,
 };

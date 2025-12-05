@@ -255,7 +255,7 @@
           },
           "additionalProperties": {
             "type": "string",
-            "markdownDescription": "Extra feedback type \u2192 label mappings (string)."
+            "markdownDescription": "Extra feedback type -> label mappings (string)."
           },
           "markdownDescription": "Map feedback types to GitHub labels. Leave a value empty to skip labeling for that type."
         },
@@ -379,7 +379,7 @@
         },
         {
           "command": "beads.bulkUpdateStatus",
-          "when": "view == beadsExplorer && beads.bulkActionsEnabled",
+          "when": "view == beadsExplorer && beads.bulkActionsEnabled && beads.bulkActionsHasSelection",
           "group": "navigation@9"
         },
         {
@@ -451,7 +451,7 @@
         },
         {
           "command": "beads.bulkUpdateStatus",
-          "when": "view == beadsExplorer && viewItem == bead && beads.bulkActionsEnabled",
+          "when": "view == beadsExplorer && viewItem == bead && beads.bulkActionsEnabled && beads.bulkActionsHasSelection",
           "group": "7_modification@2"
         },
         {
@@ -463,7 +463,7 @@
       "commandPalette": [
         {
           "command": "beads.bulkUpdateStatus",
-          "when": "beads.bulkActionsEnabled"
+          "when": "beads.bulkActionsEnabled && beads.bulkActionsHasSelection"
         },
         {
           "command": "beads.toggleFavorite",
