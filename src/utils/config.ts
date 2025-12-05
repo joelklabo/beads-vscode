@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { DEFAULT_CLI_POLICY, CliExecutionPolicy } from '@beads/core';
 
 export interface FeedbackLabelMap {
   bug?: string;
@@ -25,12 +26,8 @@ export interface BulkActionsConfig {
   validationError?: string;
 }
 
-export interface CliExecutionConfig {
-  timeoutMs: number;
-  retryCount: number;
-  retryBackoffMs: number;
-  offlineThresholdMs: number;
-}
+export interface CliExecutionConfig
+  extends Pick<CliExecutionPolicy, 'timeoutMs' | 'retryCount' | 'retryBackoffMs' | 'offlineThresholdMs'> {}
 
 const FEEDBACK_REPO_PATTERN = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
 
@@ -145,11 +142,16 @@ export function getCliExecutionConfig(
 ): CliExecutionConfig {
   const config = resolveConfig(configOrWorkspace);
 
-  const timeoutMs = clampNumber(config.get<number>('cli.timeoutMs', 15000), 15000, 1000, 120000);
-  const retryCount = clampNumber(config.get<number>('cli.retryCount', 1), 1, 0, 5);
-  const retryBackoffMs = clampNumber(config.get<number>('cli.retryBackoffMs', 500), 500, 0, 30000);
+  const timeoutMs = clampNumber(config.get<number>('cli.timeoutMs', DEFAULT_CLI_POLICY.timeoutMs), 15000, 1000, 120000);
+  const retryCount = clampNumber(config.get<number>('cli.retryCount', DEFAULT_CLI_POLICY.retryCount), 1, 0, 5);
+  const retryBackoffMs = clampNumber(
+    config.get<number>('cli.retryBackoffMs', DEFAULT_CLI_POLICY.retryBackoffMs),
+    500,
+    0,
+    30000
+  );
   const offlineThresholdMs = clampNumber(
-    config.get<number>('offlineDetection.thresholdMs', 30000),
+    config.get<number>('offlineDetection.thresholdMs', DEFAULT_CLI_POLICY.offlineThresholdMs),
     30000,
     5000,
     300000

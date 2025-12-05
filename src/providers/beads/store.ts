@@ -4,8 +4,8 @@ import { promises as fs } from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { promisify } from 'util';
-import { BeadItemData, extractBeads, normalizeBead } from '@beads/core';
-import { execCliWithPolicy, getCliExecutionConfig, resolveDataFilePath } from '../../utils';
+import { BdCliClient, BeadItemData, extractBeads, normalizeBead } from '@beads/core';
+import { getCliExecutionConfig, resolveDataFilePath } from '../../utils';
 
 const execFileAsync = promisify(execFile);
 
@@ -80,14 +80,8 @@ export async function loadBeads(
   try {
     const commandPath = await findBdCommand(configPath);
     const policy = getCliExecutionConfig(config);
-    const { stdout } = await execCliWithPolicy({
-      commandPath,
-      args: ['export'],
-      cwd: projectRoot,
-      policy,
-      maxBuffer: 10 * 1024 * 1024,
-      redactPaths: [projectRoot],
-    });
+    const client = new BdCliClient({ commandPath, cwd: projectRoot, policy, workspacePaths: [projectRoot] });
+    const { stdout } = await client.export({ maxBufferBytes: 10 * 1024 * 1024 });
 
     let beads: any[] = [];
     if (stdout && stdout.trim()) {
