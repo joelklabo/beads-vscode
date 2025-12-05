@@ -7,6 +7,7 @@ import {
   BeadItemData,
   formatError,
   formatSafeError,
+  sanitizeErrorMessage,
   escapeHtml,
   linkifyText,
   isStale,
@@ -63,7 +64,7 @@ import {
   naturalSort,
   saveBeadsDocument,
 } from './providers/beads/store';
-import { resolveProjectRoot } from './utils/workspace';
+import { resolveProjectRoot, getWorkspaceOptions, findWorkspaceById, loadSavedWorkspaceSelection, saveWorkspaceSelection } from './utils/workspace';
 import { computeFeedbackEnablement } from './feedback/enablement';
 import { getBulkActionsConfig } from './utils/config';
 import { registerSendFeedbackCommand } from './commands/sendFeedback';
@@ -343,9 +344,9 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
 
   private items: BeadItemData[] = [];
   private document: BeadsDocument | undefined;
-  private fileWatcher: vscode.FileSystemWatcher | undefined;
+  private fileWatchers: vscode.FileSystemWatcher[] = [];
   private watcherSubscriptions: vscode.Disposable[] = [];
-  private watchedFilePath: string | undefined;
+  private watchedFilePaths: Set<string> = new Set();
   private openPanels: Map<string, vscode.WebviewPanel> = new Map();
   private searchQuery: string = '';
   private refreshInProgress: boolean = false;
@@ -358,6 +359,10 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   private feedbackEnabled: boolean = false;
   private lastStaleCount: number = 0;
   private lastThresholdMinutes: number = 10;
+
+  // Workspace selection
+  private activeWorkspaceId: string = 'all';
+  private activeWorkspaceFolder: vscode.WorkspaceFolder | undefined;
 
   // Manual sort order: Map<issueId, sortIndex>
   private manualSortOrder: Map<string, number> = new Map();
@@ -379,6 +384,8 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     this.loadCollapsedSections();
     // Load quick filter preset
     this.loadQuickFilter();
+    // Restore workspace selection
+    this.restoreWorkspaceSelection();
     // Start periodic refresh for stale detection
     this.startStaleRefreshTimer();
   }
@@ -683,23 +690,46 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
 
     this.refreshInProgress = true;
     try {
-      const config = vscode.workspace.getConfiguration('beads');
-      const projectRoot = resolveProjectRoot(config);
-      if (!projectRoot) {
+      const workspaceFolders = vscode.workspace.workspaceFolders ?? [];
+      const targets = this.activeWorkspaceFolder ? [this.activeWorkspaceFolder] : workspaceFolders;
+
+      if (targets.length === 0) {
         this.items = [];
         this.document = undefined;
         this.onDidChangeTreeDataEmitter.fire();
         return;
       }
 
-      const result = await loadBeads(projectRoot, config);
-      this.items = result.items;
-      this.document = result.document;
+      const aggregatedItems: BeadItemData[] = [];
+      const documentPaths: string[] = [];
+      let primaryConfig: vscode.WorkspaceConfiguration | undefined;
+      let primaryDocument: BeadsDocument | undefined;
 
-      const favoritesEnabled = config.get<boolean>('favorites.enabled', false);
-      if (favoritesEnabled) {
-        const favoriteLabel = getFavoriteLabel(config);
-        const useLabelStorage = config.get<boolean>('favorites.useLabelStorage', true);
+      for (const folder of targets) {
+        const config = vscode.workspace.getConfiguration('beads', folder);
+        const projectRoot = resolveProjectRoot(config, folder);
+        if (!projectRoot) {
+          continue;
+        }
+        if (!primaryConfig) {
+          primaryConfig = config;
+        }
+        const result = await loadBeads(projectRoot, config);
+        aggregatedItems.push(...result.items);
+        documentPaths.push(result.document.filePath);
+        if (!primaryDocument) {
+          primaryDocument = result.document;
+        }
+      }
+
+      this.items = aggregatedItems;
+      this.document = primaryDocument;
+
+      const favoritesConfig = primaryConfig ?? vscode.workspace.getConfiguration('beads');
+      const favoritesEnabled = favoritesConfig.get<boolean>('favorites.enabled', false);
+      if (favoritesEnabled && this.items.length > 0) {
+        const favoriteLabel = getFavoriteLabel(favoritesConfig);
+        const useLabelStorage = favoritesConfig.get<boolean>('favorites.useLabelStorage', true);
         await syncFavoritesState({
           context: this.context,
           items: this.items,
@@ -710,7 +740,9 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
 
       console.log('[Provider DEBUG] After loadBeads, items count:', this.items.length);
       console.log('[Provider DEBUG] Items IDs:', this.items.map(i => i.id).slice(0, 10));
-      this.ensureWatcher(result.document.filePath);
+      if (documentPaths.length > 0) {
+        this.ensureWatcher(documentPaths);
+      }
 
       // Update badge with stale count
       this.updateBadge();
@@ -1094,47 +1126,56 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     }, 1000);
   }
 
-  private ensureWatcher(filePath: string): void {
-    if (this.watchedFilePath === filePath && this.fileWatcher) {
+  private ensureWatcher(filePaths: string | string[]): void {
+    const paths = Array.isArray(filePaths) ? filePaths : [filePaths];
+    const uniquePaths = new Set(paths.filter(Boolean));
+
+    if (uniquePaths.size === 0) {
+      this.disposeWatcher();
+      return;
+    }
+
+    const samePaths = uniquePaths.size === this.watchedFilePaths.size && [...uniquePaths].every(p => this.watchedFilePaths.has(p));
+    if (samePaths && this.fileWatchers.length > 0) {
       return;
     }
 
     this.disposeWatcher();
 
     try {
-      // Only watch the main .db file, not WAL/SHM files
-      // WAL files change constantly during normal SQLite operations and would cause excessive refreshes
-      // The main .db file only changes when WAL checkpoints occur or on direct writes
-      const pattern = new vscode.RelativePattern(filePath, '*.db');
-      const watcher = vscode.workspace.createFileSystemWatcher(pattern);
-      const onChange = watcher.onDidChange(() => this.debouncedRefresh());
-      const onCreate = watcher.onDidCreate(() => this.debouncedRefresh());
-      const onDelete = watcher.onDidDelete(async () => {
-        this.items = [];
-        this.document = undefined;
-        this.onDidChangeTreeDataEmitter.fire();
-      });
+      for (const filePath of uniquePaths) {
+        const pattern = new vscode.RelativePattern(filePath, '*.db');
+        const watcher = vscode.workspace.createFileSystemWatcher(pattern);
+        const onChange = watcher.onDidChange(() => this.debouncedRefresh());
+        const onCreate = watcher.onDidCreate(() => this.debouncedRefresh());
+        const onDelete = watcher.onDidDelete(async () => {
+          this.items = [];
+          this.document = undefined;
+          this.onDidChangeTreeDataEmitter.fire();
+        });
 
-      this.context.subscriptions.push(watcher, onChange, onCreate, onDelete);
-      this.fileWatcher = watcher;
-      this.watcherSubscriptions = [onChange, onCreate, onDelete];
-      this.watchedFilePath = filePath;
+        this.context.subscriptions.push(watcher, onChange, onCreate, onDelete);
+        this.fileWatchers.push(watcher);
+        this.watcherSubscriptions.push(onChange, onCreate, onDelete);
+      }
+      this.watchedFilePaths = uniquePaths;
     } catch (error) {
       console.warn('Failed to start watcher for beads database', error);
     }
   }
 
   private disposeWatcher(): void {
-    if (this.fileWatcher) {
-      this.fileWatcher.dispose();
-      this.fileWatcher = undefined;
+    for (const watcher of this.fileWatchers) {
+      watcher.dispose();
     }
+    this.fileWatchers = [];
     for (const subscription of this.watcherSubscriptions) {
       subscription.dispose();
     }
     this.watcherSubscriptions = [];
-    this.watchedFilePath = undefined;
+    this.watchedFilePaths = new Set();
   }
+
 
   // Drag and drop implementation
   async handleDrag(source: readonly TreeItemType[], dataTransfer: vscode.DataTransfer, _token: vscode.CancellationToken): Promise<void> {
@@ -1296,6 +1337,42 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   clearQuickFilter(): void {
     this.setQuickFilter(undefined);
     void vscode.window.showInformationMessage(t('Quick filters cleared'));
+  }
+
+
+  getActiveWorkspaceId(): string {
+    return this.activeWorkspaceId;
+  }
+
+  private applyWorkspaceSelection(selectionId?: string): void {
+    const workspaces = vscode.workspace.workspaceFolders ?? [];
+    const folder = findWorkspaceById(selectionId, workspaces);
+    if (folder) {
+      this.activeWorkspaceId = folder.uri.toString();
+      this.activeWorkspaceFolder = folder;
+    } else {
+      this.activeWorkspaceId = 'all';
+      this.activeWorkspaceFolder = undefined;
+    }
+    const label = this.activeWorkspaceFolder?.name ?? t('All Workspaces');
+    void vscode.commands.executeCommand('setContext', 'beads.activeWorkspaceLabel', label);
+  }
+
+  private restoreWorkspaceSelection(): void {
+    const saved = loadSavedWorkspaceSelection(this.context);
+    this.applyWorkspaceSelection(saved);
+  }
+
+  async setActiveWorkspace(selectionId: string): Promise<void> {
+    this.applyWorkspaceSelection(selectionId);
+    await saveWorkspaceSelection(this.context, this.activeWorkspaceId);
+    void vscode.commands.executeCommand('setContext', 'beads.activeWorkspaceLabel', this.activeWorkspaceFolder?.name ?? t('All Workspaces'));
+    await this.refresh();
+  }
+
+  handleWorkspaceFoldersChanged(): void {
+    this.applyWorkspaceSelection(this.activeWorkspaceId);
+    void this.refresh();
   }
 
   getQuickFilter(): QuickFilterPreset | undefined {
@@ -4581,6 +4658,28 @@ async function bulkUpdateLabel(
   await provider.refresh();
   await showBulkResultSummary(actionDescription, result, projectRoot);
 }
+
+async function selectWorkspace(provider: BeadsTreeDataProvider): Promise<void> {
+  const workspaces = vscode.workspace.workspaceFolders ?? [];
+  const options = getWorkspaceOptions(workspaces);
+
+  if (options.length <= 1) {
+    void vscode.window.showInformationMessage(t('No additional workspaces to select.'));
+    return;
+  }
+
+  const pick = await vscode.window.showQuickPick(
+    options.map((opt) => ({ label: opt.label, value: opt.id })),
+    { placeHolder: t('Select workspace for Beads view') }
+  );
+
+  if (!pick) {
+    return;
+  }
+
+  await provider.setActiveWorkspace(pick.value);
+}
+
 type RunBdCommandFn = (args: string[], projectRoot: string, options?: BdCommandOptions) => Promise<void>;
 
 async function toggleFavorites(
@@ -4852,6 +4951,14 @@ export function activate(context: vscode.ExtensionContext): void {
   provider.setStatusBarItem(statusBarItem);
   context.subscriptions.push(statusBarItem);
 
+  const applyWorkspaceContext = (): void => {
+    const count = vscode.workspace.workspaceFolders?.length ?? 0;
+    const options = getWorkspaceOptions(vscode.workspace.workspaceFolders);
+    const active = options.find((opt) => opt.id === provider.getActiveWorkspaceId()) ?? options[0];
+    void vscode.commands.executeCommand('setContext', 'beads.multiRootAvailable', count > 1);
+    void vscode.commands.executeCommand('setContext', 'beads.activeWorkspaceLabel', active?.label ?? '');
+  };
+
   const applyBulkActionsContext = (): void => {
     const bulkConfig = getBulkActionsConfig();
     void vscode.commands.executeCommand('setContext', 'beads.bulkActionsEnabled', bulkConfig.enabled);
@@ -4875,6 +4982,7 @@ export function activate(context: vscode.ExtensionContext): void {
     void vscode.commands.executeCommand('setContext', 'beads.feedbackEnabled', enablement.enabled);
   };
 
+  applyWorkspaceContext();
   applyBulkActionsContext();
   applyQuickFiltersContext();
   applyFavoritesContext();
@@ -4917,6 +5025,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('beads.toggleSortMode', () => provider.toggleSortMode()),
     vscode.commands.registerCommand('beads.openBead', (item: BeadItemData) => openBead(item, provider)),
     vscode.commands.registerCommand('beads.createBead', () => createBead()),
+    vscode.commands.registerCommand('beads.selectWorkspace', () => selectWorkspace(provider)),
     vscode.commands.registerCommand('beads.addDependency', (item?: BeadItemData) => addDependencyCommand(provider, item)),
     vscode.commands.registerCommand('beads.removeDependency', (item?: BeadItemData) => removeDependencyCommand(provider, undefined, { contextId: item?.id })),
     vscode.commands.registerCommand('beads.visualizeDependencies', () => visualizeDependencies(provider)),
@@ -5110,6 +5219,8 @@ export function activate(context: vscode.ExtensionContext): void {
     applyFeedbackContext();
     applyBulkActionsContext();
     applyQuickFiltersContext();
+    applyWorkspaceContext();
+    provider.handleWorkspaceFoldersChanged();
   });
 
   context.subscriptions.push(configurationWatcher, workspaceWatcher);

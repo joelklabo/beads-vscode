@@ -35,3 +35,38 @@ export function resolveProjectRoot(
 
   return undefined;
 }
+
+
+export interface WorkspaceOption {
+  id: string;
+  label: string;
+  workspaceFolder?: vscode.WorkspaceFolder | null;
+}
+
+const WORKSPACE_SELECTION_KEY = 'beads.activeWorkspaceId';
+
+export function getWorkspaceOptions(workspaceFolders: readonly vscode.WorkspaceFolder[] | undefined): WorkspaceOption[] {
+  const options: WorkspaceOption[] = [{ id: 'all', label: 'All Workspaces', workspaceFolder: null }];
+  (workspaceFolders ?? []).forEach((folder) => {
+    options.push({ id: folder.uri.toString(), label: folder.name, workspaceFolder: folder });
+  });
+  return options;
+}
+
+export function findWorkspaceById(
+  id: string | undefined,
+  workspaceFolders: readonly vscode.WorkspaceFolder[] | undefined
+): vscode.WorkspaceFolder | undefined {
+  if (!id || id === 'all') {
+    return undefined;
+  }
+  return (workspaceFolders ?? []).find((folder) => folder.uri.toString() === id);
+}
+
+export function loadSavedWorkspaceSelection(context: vscode.ExtensionContext): string | undefined {
+  return context.workspaceState.get<string>(WORKSPACE_SELECTION_KEY);
+}
+
+export async function saveWorkspaceSelection(context: vscode.ExtensionContext, id: string): Promise<void> {
+  await context.workspaceState.update(WORKSPACE_SELECTION_KEY, id);
+}
