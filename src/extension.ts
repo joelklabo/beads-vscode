@@ -55,6 +55,7 @@ import { EventType } from './activityFeed';
 import { validateLittleGlenMessage, AllowedLittleGlenCommand } from './littleGlen/validation';
 import {
   BeadTreeItem,
+  BeadDetailItem,
   EpicTreeItem,
   StatusSectionItem,
   UngroupedSectionItem,
@@ -201,7 +202,7 @@ async function runBdCommand(args: string[], projectRoot: string, options: BdComm
   });
 }
 
-type TreeItemType = StatusSectionItem | WarningSectionItem | EpicStatusSectionItem | EpicTreeItem | UngroupedSectionItem | BeadTreeItem;
+type TreeItemType = StatusSectionItem | WarningSectionItem | EpicStatusSectionItem | EpicTreeItem | UngroupedSectionItem | BeadTreeItem | BeadDetailItem;
 
 type StatusLabelMap = {
   open: string;
@@ -408,6 +409,8 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   private collapsedSections: Set<string> = new Set(DEFAULT_COLLAPSED_SECTION_KEYS);
   // Collapsed state for epics (id -> collapsed)
   private collapsedEpics: Map<string, boolean> = new Map();
+  // Expanded state for bead rows (id -> expanded)
+  private expandedRows: Set<string> = new Set();
 
   constructor(private readonly context: vscode.ExtensionContext) {
     // Load persisted sort order
@@ -416,6 +419,8 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     this.loadSortMode();
     // Load persisted collapsed sections
     this.loadCollapsedSections();
+    // Load persisted expanded rows
+    this.loadExpandedRows();
     // Load quick filter preset
     this.loadQuickFilter();
     // Restore workspace selection
@@ -547,7 +552,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     }
     
     if (element instanceof BeadTreeItem) {
-      return [];
+      return element.getDetails();
     }
 
     // Root level
@@ -1277,7 +1282,8 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   }
 
   private createTreeItem(item: BeadItemData): BeadTreeItem {
-    const treeItem = new BeadTreeItem(item);
+    const isExpanded = this.expandedRows.has(item.id);
+    const treeItem = new BeadTreeItem(item, isExpanded);
     treeItem.contextValue = 'bead';
 
     treeItem.command = {
@@ -1483,6 +1489,15 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     void this.context.workspaceState.update('beads.collapsedEpics', epicState);
   }
 
+  private loadExpandedRows(): void {
+    const saved = this.context.workspaceState.get<string[]>('beads.expandedRows');
+    this.expandedRows = new Set(saved ?? []);
+  }
+
+  private saveExpandedRows(): void {
+    void this.context.workspaceState.update('beads.expandedRows', Array.from(this.expandedRows));
+  }
+
   private loadQuickFilter(): void {
     const saved = this.context.workspaceState.get<QuickFilterPreset>('beads.quickFilterPreset');
     this.quickFilter = saved;
@@ -1654,6 +1669,19 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   }
 
   handleCollapseChange(element: TreeItemType, isCollapsed: boolean): void {
+    if (element instanceof BeadTreeItem) {
+      const beadId = element.bead?.id;
+      if (beadId) {
+        if (isCollapsed) {
+          this.expandedRows.delete(beadId);
+        } else {
+          this.expandedRows.add(beadId);
+        }
+        this.saveExpandedRows();
+      }
+      return;
+    }
+
     if (element instanceof EpicTreeItem && element.epic) {
       this.collapsedEpics.set(element.epic.id, isCollapsed);
       this.saveCollapsedSections();

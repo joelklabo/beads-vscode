@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { BeadItemData, buildPreviewSnippet, formatRelativeTime, getStaleInfo, isStale, sanitizeTooltipText, stripBeadIdPrefix } from '../../utils';
+import { BeadItemData, buildPreviewSnippet, formatRelativeTime, getStaleInfo, isStale, sanitizeTooltipText, stripBeadIdPrefix, formatStatusLabel } from '../../utils';
 
 const t = vscode.l10n.t;
 
@@ -124,11 +124,23 @@ export class UngroupedSectionItem extends vscode.TreeItem {
   }
 }
 
+export class BeadDetailItem extends vscode.TreeItem {
+  constructor(label: string, description?: string) {
+    super(label, vscode.TreeItemCollapsibleState.None);
+    this.contextValue = 'beadDetail';
+    this.iconPath = new vscode.ThemeIcon('circle-small');
+    this.description = description;
+    this.tooltip = description ? `${label}: ${description}` : label;
+  }
+}
+
 export class BeadTreeItem extends vscode.TreeItem {
-  constructor(public readonly bead: BeadItemData, private readonly worktreeId?: string) {
+  private readonly detailItems: BeadDetailItem[];
+
+  constructor(public readonly bead: BeadItemData, expanded: boolean = false, private readonly worktreeId?: string) {
     const cleanTitle = stripBeadIdPrefix(bead.title || bead.id, bead.id);
     const label = cleanTitle || bead.title || bead.id;
-    super(label, vscode.TreeItemCollapsibleState.None);
+    super(label, expanded ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed);
 
     const config = vscode.workspace.getConfiguration('beads');
     const thresholdMinutes = config.get<number>('staleThresholdMinutes', 10);
@@ -138,34 +150,9 @@ export class BeadTreeItem extends vscode.TreeItem {
 
     const assigneeInfo = getAssigneeInfo(bead);
 
-    const descParts: string[] = [bead.id, `${assigneeInfo.dot} ${assigneeInfo.display}`];
+    const descParts: string[] = [bead.id, `${assigneeInfo.dot} ${assigneeInfo.display}`, formatStatusLabel(bead.status || 'open')];
     if (isTaskStale && staleInfo) {
       descParts.push(`⚠️ ${staleInfo.formattedTime}`);
-    }
-
-    const preview = buildPreviewSnippet(bead.description, 60);
-    if (preview) {
-      descParts.push(preview);
-    }
-
-    if (bead.updatedAt) {
-      const relTime = formatRelativeTime(bead.updatedAt);
-      if (relTime) {
-        descParts.push(relTime);
-      }
-    }
-
-    if (bead.blockingDepsCount && bead.blockingDepsCount > 0) {
-      descParts.push(`⏳ ${bead.blockingDepsCount} blocker${bead.blockingDepsCount > 1 ? 's' : ''}`);
-    }
-
-    if (bead.tags && bead.tags.length > 0) {
-      descParts.push(`[${bead.tags.join(', ')}]`);
-    }
-
-    if (bead.externalReferenceId) {
-      const displayText = bead.externalReferenceDescription || bead.externalReferenceId;
-      descParts.push(`Ext: ${displayText}`);
     }
 
     this.description = descParts.join(' · ');
@@ -228,12 +215,43 @@ export class BeadTreeItem extends vscode.TreeItem {
 
     this.tooltip = tooltip;
 
+    const preview = buildPreviewSnippet(bead.description, 80);
+    const relTime = bead.updatedAt ? formatRelativeTime(bead.updatedAt) : undefined;
+    const labels = (bead.tags && bead.tags.length > 0) ? bead.tags.join(', ') : t('None');
+    const priority = (bead as any).priority !== undefined && (bead as any).priority !== null ? String((bead as any).priority) : t('Unset');
+
+    this.detailItems = [
+      new BeadDetailItem(`${assigneeInfo.dot} ${assigneeInfo.name}`, t('Status: {0}', formatStatusLabel(bead.status || 'open'))),
+      new BeadDetailItem(t('Labels'), truncate(labels, 80)),
+      new BeadDetailItem(t('Priority'), priority),
+      new BeadDetailItem(t('Updated'), relTime ?? t('Unknown')),
+    ];
+
+    if (bead.blockingDepsCount && bead.blockingDepsCount > 0) {
+      this.detailItems.push(new BeadDetailItem(t('Blockers'), t('{0} blocking issue(s)', bead.blockingDepsCount)));
+    }
+
+    if (preview) {
+      this.detailItems.push(new BeadDetailItem(t('Summary'), preview));
+    }
+
     this.command = {
       command: 'beads.openBead',
       title: 'Open Bead',
       arguments: [bead],
     };
   }
+
+  getDetails(): BeadDetailItem[] {
+    return this.detailItems;
+  }
 }
 
-export type BeadsTreeItem = StatusSectionItem | WarningSectionItem | EpicTreeItem | UngroupedSectionItem | BeadTreeItem;
+function truncate(value: string, maxLength: number): string {
+  if (!value) {
+    return '';
+  }
+  return value.length > maxLength ? `${value.slice(0, maxLength - 1)}…` : value;
+}
+
+export type BeadsTreeItem = StatusSectionItem | WarningSectionItem | EpicTreeItem | UngroupedSectionItem | BeadTreeItem | BeadDetailItem;
