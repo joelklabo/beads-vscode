@@ -5,6 +5,7 @@ import * as path from 'path';
 import * as os from 'os';
 import { promisify } from 'util';
 import { BdCliClient, BeadItemData, extractBeads, normalizeBead } from '@beads/core';
+import { currentWorktreeId } from '../../worktree';
 import { getCliExecutionConfig, resolveDataFilePath } from '../../utils';
 
 const execFileAsync = promisify(execFile);
@@ -80,7 +81,8 @@ export async function loadBeads(
   try {
     const commandPath = await findBdCommand(configPath);
     const policy = getCliExecutionConfig(config);
-    const client = new BdCliClient({ commandPath, cwd: projectRoot, policy, workspacePaths: [projectRoot] });
+    const worktreeId = currentWorktreeId(projectRoot);
+    const client = new BdCliClient({ commandPath, cwd: projectRoot, policy, workspacePaths: [projectRoot], worktreeId });
     const { stdout } = await client.export({ maxBufferBytes: 10 * 1024 * 1024 });
 
     let beads: any[] = [];

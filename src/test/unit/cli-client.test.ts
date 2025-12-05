@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { BdCliClient, BdCliError, BdCliErrorKind, DEFAULT_CLI_POLICY } from '@beads/core';
+import { BdCliClient, BdCliError, BdCliErrorKind, DEFAULT_CLI_POLICY, buildSafeBdArgs } from '@beads/core';
 
 describe('BdCliClient', () => {
   it('retries transient errors before succeeding', async () => {
@@ -68,4 +68,8 @@ describe('BdCliClient', () => {
       assert.strictEqual(cliError.kind, 'offline');
     }
   });
+  it('rejects arguments containing newlines', () => {
+    assert.throws(() => buildSafeBdArgs(['list', 'bd-1\nrm -rf /']), /newlines/);
+  });
+
 });

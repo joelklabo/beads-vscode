@@ -51,6 +51,23 @@ describe('Log redaction & capture', () => {
     assert.ok(redacted.includes('<email>'), 'Redacted marker should be present');
   });
 
+  it('redacts worktree identifiers and collapses worktree paths', () => {
+    const raw = [
+      'error in wt:dev-main',
+      'Path: /Users/alice/worktrees/dev-main/.beads/issues.db',
+      'token ghp_abcdefghijklmnopqrstuv1234567890'
+    ].join('\n');
+
+    const redacted = redactLogContent(raw, { workspacePaths: ['/Users/alice/worktrees/dev-main'], worktreeId: 'wt:dev-main' });
+
+    assert.ok(!redacted.includes('dev-main/.beads'), 'workspace path should be redacted');
+    assert.ok(!redacted.includes('wt:dev-main'), 'worktree id should be redacted');
+    assert.ok(redacted.includes('<worktree>'), 'worktree placeholder should be present');
+    assert.ok(!/ghp_[A-Za-z0-9]{20,}/.test(redacted), 'token marker should be redacted');
+  });
+
+
+
   it('caps log payload size safely', () => {
     const oversized = 'x'.repeat(DEFAULT_LOG_BYTES_LIMIT + 2048);
     const limited = limitLogPayload(oversized);

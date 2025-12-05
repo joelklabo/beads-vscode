@@ -31,6 +31,7 @@ export {
 
 import { execFile } from 'child_process';
 import * as path from 'path';
+import { BdCliClient, CliExecutionPolicy, formatCliError } from '@beads/core';
 
 export interface GuardResult {
   ok: boolean;
@@ -63,6 +64,34 @@ export async function guardAndRun<T>(cwd: string, action: () => Promise<T> | T):
     throw new Error(`Worktree guard blocked the action: ${error}`);
   }
   return await action();
+}
+
+export interface BdRunOptions {
+  args: string[];
+  cwd: string;
+  commandPath?: string;
+  policy?: Partial<CliExecutionPolicy>;
+  workspacePaths?: string[];
+}
+
+/**
+ * Guarded bd command helper for the TUI. Automatically enforces worktree guard
+ * and injects --no-daemon via the shared BdCliClient.
+ */
+export async function runGuardedBd(options: BdRunOptions): Promise<void> {
+  const { args, cwd, commandPath, policy, workspacePaths } = options;
+  const worktreeId = currentWorktreeId(cwd);
+  const paths = workspacePaths ?? [cwd];
+
+  await guardAndRun(cwd, async () => {
+    const client = new BdCliClient({ commandPath, cwd, policy, workspacePaths: paths, worktreeId });
+    try {
+      await client.run(args);
+    } catch (error) {
+      const safeMessage = formatCliError('bd command failed', error, paths, worktreeId);
+      throw new Error(safeMessage);
+    }
+  });
 }
 
 export const worktreeLabel = (cwd: string): string => {
