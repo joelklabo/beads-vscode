@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import { WatcherManager } from '@beads/core';
 import { currentWorktreeId } from '../../worktree';
 import { formatError } from '../../utils';
 import {
@@ -17,6 +18,7 @@ export interface ActivityFeedProviderOptions {
   maxIntervalMs?: number;
   idleBackoffStepMs?: number;
   enableAutoRefresh?: boolean;
+  watchManager?: WatcherManager;
 }
 
 export type ActivityFeedHealth =
@@ -33,8 +35,7 @@ export class ActivityFeedTreeDataProvider implements vscode.TreeDataProvider<Act
 
   private readonly store = new ActivityFeedStore();
   private debounceTimer: NodeJS.Timeout | undefined;
-  private fileWatcher: vscode.FileSystemWatcher | undefined;
-  private watcherSubscriptions: vscode.Disposable[] = [];
+  private watchSubscription: { dispose(): void } | undefined;
   private collapsedGroups: Set<string> = new Set();
   private refreshTimer: NodeJS.Timeout | undefined;
   private readonly baseIntervalMs: number;
@@ -44,6 +45,7 @@ export class ActivityFeedTreeDataProvider implements vscode.TreeDataProvider<Act
   private lastEventCount = 0;
   private lastNewestTimestamp = 0;
   private autoRefreshEnabled: boolean;
+  private readonly watchManager?: WatcherManager;
 
   constructor(private readonly context: vscode.ExtensionContext, options: ActivityFeedProviderOptions = {}) {
     this.baseIntervalMs = options.baseIntervalMs ?? 30000;
@@ -51,6 +53,7 @@ export class ActivityFeedTreeDataProvider implements vscode.TreeDataProvider<Act
     this.idleBackoffStepMs = options.idleBackoffStepMs ?? 15000;
     this.currentIntervalMs = this.baseIntervalMs;
     this.autoRefreshEnabled = options.enableAutoRefresh !== false;
+    this.watchManager = options.watchManager;
     this.loadSettings();
     this.setupFileWatcher();
     if (this.autoRefreshEnabled) {
@@ -164,17 +167,14 @@ export class ActivityFeedTreeDataProvider implements vscode.TreeDataProvider<Act
   }
 
   dispose(): void {
-    if (this.fileWatcher) {
-      this.fileWatcher.dispose();
-    }
-    for (const subscription of this.watcherSubscriptions) {
-      subscription.dispose();
-    }
     if (this.debounceTimer) {
       clearTimeout(this.debounceTimer);
     }
     if (this.refreshTimer) {
       clearTimeout(this.refreshTimer);
+    }
+    if (this.watchSubscription) {
+      this.watchSubscription.dispose();
     }
   }
 
@@ -229,17 +229,28 @@ export class ActivityFeedTreeDataProvider implements vscode.TreeDataProvider<Act
       return;
     }
 
+    if (this.watchManager) {
+      this.watchSubscription?.dispose();
+      const dbPath = path.join(projectRoot, '.beads');
+      this.watchSubscription = this.watchManager.watch(dbPath, () => this.debouncedRefresh());
+      return;
+    }
+
     try {
       const dbPath = vscode.Uri.joinPath(vscode.Uri.file(projectRoot), '.beads');
       const pattern = new vscode.RelativePattern(dbPath.fsPath, '*.db');
       const watcher = vscode.workspace.createFileSystemWatcher(pattern);
-
       const onChange = watcher.onDidChange(() => this.debouncedRefresh());
       const onCreate = watcher.onDidCreate(() => this.debouncedRefresh());
 
       this.context.subscriptions.push(watcher, onChange, onCreate);
-      this.fileWatcher = watcher;
-      this.watcherSubscriptions = [onChange, onCreate];
+      this.watchSubscription = {
+        dispose: () => {
+          watcher.dispose();
+          onChange.dispose();
+          onCreate.dispose();
+        },
+      };
     } catch (error) {
       console.warn('Failed to setup file watcher for activity feed:', error);
     }
