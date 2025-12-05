@@ -2,7 +2,13 @@
 import * as assert from 'assert';
 import Module = require('module');
 import { BeadItemData } from '../../utils';
-import { validateEdgeAddition, willCreateDependencyCycle, GraphEdgeData } from '../../utils/graph';
+import {
+  buildDependencyAdjacency,
+  buildDependencyTrees,
+  GraphEdgeData,
+  validateEdgeAddition,
+  willCreateDependencyCycle,
+} from '../../utils/graph';
 
 describe('Dependency graph helpers', () => {
   let restoreLoad: any;
@@ -114,5 +120,64 @@ describe('Dependency graph helpers', () => {
     ];
     assert.strictEqual(willCreateDependencyCycle(edges, 'Z', 'X'), true);
     assert.strictEqual(willCreateDependencyCycle(edges, 'Z', 'Y'), true);
+  });
+
+  it('builds upstream and downstream trees with direction metadata', () => {
+    const items: BeadItemData[] = [
+      {
+        id: 'ROOT',
+        title: 'Root',
+        status: 'open',
+        raw: { dependencies: [{ depends_on_id: 'BLOCK', dep_type: 'blocks' }, { depends_on_id: 'MISSING' }] },
+      } as BeadItemData,
+      {
+        id: 'BLOCK',
+        title: 'Blocker',
+        status: 'blocked',
+        raw: { dependencies: [{ depends_on_id: 'LEAF', dep_type: 'parent-child' }] },
+      } as BeadItemData,
+      { id: 'LEAF', title: 'Leaf', status: 'open', raw: { dependencies: [] } as any } as BeadItemData,
+      {
+        id: 'DOWN',
+        title: 'Downstream',
+        status: 'in_progress',
+        raw: { dependencies: [{ depends_on_id: 'ROOT', dep_type: 'related' }] },
+      } as BeadItemData,
+      {
+        id: 'DOWN-CHILD',
+        title: 'Down Child',
+        status: 'closed',
+        raw: { dependencies: [{ depends_on_id: 'DOWN', dep_type: 'blocks' }] },
+      } as BeadItemData,
+    ];
+
+    const adjacency = buildDependencyAdjacency(items, 'ROOT');
+    assert.deepStrictEqual(
+      adjacency.upstream.map((n) => ({ id: n.id, type: n.type, direction: n.direction, missing: n.missing })),
+      [
+        { id: 'BLOCK', type: 'blocks', direction: 'upstream', missing: false },
+        { id: 'MISSING', type: 'related', direction: 'upstream', missing: true },
+      ]
+    );
+
+    assert.strictEqual(adjacency.downstream.length, 1);
+    assert.strictEqual(adjacency.downstream[0].id, 'DOWN');
+    assert.strictEqual(adjacency.downstream[0].direction, 'downstream');
+
+    const trees = buildDependencyTrees(items, 'ROOT');
+
+    const blocker = trees.upstream.find((n) => n.id === 'BLOCK');
+    assert.ok(blocker);
+    assert.strictEqual(blocker?.children[0].id, 'LEAF');
+    assert.strictEqual(blocker?.children[0].direction, 'upstream');
+
+    const missing = trees.upstream.find((n) => n.id === 'MISSING');
+    assert.ok(missing?.missing);
+    assert.deepStrictEqual(missing?.children, []);
+
+    const down = trees.downstream[0];
+    assert.strictEqual(down.id, 'DOWN');
+    assert.strictEqual(down.direction, 'downstream');
+    assert.deepStrictEqual(down.children.map((c) => c.id), ['DOWN-CHILD']);
   });
 });
