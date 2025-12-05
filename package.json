@@ -707,7 +707,7 @@
     "install-local": "npm run package && ./scripts/install-local.sh",
     "test:harness": "bash ./scripts/agent-harness/run-placeholder.sh",
     "test:tui:smoke": "echo 'TODO: add TUI smoke test' && exit 0",
-    "test:web:skeleton": "node -e \"const fs=require('fs'); if(!fs.existsSync('web/package.json') && !fs.existsSync('packages/web/package.json')){console.log('web workspace missing, skipping smoke test'); process.exit(0);} const {spawnSync}=require('child_process'); const cmd=process.platform==='win32'?'npm.cmd':'npm'; const r=spawnSync(cmd,['run','-w','@beads/web','build'],{stdio:'inherit'}); process.exit(r.status??1);\"",
+    "test:web:skeleton": "npm run -w @beads/web test:web:skeleton",
     "test:tui": "npm run -w @beads/tui test",
     "check:size": "node scripts/size-check.js",
     "test:integration:stable": "node -e \"const {spawnSync}=require('child_process'); const env={...process.env, VSCODE_TEST_CHANNEL:'stable', VSCODE_TEST_INSTANCE_ID:process.env.VSCODE_TEST_INSTANCE_ID||require('crypto').randomUUID()}; const cmd=process.platform==='win32'?'npm.cmd':'npm'; const r=spawnSync(cmd,['run','test:integration'],{stdio:'inherit',env}); process.exit(r.status ?? 1);\"",
@@ -727,7 +727,9 @@
     "build:ui-headless": "npm run -w @beads/ui-headless build",
     "test:ui-headless": "npm run -w @beads/ui-headless test",
     "test:ui-web": "npm run -w @beads/ui-web test",
-    "build:ui-web": "npm run -w @beads/ui-web build"
+    "build:ui-web": "npm run -w @beads/ui-web build",
+    "web:dev": "npm run -w @beads/web dev",
+    "web:preview": "npm run -w @beads/web preview"
   },
   "devDependencies": {
     "@beads/bd": "^0.29.0",
