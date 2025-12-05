@@ -1,6 +1,5 @@
-import * as os from 'os';
 import * as path from 'path';
-import { mkdtemp } from 'fs/promises';
+import { mkdtemp, mkdir } from 'fs/promises';
 import { randomUUID } from 'crypto';
 
 export type VsCodeChannel = 'stable' | 'insiders';
@@ -12,11 +11,36 @@ export interface TestEnv {
   extraLaunchArgs: string[];
 }
 
-export async function buildTestEnv(): Promise<TestEnv> {
-  const instanceId = process.env.VSCODE_TEST_INSTANCE_ID || randomUUID();
-  const channel = (process.env.VSCODE_TEST_CHANNEL as VsCodeChannel) === 'insiders' ? 'insiders' : 'stable';
+const INSTANCE_ID_MAX = 64;
+const WORKSPACE_TMP = path.join(path.resolve(__dirname, '../../..'), 'tmp');
 
-  const base = await mkdtemp(path.join(os.tmpdir(), `beads-vscode-${instanceId}-`));
+function parseChannel(value: string | undefined): VsCodeChannel {
+  if (!value) {
+    return 'stable';
+  }
+  const normalized = value.trim().toLowerCase();
+  return normalized === 'insiders' ? 'insiders' : 'stable';
+}
+
+function sanitizeInstanceId(raw: string | undefined): string {
+  const fallback = randomUUID();
+  if (!raw) {
+    return fallback;
+  }
+
+  const noSeparators = raw.replace(/[\\/]/g, '-');
+  const safe = noSeparators.replace(/[^a-zA-Z0-9_.-]/g, '-').slice(0, INSTANCE_ID_MAX);
+  const collapsed = safe.replace(/-+/g, '-').replace(/^[-.]+|[-.]+$/g, '');
+
+  return collapsed || fallback;
+}
+
+export async function buildTestEnv(): Promise<TestEnv> {
+  const instanceId = sanitizeInstanceId(process.env.VSCODE_TEST_INSTANCE_ID);
+  const channel = parseChannel(process.env.VSCODE_TEST_CHANNEL);
+
+  await mkdir(WORKSPACE_TMP, { recursive: true });
+  const base = await mkdtemp(path.join(WORKSPACE_TMP, `beads-vscode-${instanceId}-`));
   const userDataDir = path.join(base, 'user-data');
   const extensionsDir = path.join(base, 'extensions');
 

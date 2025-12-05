@@ -4,9 +4,15 @@ import { runTests } from '@vscode/test-electron';
 import { buildTestEnv } from './utils/env';
 
 async function main(): Promise<void> {
-  const testEnv = await buildTestEnv();
-
+  let cleanupTargets: string[] = [];
   try {
+    const testEnv = await buildTestEnv();
+    cleanupTargets = [
+      testEnv.userDataDir,
+      testEnv.extensionsDir,
+      path.dirname(testEnv.userDataDir),
+    ];
+
     const extensionDevelopmentPath = path.resolve(__dirname, '../../');
     const extensionTestsPath = path.resolve(__dirname, './suite/index');
 
@@ -26,13 +32,12 @@ async function main(): Promise<void> {
     });
   } catch (err) {
     console.error('Failed to run tests:', err);
-    process.exit(1);
+    process.exitCode = 1;
   } finally {
-    // Best-effort cleanup of temp dirs
-    await Promise.allSettled([
-      fs.rm(testEnv.userDataDir, { recursive: true, force: true }),
-      fs.rm(testEnv.extensionsDir, { recursive: true, force: true }),
-    ]);
+    const uniqueTargets = Array.from(new Set(cleanupTargets));
+    await Promise.allSettled(
+      uniqueTargets.map((target) => fs.rm(target, { recursive: true, force: true })),
+    );
   }
 }
 

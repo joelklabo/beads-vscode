@@ -15,7 +15,6 @@ describe('Workspace selection', () => {
   let moduleAny: any;
   let restoreLoad: any;
   let loadCalls: string[];
-  let savedSelection: string | undefined;
   let vscodeStub: any;
   let contextStub: any;
   let BeadsTreeDataProvider: any;
@@ -24,7 +23,6 @@ describe('Workspace selection', () => {
     moduleAny = Module as any;
     restoreLoad = moduleAny._load;
     loadCalls = [];
-    savedSelection = undefined;
 
     class EventEmitter<T> {
       private listeners: Array<(e: T) => void> = [];
@@ -73,9 +71,9 @@ describe('Workspace selection', () => {
         getWorkspaceFolder: (resource?: any) => resource ? workspaces.find(w => w.uri.fsPath === resource.uri.fsPath) : workspaces[0],
         createFileSystemWatcher: () => {
           const watcher = {
-            onDidChange: (cb: any) => ({ dispose() {} }),
-            onDidCreate: (cb: any) => ({ dispose() {} }),
-            onDidDelete: (cb: any) => ({ dispose() {} }),
+            onDidChange: (_cb: any) => ({ dispose() {} }),
+            onDidCreate: (_cb: any) => ({ dispose() {} }),
+            onDidDelete: (_cb: any) => ({ dispose() {} }),
             dispose: () => undefined,
           };
           watchers.push(watcher);
@@ -122,12 +120,21 @@ describe('Workspace selection', () => {
       return restoreLoad(request, parent, isMain);
     };
 
-    delete require.cache[require.resolve('../utils')];
-    delete require.cache[require.resolve('../utils/cli')];
-    delete require.cache[require.resolve('../utils/workspace')];
-    delete require.cache[require.resolve('../providers/beads/store')];
-    delete require.cache[require.resolve('../extension')];
+    [
+      '../utils',
+      '../utils/cli',
+      '../utils/workspace',
+      '../providers/beads/store',
+      '../extension',
+    ].forEach((id) => {
+      try {
+        delete require.cache[require.resolve(id)];
+      } catch {
+        // ignore cache misses
+      }
+    });
 
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const extension = require('../extension');
     BeadsTreeDataProvider = extension.BeadsTreeDataProvider;
   });
@@ -161,6 +168,7 @@ describe('Workspace selection', () => {
     let provider = new BeadsTreeDataProvider(contextStub);
     await provider.setActiveWorkspace('vscode-workspace://ws2');
 
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const extension = require('../extension');
     provider = new extension.BeadsTreeDataProvider(contextStub);
     loadCalls = [];
