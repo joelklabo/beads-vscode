@@ -7,6 +7,7 @@ import {
   BeadItemData,
   formatError,
   formatSafeError,
+  sanitizeErrorMessage,
   escapeHtml,
   linkifyText,
   isStale,
