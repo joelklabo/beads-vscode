@@ -1710,23 +1710,33 @@ function getBeadDetailHtml(
         const removeTargetId = direction === 'upstream' ? node.id : parentId;
         const children = node.children && node.children.length > 0 ? renderBranch(node.children, node.id, direction, depth + 1) : '';
         const color = statusColors[node.status || 'open'] || statusColors.open;
+        const statusLabel = getStatusLabel(node.status) || strings.statusLabels.open;
+        const safeType = escapeHtml(node.type);
+        const ariaLabelParts = [
+          `${escapeHtml(node.id)}`,
+          node.title ? escapeHtml(node.title) : '',
+          statusLabel ? t('Status {0}', statusLabel) : '',
+          direction === 'upstream' ? strings.dependencyTreeUpstream : strings.dependencyTreeDownstream,
+          safeType ? t('Type {0}', safeType) : ''
+        ].filter(Boolean);
         return `
-          <div class="tree-row" data-issue-id="${escapeHtml(node.id)}" data-direction="${direction}" style="--depth:${depth}">
+          <div class="tree-row" role="treeitem" aria-level="${depth + 1}" aria-expanded="${children ? 'true' : 'false'}" tabindex="-1" data-issue-id="${escapeHtml(node.id)}" data-parent-id="${escapeHtml(parentId)}" data-direction="${direction}" style="--depth:${depth}" aria-label="${ariaLabelParts.join(' • ')}">
             <div class="tree-row-main">
               <div class="tree-left">
-                <span class="status-dot" style="background-color:${color};"></span>
+                <span class="status-dot" aria-hidden="true" style="background-color:${color};"></span>
+                <span class="status-label">${escapeHtml(statusLabel)}</span>
                 <span class="tree-id">${escapeHtml(node.id)}</span>
                 <span class="tree-title">${escapeHtml(node.title || '')}</span>
-                <span class="dep-type dep-${escapeHtml(node.type)}">${escapeHtml(node.type)}</span>
+                <span class="dep-type dep-${safeType}">${safeType}</span>
                 ${node.missing ? `<span class="missing-pill">${escapeHtml(strings.missingDependencyLabel)}</span>` : ''}
               </div>
               ${
                 dependencyEditingEnabled && !node.missing
-                  ? `<button class="dependency-remove" data-source-id="${escapeHtml(removeSourceId)}" data-target-id="${escapeHtml(removeTargetId)}">${escapeHtml(strings.removeDependencyLabel)}</button>`
+                  ? `<button class="dependency-remove" aria-label="${escapeHtml(strings.removeDependencyLabel)} ${escapeHtml(removeSourceId)} → ${escapeHtml(removeTargetId)}" data-source-id="${escapeHtml(removeSourceId)}" data-target-id="${escapeHtml(removeTargetId)}">${escapeHtml(strings.removeDependencyLabel)}</button>`
                   : ''
               }
             </div>
-            ${children ? `<div class="tree-children">${children}</div>` : ''}
+            ${children ? `<div class="tree-children" role="group">${children}</div>` : ''}
           </div>
         `;
       })
@@ -1738,7 +1748,7 @@ function getBeadDetailHtml(
       return '';
     }
     return `
-      <div class="tree-branch" data-direction="${direction}">
+      <div class="tree-branch" data-direction="${direction}" role="group" aria-label="${escapeHtml(label)}">
         <div class="tree-direction-label">${escapeHtml(label)}</div>
         <div class="tree-branch-nodes">
           ${renderBranch(nodes, item.id, direction, 0)}
@@ -1760,7 +1770,7 @@ function getBeadDetailHtml(
             : ''
         }
       </div>
-      <div class="dependency-tree-container">
+      <div class="dependency-tree-container" role="tree" aria-label="Dependencies for ${escapeHtml(item.id)}">
         ${renderBranchSection('upstream', treeData.upstream, strings.dependencyTreeUpstream)}
         ${renderBranchSection('downstream', treeData.downstream, strings.dependencyTreeDownstream)}
         ${hasAnyDeps ? '' : `<div class="empty">${escapeHtml(strings.dependencyEmptyLabel)}</div>`}
@@ -2137,6 +2147,37 @@ function getBeadDetailHtml(
         }
         .tree-children {
             margin-left: 12px;
+        }
+        .tree-row:focus-visible {
+            outline: 2px solid var(--vscode-focusBorder);
+            outline-offset: 2px;
+            border-radius: 4px;
+        }
+        .status-label {
+            font-size: 11px;
+            color: var(--vscode-descriptionForeground);
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+        @media (forced-colors: active) {
+            .status-dot {
+                border: 1px solid CanvasText;
+                background: CanvasText;
+            }
+            .tree-row:focus-visible {
+                outline-color: CanvasText;
+            }
         }
         .tree-row {
             padding-left: calc(var(--depth, 0) * 14px);
@@ -2557,6 +2598,86 @@ function getBeadDetailHtml(
                 }
             }
         });
+
+        const treeContainer = document.querySelector('.dependency-tree-container');
+        const treeRows = Array.from(document.querySelectorAll('.tree-row'));
+
+        const setActiveTreeRow = (row) => {
+            if (!row) {
+                return;
+            }
+            treeRows.forEach((r) => r.setAttribute('tabindex', r === row ? '0' : '-1'));
+            row.focus();
+        };
+
+        if (treeRows.length) {
+            setActiveTreeRow(treeRows[0]);
+        }
+
+        const focusParentRow = (row) => {
+            const parentId = row.getAttribute('data-parent-id');
+            if (!parentId) {
+                return;
+            }
+            const parentRow = treeRows.find((r) => r.getAttribute('data-issue-id') === parentId);
+            if (parentRow) {
+                setActiveTreeRow(parentRow);
+            }
+        };
+
+        const focusFirstChildRow = (row) => {
+            const childRow = treeRows.find((r) => r.getAttribute('data-parent-id') === row.getAttribute('data-issue-id'));
+            if (childRow) {
+                setActiveTreeRow(childRow);
+            }
+        };
+
+        if (treeContainer && treeRows.length) {
+            treeContainer.addEventListener('keydown', (e) => {
+                const currentRow = e.target && e.target.closest ? e.target.closest('.tree-row') : null;
+                if (!currentRow) {
+                    return;
+                }
+
+                if (e.target && e.target.tagName === 'BUTTON' && (e.key === ' ' || e.key === 'Enter')) {
+                    return;
+                }
+
+                const idx = treeRows.indexOf(currentRow);
+                if (idx === -1) {
+                    return;
+                }
+
+                if (e.key === 'ArrowDown') {
+                    const next = treeRows[idx + 1];
+                    if (next) {
+                        setActiveTreeRow(next);
+                        e.preventDefault();
+                    }
+                } else if (e.key === 'ArrowUp') {
+                    const prev = treeRows[idx - 1];
+                    if (prev) {
+                        setActiveTreeRow(prev);
+                        e.preventDefault();
+                    }
+                } else if (e.key === 'ArrowRight') {
+                    focusFirstChildRow(currentRow);
+                    e.preventDefault();
+                } else if (e.key === 'ArrowLeft') {
+                    focusParentRow(currentRow);
+                    e.preventDefault();
+                } else if (e.key === 'Enter' || e.key === ' ') {
+                    const issueId = currentRow.getAttribute('data-issue-id');
+                    if (issueId && issueId !== '${item.id}') {
+                        vscode.postMessage({
+                            command: 'openBead',
+                            beadId: issueId
+                        });
+                        e.preventDefault();
+                    }
+                }
+            });
+        }
 
         // Handle dependency item clicks
         document.addEventListener('click', (e) => {

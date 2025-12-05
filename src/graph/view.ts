@@ -32,6 +32,18 @@ export function buildDependencyGraphHtml(
             overflow: hidden;
         }
 
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
         #container {
             width: 100%;
             height: calc(100vh - 60px);
@@ -68,6 +80,11 @@ export function buildDependencyGraphHtml(
             z-index: 20;
         }
 
+        .node:focus-visible {
+            outline: 2px solid var(--vscode-focusBorder, #007acc);
+            outline-offset: 4px;
+        }
+
         .node.dragging {
             opacity: 0.8;
             z-index: 1000;
@@ -91,9 +108,9 @@ export function buildDependencyGraphHtml(
 
         svg { position: absolute; top: 0; left: 0; pointer-events: auto; z-index: 0; }
         .edge { stroke: var(--vscode-panel-border); stroke-width: 2; fill: none; marker-end: url(#arrowhead); opacity: 0.8; cursor: pointer; }
-        .edge.blocks { stroke: #f14c4c; stroke-width: 2.5; }
+        .edge.blocks { stroke: #f14c4c; stroke-width: 2.5; stroke-dasharray: 6 3; }
         .edge.selected { stroke: var(--vscode-focusBorder, #007acc); stroke-width: 3; }
-        .edge-label { fill: var(--vscode-descriptionForeground); font-size: 11px; pointer-events: none; }
+        .edge-label { fill: var(--vscode-descriptionForeground); font-size: 11px; pointer-events: none; user-select: none; }
 
         .controls { position: fixed; top: 20px; right: 20px; display: flex; gap: 8px; align-items: center; }
         .control-button { background-color: var(--vscode-button-background); color: var(--vscode-button-foreground); border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 500; }
@@ -101,7 +118,7 @@ export function buildDependencyGraphHtml(
         .hint-text { font-size: 12px; color: var(--vscode-descriptionForeground); }
 
         .legend { position: fixed; bottom: 20px; right: 20px; background-color: var(--vscode-sideBar-background); border: 1px solid var(--vscode-panel-border); border-radius: 4px; padding: 12px; font-size: 11px; }
-        .legend-item { display: flex; align-items: center; margin-bottom: 6px; }
+        .legend-item { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
         .legend-item:last-child { margin-bottom: 0; }
 
         #contextMenu { position: absolute; background: var(--vscode-editorWidget-background); border: 1px solid var(--vscode-focusBorder); border-radius: 4px; padding: 6px 0; box-shadow: 0 4px 12px rgba(0,0,0,0.25); z-index: 2000; display: none; min-width: 180px; }
@@ -109,27 +126,39 @@ export function buildDependencyGraphHtml(
         #contextMenu button:hover { background: var(--vscode-list-hoverBackground); }
 
         #toast { position: fixed; bottom: 24px; left: 24px; background: var(--vscode-editorWidget-background); border: 1px solid var(--vscode-panel-border); border-radius: 4px; padding: 8px 12px; color: var(--vscode-foreground); box-shadow: 0 2px 8px rgba(0,0,0,0.2); display: none; z-index: 2100; font-size: 12px; }
+
+        @media (forced-colors: active) {
+            .node { border: 1px solid CanvasText; background: Canvas; color: CanvasText; }
+            .node.status-blocked { border-style: dashed; }
+            .node.status-in_progress { border-style: dotted; }
+            .edge { stroke: CanvasText; }
+            .edge.blocks { stroke-dasharray: 6 3; }
+            .edge.selected { stroke: CanvasText; }
+            .control-button { border: 1px solid CanvasText; }
+            #contextMenu { border-color: CanvasText; }
+        }
     </style>
 </head>
 <body>
     <div class="controls">
-        <button class="control-button" onclick="resetZoom()">${escapeHtml(strings.resetView)}</button>
-        <button class="control-button" onclick="autoLayout()">${escapeHtml(strings.autoLayout)}</button>
-        ${dependencyEditingEnabled ? `<button class="control-button" id="removeEdgeButton">${escapeHtml(strings.removeDependencyLabel)}</button>` : ''}
-        ${dependencyEditingEnabled ? `<span class="hint-text" id="linkHint">Shift+Click a node or press A to start linking</span>` : ''}
+        <button class="control-button" aria-label="${escapeHtml(strings.resetView)}" onclick="resetZoom()">${escapeHtml(strings.resetView)}</button>
+        <button class="control-button" aria-label="${escapeHtml(strings.autoLayout)}" onclick="autoLayout()">${escapeHtml(strings.autoLayout)}</button>
+        ${dependencyEditingEnabled ? `<button class="control-button" aria-label="${escapeHtml(strings.removeDependencyLabel)}" id="removeEdgeButton">${escapeHtml(strings.removeDependencyLabel)}</button>` : ''}
+        ${dependencyEditingEnabled ? `<span class="hint-text" id="linkHint" role="status" aria-live="polite">Shift+Click a node or press A to start linking</span>` : ''}
     </div>
 
-    <div class="legend">
-        <div class="legend-item"><span class="status-indicator closed"></span><span>${escapeHtml(strings.legendClosed)}</span></div>
-        <div class="legend-item"><span class="status-indicator in_progress"></span><span>${escapeHtml(strings.legendInProgress)}</span></div>
-        <div class="legend-item"><span class="status-indicator open"></span><span>${escapeHtml(strings.legendOpen)}</span></div>
-        <div class="legend-item"><span class="status-indicator blocked"></span><span>${escapeHtml(strings.legendBlocked)}</span></div>
+    <div class="legend" aria-label="${escapeHtml(strings.title)} legend">
+        <div class="legend-item"><span class="status-indicator closed" aria-hidden="true"></span><span>${escapeHtml(strings.legendClosed)}</span></div>
+        <div class="legend-item"><span class="status-indicator in_progress" aria-hidden="true"></span><span>${escapeHtml(strings.legendInProgress)}</span></div>
+        <div class="legend-item"><span class="status-indicator open" aria-hidden="true"></span><span>${escapeHtml(strings.legendOpen)}</span></div>
+        <div class="legend-item"><span class="status-indicator blocked" aria-hidden="true"></span><span>${escapeHtml(strings.legendBlocked)}</span></div>
+        <div class="legend-item"><span aria-hidden="true" style="font-weight:600;">→</span><span>Edges read as source → target (arrowhead points to dependency)</span></div>
     </div>
 
-    <div id="toast"></div>
+    <div id="toast" role="status" aria-live="polite"></div>
     <div id="contextMenu"></div>
 
-    <div id="container">
+    <div id="container" aria-label="${escapeHtml(strings.title)} graph" role="application">
         <svg id="svg"></svg>
         <div id="canvas"></div>
     </div>
@@ -151,6 +180,13 @@ export function buildDependencyGraphHtml(
 
         const nodeElements = new Map();
         const nodePositions = new Map();
+        const incomingCounts = new Map();
+        const outgoingCounts = new Map();
+
+        edges.forEach((edge) => {
+            outgoingCounts.set(edge.sourceId, (outgoingCounts.get(edge.sourceId) || 0) + 1);
+            incomingCounts.set(edge.targetId, (incomingCounts.get(edge.targetId) || 0) + 1);
+        });
 
         const previousState = vscode.getState() || {};
         let savedPositions = previousState.nodePositions || {};
@@ -235,9 +271,10 @@ export function buildDependencyGraphHtml(
             }
         }
 
-        function hideContextMenu() { contextMenu.style.display = 'none'; }
+        function hideContextMenu() { if (contextMenu) { contextMenu.style.display = 'none'; } }
 
         function showContextMenu(x, y, nodeId) {
+            if (!contextMenu) { return; }
             contextMenu.innerHTML = '';
             const makeButton = (label, handler) => {
                 const btn = document.createElement('button');
@@ -266,7 +303,7 @@ export function buildDependencyGraphHtml(
         }
 
         document.addEventListener('click', (e) => {
-            if (!contextMenu.contains(e.target)) {
+            if (contextMenu && !contextMenu.contains(e.target)) {
                 hideContextMenu();
             }
         });
@@ -322,18 +359,24 @@ export function buildDependencyGraphHtml(
             });
         }
 
-
-
         function createNode(node) {
             const div = document.createElement('div');
             div.className = 'node status-' + (node.status || 'open');
             div.dataset.nodeId = node.id;
+            div.setAttribute('role', 'button');
+            div.setAttribute('tabindex', '0');
+
+            const outgoing = outgoingCounts.get(node.id) || 0;
+            const incoming = incomingCounts.get(node.id) || 0;
+            const statusText = node.status || 'open';
+            div.setAttribute('aria-label', node.id + '. ' + (node.title || 'Issue') + '; status ' + statusText + '; ' + outgoing + ' downstream, ' + incoming + ' upstream.');
 
             const idRow = document.createElement('div');
             idRow.className = 'node-id';
 
             const statusIndicator = document.createElement('span');
             statusIndicator.className = 'status-indicator ' + (node.status || 'open');
+            statusIndicator.setAttribute('aria-hidden', 'true');
 
             const idText = document.createElement('span');
             idText.textContent = node.id;
@@ -346,8 +389,13 @@ export function buildDependencyGraphHtml(
             titleRow.title = node.title || '';
             titleRow.textContent = node.title || '';
 
+            const statusLabel = document.createElement('div');
+            statusLabel.className = 'node-status-label sr-only';
+            statusLabel.textContent = statusText;
+
             div.appendChild(idRow);
             div.appendChild(titleRow);
+            div.appendChild(statusLabel);
 
             div.addEventListener('mousedown', (e) => {
                 if (e.button !== 0) return;
@@ -361,6 +409,26 @@ export function buildDependencyGraphHtml(
 
                 e.preventDefault();
             });
+
+            const activateNode = () => {
+                if (dependencyEditingEnabled && (linkSourceId || linkHint && linkHint.textContent?.includes('Select a target'))) {
+                    if (!linkSourceId) {
+                        linkSourceId = node.id;
+                        updateHint('Select a target for ' + node.id);
+                    } else if (linkSourceId === node.id) {
+                        linkSourceId = null;
+                        updateHint('Link cancelled');
+                    } else {
+                        attemptAddDependency(linkSourceId, node.id);
+                    }
+                    return;
+                }
+
+                selectedEdge = null;
+                lastSelectedNodeId = node.id;
+                vscode.setState({ nodePositions: savedPositions, lastSelectedNodeId });
+                vscode.postMessage({ command: 'openBead', beadId: node.id });
+            };
 
             div.addEventListener('click', (e) => {
                 if (isDragging) {
@@ -380,10 +448,24 @@ export function buildDependencyGraphHtml(
                     return;
                 }
 
-                selectedEdge = null;
-                lastSelectedNodeId = node.id;
-                vscode.setState({ nodePositions: savedPositions, lastSelectedNodeId });
-                vscode.postMessage({ command: 'openBead', beadId: node.id });
+                activateNode();
+            });
+
+            div.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    activateNode();
+                }
+                if (!dependencyEditingEnabled) return;
+                if (e.key.toLowerCase() === 'a') {
+                    linkSourceId = node.id;
+                    updateHint('Select a target for ' + node.id);
+                }
+                if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) {
+                    e.preventDefault();
+                    const rect = div.getBoundingClientRect();
+                    showContextMenu(rect.right, rect.bottom, node.id);
+                }
             });
 
             return div;
@@ -434,7 +516,22 @@ export function buildDependencyGraphHtml(
             pathEl.setAttribute('class', 'edge ' + (edge.type || ''));
             pathEl.setAttribute('data-from', edge.sourceId);
             pathEl.setAttribute('data-to', edge.targetId);
-            return pathEl;
+            const labelId = 'edge-label-' + (edge.sourceId + '-' + edge.targetId).replace(/[^a-zA-Z0-9_-]/g, '_');
+            const description = edge.type ? edge.sourceId + ' ' + edge.type + ' ' + edge.targetId : edge.sourceId + ' → ' + edge.targetId;
+            pathEl.setAttribute('tabindex', dependencyEditingEnabled ? '0' : '-1');
+            pathEl.setAttribute('role', 'button');
+            pathEl.setAttribute('aria-labelledby', labelId);
+            pathEl.setAttribute('aria-label', description);
+
+            const textEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            textEl.setAttribute('id', labelId);
+            textEl.setAttribute('class', 'edge-label');
+            textEl.setAttribute('x', String((x1 + x2) / 2));
+            textEl.setAttribute('y', String(midY - 8));
+            textEl.setAttribute('aria-hidden', 'true');
+            textEl.textContent = edge.sourceId + ' → ' + edge.targetId + (edge.type ? ' (' + edge.type + ')' : '');
+
+            return { pathEl, textEl };
         }
 
         function paintEdges(svg) {
@@ -443,9 +540,12 @@ export function buildDependencyGraphHtml(
             }
             svg.appendChild(buildArrowheadDefs());
             edges.forEach((edge) => {
-                const el = drawEdge(edge);
-                if (el) {
-                    svg.appendChild(el);
+                const pair = drawEdge(edge);
+                if (pair?.pathEl) {
+                    svg.appendChild(pair.pathEl);
+                    if (pair.textEl) {
+                        svg.appendChild(pair.textEl);
+                    }
                 }
             });
             bindEdgeClicks();
@@ -510,6 +610,15 @@ export function buildDependencyGraphHtml(
             render();
         }
 
+        function savePositions() {
+            const positions = {};
+            nodePositions.forEach((pos, id) => {
+                positions[id] = pos;
+            });
+            savedPositions = positions;
+            vscode.setState({ nodePositions: positions, lastSelectedNodeId });
+        }
+
         function redrawEdges() {
             const svg = document.getElementById('svg');
             if (!svg) return;
@@ -533,6 +642,16 @@ export function buildDependencyGraphHtml(
                     e.preventDefault();
                     selectedEdge = { from: el.getAttribute('data-from'), to: el.getAttribute('data-to') };
                     attemptRemoveSelected();
+                });
+                el.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        el.click();
+                    }
+                    if (dependencyEditingEnabled && e.key === 'Delete') {
+                        e.preventDefault();
+                        attemptRemoveSelected();
+                    }
                 });
             });
         }
