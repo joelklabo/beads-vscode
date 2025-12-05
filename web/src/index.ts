@@ -1,2 +1,0 @@
-// Web entry placeholder
-export {};
