@@ -184,8 +184,8 @@ describe('Extension tree items', () => {
 
   it('maps issue types to the expected icons', () => {
     const expectations: Record<string, string> = {
-      epic: 'rocket',
-      task: 'tasklist',
+      epic: 'list-tree',
+      task: 'checklist',
       bug: 'bug',
       feature: 'sparkle',
       chore: 'wrench',

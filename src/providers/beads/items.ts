@@ -190,8 +190,8 @@ export class BeadTreeItem extends vscode.TreeItem {
     this.contextValue = 'bead';
 
     const typeIcons: Record<string, string> = {
-      epic: 'rocket',
-      task: 'tasklist',
+      epic: 'list-tree',
+      task: 'checklist',
       bug: 'bug',
       feature: 'sparkle',
       chore: 'wrench',
