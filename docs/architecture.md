@@ -1,6 +1,6 @@
 # Beads architecture (overview)
 
-This repo is a multi-surface monorepo. Logic lives in shared packages; thin adapters light up each surface (VS Code, web, TUI). See `docs/adr/2025-12-core-layering.md` for the full ADR.
+This repo is a multi-surface monorepo. Logic lives in shared packages; thin adapters light up each surface (VS Code, web, TUI). See `docs/adr/2025-12-core-layering.md` for the full ADR, and `docs/adr/2025-12-vscode-recommendations.md` for how we surface the VS Code extension to bd/`.beads` workspaces.
 
 ```mermaid
 graph TD
