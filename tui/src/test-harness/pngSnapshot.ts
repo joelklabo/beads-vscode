@@ -14,7 +14,7 @@ function loadPng() {
     // Lazy require to avoid hard dependency when optional tools are not installed yet
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const { PNG } = require('pngjs');
-    return PNG as typeof import('pngjs').PNG;
+    return PNG as any;
   } catch (error) {
     throw new Error(
       'Missing pngjs dependency. Install pngjs (added in TUI visual tasks) to render PNG snapshots. Original: ' +

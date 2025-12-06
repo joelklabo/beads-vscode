@@ -57,7 +57,7 @@ export async function replayFrames(frames: FrameLogEntry[], options: ReplayOptio
   }
 
   const serialized = serializer.serialize();
-  const lines = serialized.split('\n').map((line) => padLine(line, cols)).slice(0, rows);
+  const lines = serialized.split('\n').map((line: string) => padLine(line, cols)).slice(0, rows);
   while (lines.length < rows) {
     lines.push(' '.repeat(cols));
   }
