@@ -400,14 +400,15 @@ describe('Extension tree items', () => {
     (provider as any).sortMode = 'status';
 
     const roots = await provider.getChildren();
-    const labels = roots.map((r: any) => r.contextValue === 'warningSection' ? 'warning' : r.status);
+    const contentRoots = roots.filter((r: any) => r.contextValue !== 'summaryHeader');
+    const labels = contentRoots.map((r: any) => r.contextValue === 'warningSection' ? 'warning' : r.status);
     assert.deepStrictEqual(labels, ['warning', 'in_progress', 'open', 'blocked', 'closed']);
 
-    const warning = roots[0] as any;
+    const warning = contentRoots[0] as any;
     assert.strictEqual(warning.contextValue, 'warningSection');
     assert.strictEqual(warning.collapsibleState, vscodeStub.TreeItemCollapsibleState.Expanded);
 
-    const statusSections = roots.filter((r: any) => r.contextValue === 'statusSection');
+    const statusSections = contentRoots.filter((r: any) => r.contextValue === 'statusSection');
     statusSections.forEach((section: any) => {
       assert.strictEqual(section.collapsibleState, vscodeStub.TreeItemCollapsibleState.Collapsed);
     });
@@ -432,19 +433,20 @@ describe('Extension tree items', () => {
     (provider as any).sortMode = 'epic';
 
     const roots = await provider.getChildren();
-    const orderLabels = roots.map((r: any) => r.contextValue === 'warningSection' ? 'warning' : (r.status || r.contextValue));
+    const contentRoots = roots.filter((r: any) => r.contextValue !== 'summaryHeader');
+    const orderLabels = contentRoots.map((r: any) => r.contextValue === 'warningSection' ? 'warning' : (r.status || r.contextValue));
     assert.deepStrictEqual(orderLabels, ['warning', 'in_progress', 'open', 'blocked', 'closed']);
 
-    const warning = roots.find((r: any) => r.contextValue === 'warningSection');
+    const warning = contentRoots.find((r: any) => r.contextValue === 'warningSection');
     assert.ok(warning);
     const warningIds = warning!.beads.map((b: any) => b.id).sort();
     assert.deepStrictEqual(warningIds, ['epic-empty-open', 'task-stale']);
 
-    const progressSection = roots.find((r: any) => r.contextValue === 'epicStatusSection' && r.status === 'in_progress') as any;
+    const progressSection = contentRoots.find((r: any) => r.contextValue === 'epicStatusSection' && r.status === 'in_progress') as any;
     const progressChildren = await provider.getChildren(progressSection);
     assert.ok(progressChildren.some((n: any) => n.epic.id === 'epic-progress'), 'in_progress section should include non-empty epics only');
 
-    const closedSection = roots.find((r: any) => r.contextValue === 'epicStatusSection' && r.status === 'closed') as any;
+    const closedSection = contentRoots.find((r: any) => r.contextValue === 'epicStatusSection' && r.status === 'closed') as any;
     const closedChildren = await provider.getChildren(closedSection);
     assert.ok(closedChildren.some((n: any) => n.epic.id === 'epic-empty'), 'closed empty epics should stay in closed section, not warning');
 

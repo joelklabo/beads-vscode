@@ -62,6 +62,7 @@ import {
   BeadDetailItem,
   EpicTreeItem,
   StatusSectionItem,
+  SummaryHeaderItem,
   UngroupedSectionItem,
   WarningSectionItem,
   EpicStatusSectionItem,
@@ -235,7 +236,7 @@ async function runBdCommand(args: string[], projectRoot: string, options: BdComm
   await client.run(args);
 }
 
-type TreeItemType = StatusSectionItem | WarningSectionItem | EpicStatusSectionItem | AssigneeSectionItem | EpicTreeItem | UngroupedSectionItem | BeadTreeItem | BeadDetailItem;
+type TreeItemType = SummaryHeaderItem | StatusSectionItem | WarningSectionItem | EpicStatusSectionItem | AssigneeSectionItem | EpicTreeItem | UngroupedSectionItem | BeadTreeItem | BeadDetailItem;
 
 type StatusLabelMap = {
   open: string;
@@ -618,23 +619,53 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     }
 
     const filteredItems = this.filterItems(this.items);
+    const header = filteredItems.length > 0 ? [this.buildSummaryHeader(filteredItems)] : [];
     
     if (this.sortMode === 'status') {
-      return this.createStatusSections(filteredItems);
+      return [...header, ...this.createStatusSections(filteredItems)];
     }
     
     if (this.sortMode === 'epic') {
-      return this.createEpicTree(filteredItems);
+      return [...header, ...this.createEpicTree(filteredItems)];
     }
 
     if (this.sortMode === 'assignee') {
-      return this.createAssigneeSections(filteredItems);
+      return [...header, ...this.createAssigneeSections(filteredItems)];
     }
     
     const sortedItems = this.applySortOrder(filteredItems);
-    return sortedItems.map((item) => this.createTreeItem(item));
+    return header.concat(sortedItems.map((item) => this.createTreeItem(item)));
   }
   
+  private buildSummaryHeader(items: BeadItemData[]): SummaryHeaderItem {
+    const total = items.length;
+    const counts: Record<string, number> = { open: 0, in_progress: 0, blocked: 0, closed: 0 };
+    items.forEach((item) => {
+      const status = item.status || 'open';
+      if (counts[status] !== undefined) {
+        counts[status] += 1;
+      }
+    });
+
+    let unassigned = 0;
+    const assignees = new Set<string>();
+    items.forEach((item) => {
+      const name = deriveAssigneeName(item, '').trim();
+      if (name) {
+        assignees.add(name.toLowerCase());
+      } else {
+        unassigned += 1;
+      }
+    });
+
+    const description = t('{0} items · Open {1} · In Progress {2} · Blocked {3} · Closed {4} · Assignees {5} · Unassigned {6}',
+      total, counts.open ?? 0, counts.in_progress ?? 0, counts.blocked ?? 0, counts.closed ?? 0, assignees.size, unassigned);
+
+    const header = new SummaryHeaderItem(t('Issues Summary'), description, description);
+    header.accessibilityInformation = { label: description };
+    return header;
+  }
+
   private createStatusSections(items: BeadItemData[]): (StatusSectionItem | WarningSectionItem)[] {
     // Get stale threshold from configuration (in minutes, convert to hours for isStale)
     const config = vscode.workspace.getConfiguration('beady');
