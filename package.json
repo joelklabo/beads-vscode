@@ -670,6 +670,10 @@
         {
           "command": "beads.pickSortMode",
           "when": "beads.sortPickerEnabled"
+        },
+        {
+          "command": "beads.toggleSortMode",
+          "when": "!beads.sortPickerEnabled"
         }
       ]
     },
