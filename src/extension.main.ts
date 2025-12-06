@@ -443,6 +443,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
 
   // Sort mode: 'id' (natural ID sort), 'status' (group by status), or 'epic' (group by parent epic)
   private sortMode: 'id' | 'status' | 'epic' | 'assignee' = 'id';
+  private sortPickerEnabled = true;
   
   // Collapsed state for status sections
   private collapsedSections: Set<string> = new Set(DEFAULT_COLLAPSED_SECTION_KEYS);
@@ -1730,21 +1731,10 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   }
 
   toggleSortMode(): void {
-    // Cycle through: id → status → epic → assignee → id
-    if (this.sortMode === 'id') {
-      this.sortMode = 'status';
-    } else if (this.sortMode === 'status') {
-      this.sortMode = 'epic';
-    } else if (this.sortMode === 'epic') {
-      this.sortMode = 'assignee';
-    } else {
-      this.sortMode = 'id';
-    }
-    this.saveSortMode();
-    this.onDidChangeTreeDataEmitter.fire();
-    const modeDisplay = this.getSortModeLabel();
-    this.updateSortDescription();
-    void vscode.window.showInformationMessage(t('Sort mode set to {0}.', modeDisplay));
+    const modes = this.sortPickerEnabled ? ['id', 'status', 'epic', 'assignee'] as const : ['id', 'status', 'epic'] as const;
+    const currentIndex = modes.indexOf(this.sortMode as any);
+    const next = modes[(currentIndex + 1) % modes.length];
+    this.setSortMode(next as any, { showToast: true });
   }
 
   getSortMode(): 'id' | 'status' | 'epic' | 'assignee' {
@@ -1762,6 +1752,61 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
       default:
         return t('ID (natural)');
     }
+  }
+
+  private setSortMode(mode: 'id' | 'status' | 'epic' | 'assignee', options: { showToast?: boolean } = {}): void {
+    // Guard: when the rollout flag is off, do not allow assignee mode
+    if (!this.sortPickerEnabled && mode === 'assignee') {
+      mode = 'id';
+    }
+    if (this.sortMode === mode) {
+      return;
+    }
+    this.sortMode = mode;
+    this.saveSortMode();
+    this.onDidChangeTreeDataEmitter.fire();
+    this.updateSortDescription();
+    if (options.showToast) {
+      void vscode.window.showInformationMessage(t('Sort mode set to {0}.', this.getSortModeLabel()));
+    }
+  }
+
+  setSortPickerEnabled(enabled: boolean): void {
+    this.sortPickerEnabled = enabled;
+    if (!enabled && this.sortMode === 'assignee') {
+      this.setSortMode('id');
+    }
+  }
+
+  async pickSortMode(): Promise<void> {
+    const modes: Array<{ mode: 'id' | 'status' | 'epic' | 'assignee'; label: string; description: string }>
+      = [
+        { mode: 'id', label: t('ID (natural)'), description: t('Sort by issue id (default)') },
+        { mode: 'status', label: t('Status (grouped)'), description: t('Group by status, sort by id within each group') },
+        { mode: 'epic', label: t('Epic (grouped)'), description: t('Group by parent epic, open/blocked first') },
+      ];
+
+    if (this.sortPickerEnabled) {
+      modes.push({ mode: 'assignee', label: t('Assignee (grouped)'), description: t('Group by assignee, unassigned last') });
+    }
+
+    const picks = modes.map((entry) => ({
+      label: entry.label,
+      description: entry.description,
+      picked: this.sortMode === entry.mode,
+      mode: entry.mode,
+    }));
+
+    const selection = await vscode.window.showQuickPick(picks, {
+      placeHolder: t('Select sort mode for Beads explorer'),
+      matchOnDescription: true,
+    });
+
+    if (!selection) {
+      return;
+    }
+
+    this.setSortMode(selection.mode, { showToast: true });
   }
 
   private updateSortDescription(): void {
@@ -5695,6 +5740,12 @@ export function activate(context: vscode.ExtensionContext): void {
     provider.syncQuickFilterContext();
   };
 
+  const applySortPickerContext = (): void => {
+    const enabled = vscode.workspace.getConfiguration('beads').get<boolean>('sortPicker.enabled', true);
+    provider.setSortPickerEnabled(enabled);
+    void vscode.commands.executeCommand('setContext', 'beads.sortPickerEnabled', enabled);
+  };
+
   const applyFavoritesContext = (): void => {
     const favoritesEnabled = vscode.workspace.getConfiguration('beads').get<boolean>('favorites.enabled', false);
     void vscode.commands.executeCommand('setContext', 'beads.favoritesEnabled', favoritesEnabled);
@@ -5709,6 +5760,7 @@ export function activate(context: vscode.ExtensionContext): void {
   applyWorkspaceContext();
   applyBulkActionsContext();
   applyQuickFiltersContext();
+  applySortPickerContext();
   applyFavoritesContext();
   applyFeedbackContext();
 
@@ -5760,6 +5812,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('beads.clearSortOrder', () => provider.clearSortOrder()),
     vscode.commands.registerCommand('beads.applyQuickFilterPreset', () => provider.applyQuickFilterPreset()),
     vscode.commands.registerCommand('beads.clearQuickFilters', () => provider.clearQuickFilter()),
+    vscode.commands.registerCommand('beads.pickSortMode', () => provider.pickSortMode()),
     vscode.commands.registerCommand('beads.toggleSortMode', () => provider.toggleSortMode()),
     vscode.commands.registerCommand('beads.openBead', (item: BeadItemData) => openBead(item, provider)),
     vscode.commands.registerCommand('beads.createBead', () => createBead()),
@@ -6006,6 +6059,10 @@ export function activate(context: vscode.ExtensionContext): void {
 
     if (event.affectsConfiguration('beads.quickFilters')) {
       applyQuickFiltersContext();
+    }
+
+    if (event.affectsConfiguration('beads.sortPicker')) {
+      applySortPickerContext();
     }
 
     if (event.affectsConfiguration('beads.feedback') || event.affectsConfiguration('beads.projectRoot')) {

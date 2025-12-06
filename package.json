@@ -118,6 +118,11 @@
         "icon": "$(list-ordered)"
       },
       {
+        "command": "beads.pickSortMode",
+        "title": "%command.beads.pickSortMode%",
+        "icon": "$(list-filter)"
+      },
+      {
         "command": "beads.toggleSortMode",
         "title": "%command.beads.toggleSortMode%",
         "icon": "$(list-tree)"
@@ -404,6 +409,11 @@
           "type": "boolean",
           "default": false,
           "markdownDescription": "Enable quick filter presets in the Beads explorer toolbar and command palette."
+        },
+        "beads.sortPicker.enabled": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Enable the explicit sort picker and assignee grouping. When disabled, sorting cycles through ID/Status/Epic only."
         }
       }
     },
@@ -420,8 +430,13 @@
           "group": "navigation@1.6"
         },
         {
+          "command": "beads.pickSortMode",
+          "when": "view == beadsExplorer && beads.sortPickerEnabled",
+          "group": "navigation@1"
+        },
+        {
           "command": "beads.toggleSortMode",
-          "when": "view == beadsExplorer",
+          "when": "view == beadsExplorer && !beads.sortPickerEnabled",
           "group": "navigation@1"
         },
         {
@@ -651,6 +666,10 @@
         {
           "command": "beads.inlineStatusChange",
           "when": "config.beads.inlineStatusChange.enabled"
+        },
+        {
+          "command": "beads.pickSortMode",
+          "when": "beads.sortPickerEnabled"
         }
       ]
     },
@@ -790,6 +809,7 @@
     "onCommand:beads.exportMarkdown",
     "onCommand:beads.inlineStatusChange",
     "onCommand:beads.clearSortOrder",
+    "onCommand:beads.pickSortMode",
     "onCommand:beads.toggleSortMode",
     "onCommand:beads.applyQuickFilterPreset",
     "onCommand:beads.clearQuickFilters",
