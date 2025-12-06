@@ -1,6 +1,6 @@
 # Beads architecture (overview)
 
-This repo is a multi-surface monorepo. Logic lives in shared packages; thin adapters light up each surface (VS Code, web, TUI). See `docs/adr/2025-12-core-layering.md` for the full ADR, and `docs/adr/2025-12-vscode-recommendations.md` for how we surface the VS Code extension to bd/`.beads` workspaces.
+This repo is a multi-surface monorepo. Logic lives in shared packages; thin adapters light up each surface (VS Code, web, TUI). See `docs/adr/2025-12-core-layering.md` for the full ADR, `docs/adr/2025-12-vscode-recommendations.md` for how we surface the VS Code extension to bd/`.beads` workspaces, and `docs/adr/2025-12-vscode-bundling.md` for the bundling strategy.
 
 ```mermaid
 graph TD
@@ -48,6 +48,7 @@ graph TD
 ## Workspace layout & commands
 - Root install: `npm install`
 - Build per surface: `npm run build:core`, `npm run build:vscode`, `npm run build:tui`, `npm run build:web` (web build skips when the workspace is absent).
+- VS Code runtime bundle: `npm run bundle` (esbuild) outputs `dist/extension.js(+.map)`; `npm run bundle:watch` for incremental dev; `npm run typecheck` runs `tsc --noEmit`. We keep `npm run compile` (tsc -b) for test builds that rely on `out/`.
 - Tests: `npm run test:unit` (VS Code), `npm run test:core`, `npm run test:tui`, `npm run test:web:skeleton`, `npm run test:all` for the full sweep. CI entrypoints mirror these (`ci:*`).
 - Temp/test artifacts live under `tmp/`; clean with `npm run test:clean-temp`.
 - TUI visual regression plan: see `docs/design/tui-visual-testing.md`; when enabled, use `npm run test:tui:visual` (or `-- --update` to refresh baselines) gated by `TUI_VISUAL_ENABLED` to avoid slowing default CI.
