@@ -739,7 +739,8 @@
     "build:ui-web": "npm run -w @beads/ui-web build",
     "web:dev": "npm run -w @beads/web dev",
     "web:preview": "npm run -w @beads/web preview",
-    "tui:start": "npm run -w @beads/tui start"
+    "tui:start": "npm run -w @beads/tui start",
+    "recommend:add": "tsx scripts/add-vscode-recommendation.ts"
   },
   "devDependencies": {
     "@beads/bd": "^0.29.0",
