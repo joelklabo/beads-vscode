@@ -37,12 +37,21 @@ Decision: use option 1; keep room to import `ht` later for manual captures.
 ## Architecture
 - **Scenario definitions** (`tui/src/test-harness/scenarios/*.ts`): describe fixture seed, key sequence, timing (ms between keys), terminal size, expected focus/selection metadata.
 - **Fixtures** (`tui/src/test-harness/fixtures/mockStore.ts`): deterministic BeadsStore data; covers long titles, unicode, dependency edges, and list density; no filesystem writes.
-- **Runner (ptyRunner)** (`tui/src/test-harness/ptyRunner.ts`): spawns `npm run tui:start` equivalent entry with `node-pty`; sets `COLUMNS`, `LINES`, `TERM`, `TZ`, seeded RNG; feeds keys with delays; records stdout/stderr and timestamped frame log; enforces overall timeout; exits nonzero on crash/hang.
+- **Runner (ptyRunner)** (`tui/src/test-harness/ptyRunner.ts`): spawns the compiled TUI entry (`tui/out/run.js`) with `node-pty`; sets `COLUMNS`, `LINES`, `TERM`, `TZ`, seeded clock; feeds keys with delays; records stdout (sanitized) plus timestamped frame log; enforces overall timeout; exits nonzero on crash/hang.
 - **Renderer** (`terminalRenderer.ts`): replays ANSI frames into `@xterm/headless` with fixed size; exports final buffer as text (serialize add-on) and as cell grid for PNG.
 - **PNG snapshot** (`pngSnapshot.ts`): renders cell grid to PNG via `node-canvas` (font path configurable, default JetBrains Mono/Fira Code fallback) and writes metadata (font hash, size) alongside outputs.
 - **Compare/report** (`compare.ts` + `report.ts`): compare current vs baseline using pixelmatch (tolerance configurable); produce HTML with keyboard navigation, alt text, diff toggle; artifacts in `tmp/tui-visual-report/<scenario>/`.
 - **Scripts**: `npm run test:tui:visual` runs compare; `npm run test:tui:visual -- --update` refreshes baselines; root proxies provided. Env flag `TUI_VISUAL_ENABLED=1` gates heavy deps; no-op otherwise.
 - **Snapshot layout**: baselines stored under `tui/__snapshots__/baseline/<scenario>.txt|png`; actuals/diffs under `tmp/tui-visual-report/<scenario>/` (gitignored).
+
+## How to run / maintain
+- Run from a task worktree and set `TUI_VISUAL_ENABLED=1` before install to pull node-pty/xterm/pixelmatch; keep `BEADS_NO_DAEMON=1`.
+- Build once: `npm run -w @beads/tui build`.
+- Capture a raw frame log: `node tui/out/test-harness/ptyRunner.js --scenario nav-basic --cols 100 --rows 30` → writes `tmp/tui-harness/nav-basic.ansi` and `nav-basic.json` (sanitized, worktree paths masked).
+- Compare/approve (when wired): `npm run test:tui:visual` (diff/report to `tmp/tui-visual-report/<scenario>/`), `npm run test:tui:visual -- --update` to refresh baselines in `tui/__snapshots__/baseline`.
+- Fonts: install JetBrains Mono or Fira Code; override with `TUI_VISUAL_FONT=/path/to/font.ttf` if CI font differs. If widths drift, fail fast and re-run after installing the expected font.
+- Troubleshooting: adjust `--cols/--rows`, set `TUI_HARNESS_CLOCK_MS` for deterministic timestamps, allow non-worktree runs only for debugging with `TUI_VISUAL_ALLOW_NON_WORKTREE=1`.
+- Accessibility/redaction: harness sanitizes stdout before writing artifacts and HTML reports follow [docs/accessibility.md](../accessibility.md); keep alt text/focus states intact when editing reports.
 
 ## Determinism checklist
 - Terminal: set `COLUMNS`/`LINES` per scenario; default 80x24.

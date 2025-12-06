@@ -79,7 +79,7 @@ The extension integrates with the Beads CLI (`bd`) and reads from the Beads data
 - Headless/channel scripts: `npm run test:integration:stable`, `npm run test:integration:insiders`, `npm run test:integration:headless` (Linux wraps `xvfb-run -a`).
 - Env: set `VSCODE_TEST_CHANNEL` and optional `VSCODE_TEST_INSTANCE_ID` to isolate parallel runs; temp dirs live under `tmp/` in the repo and are auto-cleaned after runs.
 - Cleanup: remove stale temp dirs with `npm run test:clean-temp`.
-- Details: see [docs/testing-headless.md](docs/testing-headless.md).
+- Details: see [docs/testing-headless.md](docs/testing-headless.md). TUI visual snapshot workflow (pseudo-PTY harness, baselines, reports) lives in [TESTING.md](TESTING.md#tui-visual-snapshots-headless-harness) with design notes in [docs/design/tui-visual-testing.md](docs/design/tui-visual-testing.md).
 
 ## Commands
 
