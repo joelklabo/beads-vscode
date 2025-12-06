@@ -686,7 +686,6 @@
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -b packages/platform-vscode/tsconfig.json",
-    "postcompile": "tsc-alias -p packages/platform-vscode/tsconfig.json",
     "watch": "tsc -b packages/platform-vscode/tsconfig.json --watch --preserveWatchOutput",
     "build:core": "npm run -w @beads/core build",
     "build:vscode": "npm run -w @beads/platform-vscode build",
@@ -702,8 +701,8 @@
     "test:all": "npm run lint && npm run test:unit && npm run test:core && npm run test:tui && npm run test:ui-headless && npm run test:ui-web && npm run test:web:skeleton && npm run test:bd-cli",
     "guard": "./scripts/worktree-guard.sh",
     "bd": "./scripts/bd-wrapper.sh",
-    "package": "vsce package",
-    "publish": "vsce publish",
+    "package": "vsce package --follow-symlinks",
+    "publish": "vsce publish --follow-symlinks",
     "install-local": "npm run package && ./scripts/install-local.sh",
     "test:harness": "bash ./scripts/agent-harness/run-placeholder.sh",
     "test:tui:smoke": "echo 'TODO: add TUI smoke test' && exit 0",
