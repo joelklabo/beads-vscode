@@ -35,6 +35,12 @@ Please be respectful and constructive in all interactions with the project. We a
 
 4. Press F5 to launch the Extension Development Host
 
+### Workspace recommendations (bd/.beads repos)
+
+- Use the opt-in helper to add the Beady recommendation: `npm run recommend:add [workspaceRoot]` (or set `WORKSPACE_ROOT`). It writes/merges `.vscode/extensions.json` only when a `.beads/` directory exists.
+- Respect existing entries: the script preserves `recommendations`/`unwantedRecommendations` and skips if `4UtopiaInc.beady` is explicitly unwanted.
+- For multi-root workspaces, run the helper per folder you want to tag; avoid committing `.vscode/extensions.json` for unrelated roots.
+
 ## Development Workflow
 
 ### Making Changes

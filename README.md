@@ -226,6 +226,25 @@ npm run install-local
 - Skips the reload when `NO_RELOAD_AFTER_INSTALL_LOCAL=1` is set; otherwise it runs `workbench.action.reloadWindow` after install so the new VSIX is active immediately.
 - If no VS Code CLI is found, the script leaves the VSIX on disk and prints a warning so you can install manually.
 
+### Workspace recommendations for bd/.beads repos
+
+Surface Beady as a recommended extension in bd projects so teammates are prompted automatically:
+
+1) Ensure your repo has a `.beads/` directory at the workspace root.
+2) From the repo root run:
+
+```bash
+npm run recommend:add               # uses CWD
+# or target a specific folder
+npm run recommend:add -- /path/to/workspace
+# or set WORKSPACE_ROOT=/path/to/workspace npm run recommend:add
+```
+
+3) Commit the generated/merged `.vscode/extensions.json` (it preserves existing `recommendations`/`unwantedRecommendations`).
+4) Open the workspace and accept the recommendation prompt for `4UtopiaInc.beady`.
+
+Troubleshooting: prompts may be suppressed if VS Code trust is denied, recommendations are disabled (`extensions.ignoreRecommendations`), the workspace opens over Remote/SSH with policy blocks, or the ID is listed in `unwantedRecommendations` (script logs a skip).
+
 ### Multi-Agent Workflow
 
 For the hardened worktree-based multi-agent flow (atomic claims, merge queue, heartbeats, WAL), see [docs/MULTI_AGENT_ORCHESTRATION.md](docs/MULTI_AGENT_ORCHESTRATION.md).

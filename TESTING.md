@@ -29,5 +29,10 @@
 ## Worktrees
 Run tests from your task worktree (not the main repo). Verify with `./scripts/task-worktree.sh verify <task-id>` before running commands so temp state stays scoped. Temp artifacts live under `tmp/` in the repo; avoid `/tmp` so macOS permissions prompts are not triggered.
 
+## Workspace recommendation script (manual spot-check)
+- Create a temp workspace with a `.beads/` directory (empty is fine) and run `npm run recommend:add -- /path/to/workspace` (or set `WORKSPACE_ROOT`).
+- Expect `.vscode/extensions.json` to be created/merged with `4UtopiaInc.beady` in `recommendations`, preserving existing `recommendations`/`unwantedRecommendations`; the script exits nonzero if `.beads/` is missing and logs a skip when the ID is unwanted.
+- For multi-root testing, run the helper per folder you want to tag; ensure the right root is passed so the script does not touch unrelated workspace folders.
+
 ## CI parity & badges
 The GitHub Actions **Test** workflow uses the same commands as `npm run ci:unit` + `npm run ci:integration` across an OS/Node/VS Code channel matrix, with coverage reported via `ci:coverage` on Ubuntu/Node 20/stable and uploaded to Codecov. Badges and matrix details live in [docs/ci.md](docs/ci.md).

@@ -53,6 +53,18 @@ New-Item -ItemType SymbolicLink -Path "$env:USERPROFILE\.vscode\extensions\beady
 
 Then reload VSCode.
 
+### Add VS Code recommendation (bd/.beads projects)
+
+If your repo already has `.beads/`, add a workspace recommendation so teammates are prompted to install Beady:
+
+```bash
+npm run recommend:add               # uses current folder
+# or
+npm run recommend:add -- /path/to/workspace
+```
+
+This writes/merges `.vscode/extensions.json` with the Beady extension ID `4UtopiaInc.beady`. Commit the file. If the ID is in `unwantedRecommendations`, the script logs a skip. For multi-root, run it per folder you want to recommend.
+
 ---
 
 ## Monorepo layout & commands
