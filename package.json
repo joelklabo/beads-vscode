@@ -1,7 +1,7 @@
 {
   "name": "beady",
   "displayName": "Beady Project Manager",
-  "description": "Manage Beady projects directly from VS Code.",
+  "description": "Worktree-friendly bd project manager for Beady: browse issues, dependencies, and activity inside VS Code.",
   "version": "0.1.0",
   "private": true,
   "publisher": "klabo",
@@ -20,7 +20,12 @@
   },
   "homepage": "https://github.com/joelklabo/beady#readme",
   "keywords": [
+    "bd",
+    "beady",
     "beads",
+    "worktree",
+    "dependency-graph",
+    "project-manager",
     "project-management",
     "issue-tracker",
     "task-management"
