@@ -695,6 +695,7 @@
     "compile": "tsc -b packages/platform-vscode/tsconfig.json",
     "bundle:types": "npm run build:core && tsc -p packages/platform-vscode/tsconfig.json --emitDeclarationOnly --outDir dist",
     "bundle": "npm run bundle:types && tsx scripts/esbuild.extension.ts",
+    "audit:bundle": "npm run bundle && node scripts/audit-bundle.js",
     "bundle:watch": "npm run bundle -- --watch",
     "watch": "node scripts/watch.js",
     "build:core": "npm run -w @beads/core build",

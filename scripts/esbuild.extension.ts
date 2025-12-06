@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import { build, context } from 'esbuild';
 
 const watch = process.argv.includes('--watch');
@@ -14,6 +15,7 @@ const options = {
   minify,
   external: ['vscode', '@vscode/test-electron'],
   tsconfig: 'tsconfig.base.json',
+  metafile: true,
   logLevel: 'info' as const,
 };
 
@@ -23,7 +25,10 @@ async function run() {
     await ctx.watch();
     console.log('[esbuild] Watching for changes...');
   } else {
-    await build(options);
+    const result = await build(options);
+    // Persist metafile for audit script
+    await fs.promises.mkdir('dist', { recursive: true });
+    await fs.promises.writeFile('dist/extension.meta.json', JSON.stringify(result.metafile, null, 2));
   }
 }
 
