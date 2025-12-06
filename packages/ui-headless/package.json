@@ -9,7 +9,7 @@
     "test": "tsx --test \"test/**/*.test.tsx\""
   },
   "dependencies": {
-    "@beads/core": "0.0.0",
+    "@beads/core": "0.1.0",
     "react": "^18.2.0"
   },
   "devDependencies": {

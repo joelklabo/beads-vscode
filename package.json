@@ -31,7 +31,8 @@
   "categories": [
     "Other"
   ],
-  "main": "./out/extension.js",
+  "main": "./dist/extension.js",
+  "types": "./dist/extension.d.ts",
   "contributes": {
     "commands": [
       {
@@ -684,8 +685,12 @@
     ]
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
+    "vscode:prepublish": "npm run typecheck && npm run bundle",
+    "typecheck": "tsc --noEmit",
     "compile": "tsc -b packages/platform-vscode/tsconfig.json",
+    "bundle:types": "npm run build:core && tsc -p packages/platform-vscode/tsconfig.json --emitDeclarationOnly --outDir dist",
+    "bundle": "npm run bundle:types && tsx scripts/esbuild.extension.ts",
+    "bundle:watch": "npm run bundle -- --watch",
     "watch": "tsc -b packages/platform-vscode/tsconfig.json --watch --preserveWatchOutput",
     "build:core": "npm run -w @beads/core build",
     "build:vscode": "npm run -w @beads/platform-vscode build",
@@ -696,7 +701,7 @@
     "test:unit": "npm run compile && npm run test:unit:run",
     "test:unit:run": "mocha ./out/test/unit/**/*.test.js ./out/test/deps.add.test.js ./out/test/sanitization.test.js ./out/test/littleGlen.command-validation.test.js ./out/test/log-redaction.test.js ./out/test/activityFeed.timestamps.test.js ./out/test/title-format.test.js ./out/test/activityFeed.title-format.test.js ./out/test/multi-root.cli.test.js ./out/test/tooltips.security.test.js ./out/test/export.markdown.test.js ./out/test/export.csv.test.js ./out/test/bulk.status.test.js ./out/test/bulk.results.test.js ./out/test/bulk.labels.test.js ./out/test/favorites.persistence.test.js ./out/test/favorites.validation.test.js ./out/test/favorites.toggle.test.js ./out/test/inline.status.test.js ./out/test/inline.validation.test.js --exit",
     "test:bd-cli": "npm run compile && mocha ./out/test/bd-cli.test.js",
-    "test:integration": "npm run compile && node ./out/test/runTest.js",
+    "test:integration": "npm run compile && npm run bundle && node ./out/test/runTest.js",
     "test:stress": "./scripts/stress-test.sh",
     "test:all": "npm run lint && npm run test:unit && npm run test:core && npm run test:tui && npm run test:ui-headless && npm run test:ui-web && npm run test:web:skeleton && npm run test:bd-cli",
     "guard": "./scripts/worktree-guard.sh",
@@ -745,6 +750,7 @@
     "@vscode/vsce": "^3.6.2",
     "c8": "^10.1.3",
     "eslint": "^8.56.0",
+    "esbuild": "^0.23.0",
     "glob": "^10.3.10",
     "ink": "^4.4.1",
     "ink-testing-library": "^4.0.0",
