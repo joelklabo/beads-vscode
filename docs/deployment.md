@@ -13,6 +13,7 @@
 
 ## TUI
 - Optional CI step: `npm run ci:tui` builds/tests the Ink TUI when the workspace is present.
+- Visual suite (opt-in): set `VISUAL_TUI=1` (or pass `visual_tui=true` on `workflow_dispatch`) to run `npm run ci:tui:visual`. Artifacts are uploaded from `tmp/tui-visual-report` (HTML + PNG diffs). Skips entirely when the flag is off.
 
 ## BD CLI usage in CI
 - All CI jobs export `BEADS_NO_DAEMON=1` so bd commands always run in direct mode and avoid shared daemon state.
