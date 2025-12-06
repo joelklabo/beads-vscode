@@ -63,6 +63,7 @@ import {
   UngroupedSectionItem,
   WarningSectionItem,
   EpicStatusSectionItem,
+  AssigneeSectionItem,
 } from './providers/beads/items';
 import {
   BeadsDocument,
@@ -445,6 +446,8 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   private collapsedSections: Set<string> = new Set(DEFAULT_COLLAPSED_SECTION_KEYS);
   // Collapsed state for epics (id -> collapsed)
   private collapsedEpics: Map<string, boolean> = new Map();
+  // Collapsed state for assignee buckets (key -> collapsed)
+  private collapsedAssignees: Map<string, boolean> = new Map();
   // Expanded state for bead rows (id -> expanded)
   private expandedRows: Set<string> = new Set();
 
@@ -460,6 +463,8 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     this.loadSortMode();
     // Load persisted collapsed sections
     this.loadCollapsedSections();
+    // Load persisted collapsed assignee buckets
+    this.loadCollapsedAssignees();
     // Load persisted expanded rows
     this.loadExpandedRows();
     // Load quick filter preset
@@ -584,6 +589,10 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     if (element instanceof EpicStatusSectionItem) {
       return element.epics;
     }
+
+    if (element instanceof AssigneeSectionItem) {
+      return element.beads.map((item) => this.createTreeItem(item));
+    }
     
     if (element instanceof EpicTreeItem) {
       return element.children.map((item) => this.createTreeItem(item));
@@ -607,7 +616,11 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     if (this.sortMode === 'status') {
       return this.createStatusSections(filteredItems);
     }
-    
+
+    if (this.sortMode === 'assignee') {
+      return this.createAssigneeSections(filteredItems);
+    }
+
     if (this.sortMode === 'epic') {
       return this.createEpicTree(filteredItems);
     }
@@ -670,6 +683,59 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
       sections.push(new StatusSectionItem(status, bucket, isCollapsed));
     });
     
+    return sections;
+  }
+
+  private getAssigneeCollapseKey(name: string): string {
+    const normalized = name.trim().toLowerCase() || t('Unassigned').toLowerCase();
+    return `assignee:${normalized.replace(/\s+/g, ' ')}`;
+  }
+
+  private createAssigneeSections(items: BeadItemData[]): (AssigneeSectionItem | WarningSectionItem)[] {
+    const config = vscode.workspace.getConfiguration('beads');
+    const thresholdMinutes = config.get<number>('staleThresholdMinutes', 10);
+    const thresholdHours = thresholdMinutes / 60;
+
+    const staleItems = items.filter(item => item.status !== 'closed' && isStale(item, thresholdHours));
+    const buckets = new Map<string, { display: string; key: string; items: BeadItemData[] }>();
+    const unassignedLabel = t('Unassigned');
+
+    items.forEach(item => {
+      const displayRaw = deriveAssigneeName(item, unassignedLabel).trim() || unassignedLabel;
+      const key = this.getAssigneeCollapseKey(displayRaw);
+      const existing = buckets.get(key);
+      if (existing) {
+        existing.items.push(item);
+      } else {
+        buckets.set(key, { display: displayRaw, key, items: [item] });
+      }
+    });
+
+    buckets.forEach(entry => entry.items.sort(naturalSort));
+
+    const sections: (AssigneeSectionItem | WarningSectionItem)[] = [];
+
+    if (staleItems.length > 0) {
+      const isCollapsed = this.collapsedSections.has('stale');
+      sections.push(new WarningSectionItem(staleItems, thresholdMinutes, isCollapsed));
+    }
+
+    const unassignedKey = this.getAssigneeCollapseKey(unassignedLabel);
+    const keys = Array.from(buckets.keys()).filter(k => k !== unassignedKey).sort((a, b) => {
+      const aLabel = buckets.get(a)?.display.toLowerCase() ?? a;
+      const bLabel = buckets.get(b)?.display.toLowerCase() ?? b;
+      return aLabel.localeCompare(bLabel, undefined, { sensitivity: 'base' });
+    });
+    if (buckets.has(unassignedKey)) {
+      keys.push(unassignedKey);
+    }
+
+    keys.forEach(key => {
+      const bucket = buckets.get(key)!;
+      const isCollapsed = this.collapsedAssignees.get(key) === true;
+      sections.push(new AssigneeSectionItem(bucket.display, bucket.items, key, isCollapsed));
+    });
+
     return sections;
   }
   
@@ -1501,6 +1567,23 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     void this.context.workspaceState.update('beads.collapsedEpics', epicState);
   }
 
+  private loadCollapsedAssignees(): void {
+    const saved = this.context.workspaceState.get<Record<string, boolean>>('beads.collapsedAssignees');
+    if (saved) {
+      this.collapsedAssignees = new Map(Object.entries(saved));
+    }
+  }
+
+  private saveCollapsedAssignees(): void {
+    const state: Record<string, boolean> = {};
+    this.collapsedAssignees.forEach((collapsed, key) => {
+      if (collapsed) {
+        state[key] = true;
+      }
+    });
+    void this.context.workspaceState.update('beads.collapsedAssignees', state);
+  }
+
   private loadExpandedRows(): void {
     const saved = this.context.workspaceState.get<string[]>('beads.expandedRows');
     this.expandedRows = new Set(saved ?? []);
@@ -1705,6 +1788,18 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
       this.collapsedEpics.set(element.epic.id, isCollapsed);
       this.saveCollapsedSections();
       element.updateIcon(isCollapsed);
+      element.collapsibleState = isCollapsed ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.Expanded;
+      this.onDidChangeTreeDataEmitter.fire(element);
+      return;
+    }
+
+    if (element instanceof AssigneeSectionItem) {
+      if (isCollapsed) {
+        this.collapsedAssignees.set(element.collapseKey, true);
+      } else {
+        this.collapsedAssignees.delete(element.collapseKey);
+      }
+      this.saveCollapsedAssignees();
       element.collapsibleState = isCollapsed ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.Expanded;
       this.onDidChangeTreeDataEmitter.fire(element);
       return;

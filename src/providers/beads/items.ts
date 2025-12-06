@@ -68,6 +68,18 @@ export class WarningSectionItem extends vscode.TreeItem {
   }
 }
 
+export class AssigneeSectionItem extends vscode.TreeItem {
+  constructor(public readonly assignee: string, public readonly beads: BeadItemData[], public readonly collapseKey: string, isCollapsed: boolean = false) {
+    const label = sanitizeInlineText(assignee) || assignee || t('Unassigned');
+    super(label, isCollapsed ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.Expanded);
+    this.contextValue = 'assigneeSection';
+    this.description = `${beads.length}`;
+    this.iconPath = new vscode.ThemeIcon('account', new vscode.ThemeColor('charts.blue'));
+    const safeLabel = sanitizeTooltipText(label || t('Unassigned'));
+    this.tooltip = `${safeLabel}: ${beads.length} item${beads.length === 1 ? '' : 's'}`;
+  }
+}
+
 export class EpicStatusSectionItem extends vscode.TreeItem {
   constructor(public readonly status: string, public readonly epics: EpicTreeItem[], isCollapsed: boolean = false) {
     const statusDisplay = status.split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
@@ -263,4 +275,4 @@ function truncate(value: string, maxLength: number): string {
   return value.length > maxLength ? `${value.slice(0, maxLength - 1)}…` : value;
 }
 
-export type BeadsTreeItem = StatusSectionItem | WarningSectionItem | EpicTreeItem | UngroupedSectionItem | BeadTreeItem | BeadDetailItem;
+export type BeadsTreeItem = StatusSectionItem | WarningSectionItem | EpicTreeItem | UngroupedSectionItem | BeadTreeItem | BeadDetailItem | AssigneeSectionItem | EpicStatusSectionItem;

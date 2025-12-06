@@ -81,7 +81,7 @@ suite('Filter & assignee flows', () => {
     assert.ok((provider as any).treeView.description?.includes('In Progress'));
   });
 
-  test('assignee sort keeps unassigned last and shows badges', async () => {
+  test('assignee sort groups into sections with unassigned last', async () => {
     const context = createContextStub();
     const provider = new BeadsTreeDataProvider(context as any);
     (provider as any).sortMode = 'assignee';
@@ -93,14 +93,17 @@ suite('Filter & assignee flows', () => {
     ] as BeadItemData[];
 
     const roots = await provider.getChildren();
-    const beadNodes = roots.filter((node: any) => node instanceof BeadTreeItem);
-    const ids = beadNodes.map((n: any) => n.bead.id);
-    assert.deepStrictEqual(ids, ['task-a', 'task-b', 'task-c']);
+    const sections = roots.filter((node: any) => node.contextValue === 'assigneeSection');
+    const labels = sections.map((s: any) => s.label);
+    assert.deepStrictEqual(labels, ['Alice', 'Bob', 'Unassigned']);
 
-    beadNodes.forEach((node: any) => {
-      const desc = node.description || '';
-      assert.ok(/open|blocked|in progress/i.test(desc), 'description should contain status');
-      assert.ok(desc.includes('·'), 'description should show badge separators');
-    });
+    const aliceChildren = await provider.getChildren(sections[0]);
+    assert.deepStrictEqual(aliceChildren.map((n: any) => n.bead.id), ['task-a']);
+
+    const bobChildren = await provider.getChildren(sections[1]);
+    assert.deepStrictEqual(bobChildren.map((n: any) => n.bead.id), ['task-b']);
+
+    const unassignedChildren = await provider.getChildren(sections[2]);
+    assert.deepStrictEqual(unassignedChildren.map((n: any) => n.bead.id), ['task-c']);
   });
 });
