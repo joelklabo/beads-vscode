@@ -20,6 +20,8 @@
 6) **Source maps & minify**: Emit external sourcemaps with sourcesContent for debugger parity; default no minify for readability, allow `--minify` flag in CI size gate if budget requires.
 7) **Size guard**: Set a provisional VSIX budget of ≤3 MB zipped (TBD in bundle task) and measure via `vsce ls --packagePath <vsix>` during CI; fail CI if exceeded.
 8) **Artifacts**: Point `package.json` `main/types` and `packages/platform-vscode/package.json` to `dist/extension.js(.d.ts)` once bundle task lands. Keep `dist/` gitignored.
+9) **VSIX payload**: .vscodeignore keeps `dist/` plus metadata (README, LICENSE, CHANGELOG, package.json, package.nls.json) and drops sources/tests/docs/web/tui, node_modules, scripts, *.ts/*.map, and other dev artifacts.
+10) **Package guard**: `vsce package` runs `vscode:prepublish` (typecheck + bundle); publishing fails if bundling does, so dist must exist.
 
 ## Alternatives considered
 - **Rollup**: Strong tree-shaking and multi-format output, but slower iterations and more config/plugins; esbuild meets needs with less surface area.
