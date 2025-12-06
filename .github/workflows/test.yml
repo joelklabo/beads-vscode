@@ -29,7 +29,7 @@ jobs:
           cache-dependency-path: package-lock.json
       - run: npm ci
       - run: npm run ci:lint
-      - run: npm run check:size
+      - run: npm run check:vsix-size
 
   test:
     name: Test (${{ matrix.os }} / Node ${{ matrix.node-version }} / ${{ matrix.channel }})
@@ -65,6 +65,9 @@ jobs:
 
       - name: Workspace builds (core/tui/web)
         run: npm run ci:workspace
+
+      - name: Bundle smoke (stubbed VS Code host)
+        run: npm run test:bundle
 
       - name: Install Go (for bd CLI)
         uses: actions/setup-go@v5
@@ -159,11 +162,19 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Compile TypeScript
-        run: npm run compile
+      - name: Bundle size gate
+        run: npm run check:vsix-size
 
-      - name: Package extension
+      - name: Package extension (bundled entry)
         run: npm run package
+
+      - name: Upload dist bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-bundle
+          path: dist/
+          retention-days: 7
 
       - name: Upload VSIX
         uses: actions/upload-artifact@v4
