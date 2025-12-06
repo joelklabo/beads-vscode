@@ -16,10 +16,11 @@ function hashString(value: string): number {
 function getAssigneeInfo(bead: BeadItemData): { name: string; display: string; dot: string } {
   const fallback = t('Unassigned');
   const raw = (bead.assignee ?? '').trim();
-  const name = raw.length > 0 ? raw : fallback;
+  const safe = sanitizeInlineText(raw);
+  const name = safe && safe.length > 0 ? safe : fallback;
   const truncated = name.length > 18 ? `${name.slice(0, 17)}…` : name;
 
-  if (raw.length === 0) {
+  if (!safe || safe.length === 0) {
     return { name, display: truncated, dot: '⚪' };
   }
 
