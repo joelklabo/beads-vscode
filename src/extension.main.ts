@@ -8,6 +8,7 @@ import {
   formatError,
   formatSafeError,
   sanitizeErrorMessage,
+  sanitizeInlineText,
   escapeHtml,
   linkifyText,
   isStale,
@@ -260,6 +261,7 @@ interface BeadDetailStrings {
   notesLabel: string;
   detailsLabel: string;
   assigneeLabel: string;
+  assigneeFallback: string;
   externalRefLabel: string;
   createdLabel: string;
   updatedLabel: string;
@@ -329,6 +331,7 @@ const buildBeadDetailStrings = (statusLabels: StatusLabelMap): BeadDetailStrings
   notesLabel: t('Notes'),
   detailsLabel: t('Details'),
   assigneeLabel: t('Assignee:'),
+  assigneeFallback: t('Unassigned'),
   externalRefLabel: t('External Ref:'),
   createdLabel: t('Created:'),
   updatedLabel: t('Updated:'),
@@ -1353,7 +1356,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     treeItem.contextValue = 'bead';
 
     const statusLabel = formatStatusLabel(item.status || 'open');
-    const assigneeName = deriveAssigneeName(item, t('Unassigned')).trim() || t('Unassigned');
+    const assigneeName = sanitizeInlineText(deriveAssigneeName(item, t('Unassigned'))) || t('Unassigned');
     const expansionLabel = isExpanded ? t('Expanded') : t('Collapsed');
     treeItem.accessibilityInformation = {
       label: t('{0}. Assignee: {1}. Status: {2}. {3} row.', item.title || item.id, assigneeName, statusLabel, expansionLabel),
@@ -1868,7 +1871,7 @@ function getBeadDetailHtml(
   const updatedAt = raw?.updated_at ? new Date(raw.updated_at).toLocaleString(locale) : '';
   const closedAt = raw?.closed_at ? new Date(raw.closed_at).toLocaleString(locale) : '';
   const dependencies = raw?.dependencies || [];
-  const assignee = raw?.assignee || '';
+  const assignee = deriveAssigneeName(item, strings.assigneeFallback);
   const labels = raw?.labels || [];
   const dependencyEditingEnabled = vscode.workspace.getConfiguration('beads').get<boolean>('enableDependencyEditing', false);
 
@@ -2499,7 +2502,7 @@ function getBeadDetailHtml(
 
     <div class="section">
         <div class="section-title">${escapeHtml(strings.detailsLabel)}</div>
-        ${assignee ? `<div class="meta-item"><span class="meta-label">${escapeHtml(strings.assigneeLabel)}</span><span class="meta-value">${escapeHtml(assignee)}</span></div>` : ''}
+        ${assignee ? `<div class="meta-item"><span class="meta-label">${escapeHtml(strings.assigneeLabel)}</span><span class="meta-value">${escapeHtml(sanitizeInlineText(assignee))}</span></div>` : ''}
         ${item.externalReferenceId ? `<div class="meta-item"><span class="meta-label">${escapeHtml(strings.externalRefLabel)}</span><span class="meta-value"><a href="${escapeHtml(item.externalReferenceId)}" class="external-link" target="_blank">${escapeHtml(item.externalReferenceDescription || item.externalReferenceId)}</a></span></div>` : ''}
         ${createdAt ? `<div class="meta-item"><span class="meta-label">${escapeHtml(strings.createdLabel)}</span><span class="meta-value">${createdAt}</span></div>` : ''}
         ${updatedAt ? `<div class="meta-item"><span class="meta-label">${escapeHtml(strings.updatedLabel)}</span><span class="meta-value">${updatedAt}</span></div>` : ''}
@@ -4201,8 +4204,9 @@ function formatInProgressAge(timestamp: string | undefined): { label: string; ms
 function getInProgressPanelHtml(items: BeadItemData[], strings: InProgressPanelStrings, locale: string): string {
   const normalized = items.map((item) => {
     const ageInfo = formatInProgressAge(item.inProgressSince ?? item.updatedAt);
-    const assignee = deriveAssigneeName(item, strings.assigneeFallback);
-    const color = colorForAssignee(assignee);
+    const assigneeRaw = deriveAssigneeName(item, strings.assigneeFallback);
+    const assignee = sanitizeInlineText(assigneeRaw) || strings.assigneeFallback;
+    const color = colorForAssignee(assigneeRaw || strings.assigneeFallback);
     return {
       item,
       ageLabel: ageInfo.label,

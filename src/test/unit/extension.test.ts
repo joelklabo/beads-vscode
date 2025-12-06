@@ -176,6 +176,24 @@ describe('Extension tree items', () => {
     assert.ok(description.includes('⚪'));
   });
 
+  it('sanitizes assignee text in descriptions and tooltips', () => {
+    const malicious = '<img src=x onerror=alert(1)>';
+    const bead = new BeadTreeItem({
+      id: 'task-evil',
+      title: 'Malicious assignee',
+      issueType: 'task',
+      status: 'open',
+      assignee: malicious,
+    });
+
+    const description = String(bead.description);
+    assert.ok(!description.includes('<'), 'description should not contain raw HTML');
+
+    const tooltip = (bead.tooltip && (bead.tooltip as any).value) || '';
+    assert.ok(!tooltip.includes('<img'), 'tooltip should escape assignee HTML');
+    assert.ok(!tooltip.includes(malicious), 'tooltip should not include raw assignee HTML');
+  });
+
   it('provides expandable detail items for beads', async () => {
     const context = createContextStub();
     const provider = new BeadsTreeDataProvider(context as any);
