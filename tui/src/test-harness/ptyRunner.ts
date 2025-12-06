@@ -1,23 +1,37 @@
+#!/usr/bin/env node
 import fs from 'fs';
 import path from 'path';
-import os from 'os';
+import process from 'process';
+import { fileURLToPath } from 'url';
 import { redactLogContent } from '@beads/core/security/sanitize';
+import { createHarnessAppConfig, defaultKeyScenarios, KeyStep, sleep, toPtySequence, HARNESS_DEFAULT_CLOCK } from './index';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 interface RunnerOptions {
-  scenario?: string;
-  cols?: number;
-  rows?: number;
-  timeoutMs?: number;
-  allowNonWorktree?: boolean;
-  command?: string;
-  args?: string[];
-  env?: Record<string, string>;
-  outputDir?: string;
+  scenario: string;
+  cols: number;
+  rows: number;
+  timeoutMs: number;
+  outputDir: string;
+  allowNonWorktree: boolean;
+}
+
+interface ExitInfo {
+  exitCode: number | null;
+  signal: number | null;
+  timedOut: boolean;
 }
 
 interface FrameLogEntry {
   data: string;
   timestamp: number;
+}
+
+interface ScenarioResult extends ExitInfo {
+  frames: FrameLogEntry[];
+  durationMs: number;
 }
 
 function isWorktreeDir(cwd: string): { ok: boolean; worktreeId?: string } {
@@ -37,141 +51,197 @@ function ensureWorktreeGuard(cwd: string, allow: boolean): void {
   }
 }
 
-function loadNodePty() {
+async function loadNodePty(): Promise<any> {
+  // Defer import so CI without visual deps still works.
+  // eslint-disable-next-line @typescript-eslint/no-implied-eval
+  const importer = new Function('modulePath', 'return import(modulePath)');
   try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    return require('node-pty') as typeof import('node-pty');
+    return await importer('node-pty');
   } catch (error) {
-    console.error('[ptyRunner] node-pty is not installed. Install it (see TUI visual test infra) or set TUI_VISUAL_ENABLED=1 before npm install.');
+    console.error('[ptyRunner] node-pty is required. Install via the visual test deps task.');
     throw error;
   }
 }
 
-function parseArgs(): RunnerOptions {
-  const args = process.argv.slice(2);
-  const opts: RunnerOptions = {};
-  for (let i = 0; i < args.length; i += 1) {
-    const arg = args[i];
-    const next = args[i + 1];
+function parseArgs(argv: string[]): RunnerOptions {
+  const opts: RunnerOptions = {
+    scenario: 'nav-basic',
+    cols: 100,
+    rows: 30,
+    timeoutMs: 10_000,
+    outputDir: path.resolve(process.cwd(), 'tmp', 'tui-harness'),
+    allowNonWorktree: process.env.TUI_VISUAL_ALLOW_NON_WORKTREE === '1',
+  };
+
+  for (let i = 0; i < argv.length; i += 1) {
+    const arg = argv[i];
+    const next = argv[i + 1];
     switch (arg) {
       case '--scenario':
-        opts.scenario = next;
+      case '-s':
+        if (next) opts.scenario = next;
         i += 1;
         break;
       case '--cols':
-        opts.cols = Number(next);
+        if (next) opts.cols = Number(next) || opts.cols;
         i += 1;
         break;
       case '--rows':
-        opts.rows = Number(next);
+        if (next) opts.rows = Number(next) || opts.rows;
         i += 1;
         break;
       case '--timeout':
       case '--timeoutMs':
-        opts.timeoutMs = Number(next);
+        if (next) opts.timeoutMs = Number(next) || opts.timeoutMs;
+        i += 1;
+        break;
+      case '--output':
+      case '-o':
+        if (next) opts.outputDir = path.resolve(next);
         i += 1;
         break;
       case '--allow-non-worktree':
         opts.allowNonWorktree = true;
         break;
-      case '--output':
-        opts.outputDir = next;
-        i += 1;
-        break;
       default:
         break;
     }
   }
+
   return opts;
 }
 
-function defaultCommand(): { command: string; args: string[] } {
-  const cmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-  return { command: cmd, args: ['run', '-w', '@beads/tui', 'start'] };
+function resolveScenario(name: string): KeyStep[] {
+  const steps = defaultKeyScenarios[name];
+  if (steps && steps.length > 0) return steps;
+  throw new Error(`Unknown scenario "${name}". Available: ${Object.keys(defaultKeyScenarios).join(', ')}`);
 }
 
-async function run(): Promise<void> {
-  const opts = parseArgs();
-  const cwd = process.cwd();
-  ensureWorktreeGuard(cwd, opts.allowNonWorktree || process.env.TUI_VISUAL_ALLOW_NON_WORKTREE === '1');
+async function driveKeys(pty: any, steps: KeyStep[], defaultDelay = 100): Promise<void> {
+  for (const step of steps) {
+    await sleep(step.delayMs ?? defaultDelay);
+    pty.write(toPtySequence(step.key));
+  }
+}
 
-  const { ok, worktreeId } = isWorktreeDir(cwd);
-  const workspacePaths = [cwd];
+async function runScenario(opts: RunnerOptions): Promise<ScenarioResult> {
+  ensureWorktreeGuard(process.cwd(), opts.allowNonWorktree);
+  const nodePty = await loadNodePty();
 
-  const { command, args } = opts.command ? { command: opts.command, args: opts.args ?? [] } : defaultCommand();
+  // Warm fixture store to ensure deterministic data when the child process starts.
+  createHarnessAppConfig();
 
-  const cols = opts.cols ?? (Number(process.env.COLUMNS) || 80);
-  const rows = opts.rows ?? (Number(process.env.LINES) || 24);
-  const timeoutMs = opts.timeoutMs ?? 15_000;
-
-  const pty = loadNodePty();
+  const steps = resolveScenario(opts.scenario);
   const env = {
     ...process.env,
-    COLUMNS: String(cols),
-    LINES: String(rows),
     TERM: 'xterm-256color',
+    COLUMNS: String(opts.cols),
+    LINES: String(opts.rows),
     TZ: 'UTC',
-    BEADS_NO_DAEMON: '1',
-  } as Record<string, string>;
-
-  const frames: FrameLogEntry[] = [];
-  const meta = {
-    scenario: opts.scenario ?? 'adhoc',
-    cols,
-    rows,
-    command: `${command} ${args.join(' ')}`.trim(),
-    startedAt: Date.now(),
-    cwd,
+    TUI_HARNESS: '1',
+    TUI_FIXTURE: '1',
+    TUI_HARNESS_CLOCK_MS: String(process.env.TUI_HARNESS_CLOCK_MS ?? HARNESS_DEFAULT_CLOCK),
+    BEADS_NO_DAEMON: process.env.BEADS_NO_DAEMON ?? '1',
   };
 
-  const proc = pty.spawn(command, args, {
-    name: 'xterm-color',
-    cols,
-    rows,
-    cwd,
+  const runnerPath = path.resolve(__dirname, '..', 'run.js');
+  const frames: FrameLogEntry[] = [];
+  const startClock = Date.now();
+
+  const pty = nodePty.spawn(process.execPath, [runnerPath], {
+    name: 'xterm-256color',
+    cols: opts.cols,
+    rows: opts.rows,
+    cwd: path.resolve(__dirname, '..', '..'),
     env,
   });
 
-  proc.onData((data: string) => {
+  pty.onData((data: string) => {
     frames.push({ data, timestamp: Date.now() });
   });
 
-  let exited = false;
-  const killTimer = setTimeout(() => {
-    if (!exited) {
-      exited = true;
-      proc.kill();
+  void driveKeys(pty, steps).catch((err) => {
+    console.error('[ptyRunner] key drive failed', err);
+    try {
+      pty.kill();
+    } catch {
+      /* ignore */
     }
-  }, timeoutMs);
+  });
 
-  const exitCode: number = await new Promise((resolve) => {
-    proc.onExit(({ exitCode: code }: { exitCode: number | null }) => {
-      exited = true;
-      clearTimeout(killTimer);
-      resolve(code ?? 0);
+  let timedOut = false;
+  const timeout = setTimeout(() => {
+    timedOut = true;
+    try {
+      pty.kill();
+    } catch {
+      /* noop */
+    }
+  }, opts.timeoutMs);
+
+  const exitInfo: ExitInfo = await new Promise((resolve) => {
+    pty.onExit((evt: { exitCode: number; signal?: number }) => {
+      clearTimeout(timeout);
+      resolve({ exitCode: evt.exitCode ?? 0, signal: evt.signal ?? null, timedOut });
     });
   });
 
-  const redactedFrames = frames.map((f) => ({
-    ...f,
-    data: redactLogContent(f.data, { workspacePaths, worktreeId }),
-  }));
-
-  const outDir = opts.outputDir || path.join(cwd, 'tmp', 'tui-frames');
-  fs.mkdirSync(outDir, { recursive: true });
-  const base = `${meta.scenario}-${meta.startedAt}`;
-  fs.writeFileSync(path.join(outDir, `${base}.frames.json`), JSON.stringify(redactedFrames, null, 2));
-  fs.writeFileSync(path.join(outDir, `${base}.meta.json`), JSON.stringify({ ...meta, exitCode }, null, 2));
-
-  if (exitCode !== 0) {
-    console.error(`[ptyRunner] Process exited with code ${exitCode}. Frames saved to ${outDir}.`);
-    process.exit(exitCode);
-  }
-
-  console.log(`[ptyRunner] Captured ${frames.length} frame(s) at ${cols}x${rows}. Output: ${outDir}`);
+  const durationMs = Date.now() - startClock;
+  return { ...exitInfo, frames, durationMs };
 }
 
-run().catch((error) => {
-  console.error('[ptyRunner] Failed:', error instanceof Error ? error.message : error);
-  process.exit(1);
-});
+function writeArtifacts(opts: RunnerOptions, result: ScenarioResult): { rawPath: string; metaPath: string } {
+  const { worktreeId } = isWorktreeDir(process.cwd());
+  const workspacePaths = [process.cwd()];
+  fs.mkdirSync(opts.outputDir, { recursive: true });
+  const rawPath = path.join(opts.outputDir, `${opts.scenario}.ansi`);
+  const metaPath = path.join(opts.outputDir, `${opts.scenario}.json`);
+
+  const redactedFrames = result.frames.map((frame) => ({
+    ...frame,
+    data: redactLogContent(frame.data, { workspacePaths, worktreeId }),
+  }));
+
+  const output = redactedFrames.map((f) => f.data).join('');
+  fs.writeFileSync(rawPath, output, 'utf8');
+  fs.writeFileSync(
+    metaPath,
+    JSON.stringify(
+      {
+        scenario: opts.scenario,
+        cols: opts.cols,
+        rows: opts.rows,
+        startedAt: new Date(result.frames[0]?.timestamp ?? Date.now()).toISOString(),
+        durationMs: result.durationMs,
+        exitCode: result.exitCode,
+        signal: result.signal,
+        timedOut: result.timedOut,
+        bytes: Buffer.byteLength(output, 'utf8'),
+        frameCount: result.frames.length,
+      },
+      null,
+      2
+    ),
+    'utf8'
+  );
+
+  return { rawPath, metaPath };
+}
+
+async function main(): Promise<void> {
+  const opts = parseArgs(process.argv.slice(2));
+  try {
+    const result = await runScenario(opts);
+    const { rawPath, metaPath } = writeArtifacts(opts, result);
+    if (result.timedOut || result.exitCode !== 0) {
+      console.error(`[ptyRunner] Scenario "${opts.scenario}" failed (exit=${result.exitCode}, timedOut=${result.timedOut}). See ${metaPath}`);
+      process.exit(result.exitCode ?? 1);
+    }
+    console.log(`[ptyRunner] wrote frames to ${rawPath}`);
+  } catch (error) {
+    console.error('[ptyRunner] Failed:', error instanceof Error ? error.message : error);
+    process.exit(1);
+  }
+}
+
+void main();

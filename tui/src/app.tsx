@@ -8,7 +8,7 @@ import BeadList from './components/BeadList';
 import DependencyGraph from './components/DependencyGraph';
 import { useKeymap } from './hooks/useKeymap';
 
-type AppProps = {
+export type AppProps = {
   cwd?: string;
   initialTab?: TabId;
   onTabChange?: (tab: TabId) => void;
