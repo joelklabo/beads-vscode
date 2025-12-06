@@ -1,14 +1,14 @@
 {
-  "name": "beads-vscode",
-  "displayName": "Beads Project Manager",
-  "description": "Manage Beads projects directly from VS Code.",
-  "version": "0.0.2",
+  "name": "beady",
+  "displayName": "Beady Project Manager",
+  "description": "Manage Beady projects directly from VS Code.",
+  "version": "0.1.0",
   "private": true,
-  "publisher": "4UtopiaInc",
+  "publisher": "klabo",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/kris-hansen/beads-vscode.git"
+    "url": "https://github.com/joelklabo/beady.git"
   },
   "workspaces": [
     "packages/*",
@@ -16,9 +16,9 @@
     "web"
   ],
   "bugs": {
-    "url": "https://github.com/kris-hansen/beads-vscode/issues"
+    "url": "https://github.com/joelklabo/beady/issues"
   },
-  "homepage": "https://github.com/kris-hansen/beads-vscode#readme",
+  "homepage": "https://github.com/joelklabo/beady#readme",
   "keywords": [
     "beads",
     "project-management",

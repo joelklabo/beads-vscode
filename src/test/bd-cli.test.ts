@@ -52,7 +52,7 @@ describe('BD CLI Standalone Tests', function () {
 
   before(async function () {
     bdCommand = await findBdCommand();
-    testWorkspace = path.join(os.tmpdir(), `beads-vscode-test-${Date.now()}`);
+    testWorkspace = path.join(os.tmpdir(), `beady-test-${Date.now()}`);
     await fs.mkdir(testWorkspace, { recursive: true });
 
     // Initialize bd in the test workspace

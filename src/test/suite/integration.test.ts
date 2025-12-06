@@ -27,7 +27,7 @@ suite('BD CLI Integration Test Suite', function() {
     console.log(`Using bd command: ${bdCommand}`);
 
     // Create temporary test workspace
-    testWorkspace = path.join(os.tmpdir(), `beads-vscode-test-${Date.now()}`);
+    testWorkspace = path.join(os.tmpdir(), `beady-test-${Date.now()}`);
     await fs.mkdir(testWorkspace, { recursive: true });
     console.log(`Created test workspace: ${testWorkspace}`);
 
@@ -318,7 +318,7 @@ function createTestContext(basePath: string): vscode.ExtensionContext {
     [Symbol.iterator]: () => [][Symbol.iterator](),
   };
 
-  const extension = vscode.extensions.getExtension('4UtopiaInc.beads-vscode') as vscode.Extension<any> | undefined;
+  const extension = vscode.extensions.getExtension('klabo.beady') as vscode.Extension<any> | undefined;
 
   return {
     subscriptions: [],
@@ -336,7 +336,7 @@ function createTestContext(basePath: string): vscode.ExtensionContext {
     logPath: path.join(basePath, 'log'),
     extensionMode: vscode.ExtensionMode.Test,
     asAbsolutePath: (rel: string) => path.join(basePath, rel),
-    extension: extension ?? ({ id: 'beads-vscode-test' } as unknown as vscode.Extension<any>),
+    extension: extension ?? ({ id: 'beady-test' } as unknown as vscode.Extension<any>),
   } as unknown as vscode.ExtensionContext;
 }
 
@@ -348,7 +348,7 @@ suite('Stale Task Detection Integration Tests', function() {
   suiteSetup(async function() {
     this.timeout(30000);
     bdCommand = await findBdCommand();
-    testWorkspace = path.join(os.tmpdir(), `beads-stale-test-${Date.now()}`);
+    testWorkspace = path.join(os.tmpdir(), `beady-stale-test-${Date.now()}`);
     await fs.mkdir(testWorkspace, { recursive: true });
     await execFileAsync(bdCommand, ['init', '--quiet'], { cwd: testWorkspace });
   });

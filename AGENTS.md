@@ -1,6 +1,6 @@
 # Agent workflow (multi-worker)
 
-- **Always work in a task worktree** via `./scripts/task-worktree.sh start <worker> <task-id>`; never edit `/Users/honk/code/beads-vscode` directly. Verify with `./scripts/task-worktree.sh verify <task-id>` before editing/running tests.
+- **Always work in a task worktree** via `./scripts/task-worktree.sh start <worker> <task-id>`; never edit `/Users/honk/code/beady` directly. Verify with `./scripts/task-worktree.sh verify <task-id>` before editing/running tests.
 - **Pick tasks that avoid file conflicts**: check `npx bd --no-daemon list --status in_progress --json` and skip tasks touching the same `## Files`.
 - **bd safety**: every bd call must include `--no-daemon` (use the shared BdCliClient/helpers). Run the worktree guard script before mutations when enabled.
 - **Workspace layout**: shared logic lives in `packages/core` and `packages/ui-headless`; VS Code wiring in `packages/platform-vscode`; renderer shells in `web/` and `tui/`. See `docs/architecture.md` for the layered rules.

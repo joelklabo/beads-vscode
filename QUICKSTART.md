@@ -23,18 +23,18 @@ This packages the extension, installs the freshest `.vsix` via the VS Code CLI, 
    npm run compile
    npx vsce package
    ```
-   This creates `beads-vscode-0.0.1.vsix`
+   This creates `beady-0.1.0.vsix`
 
 2. **Install in VSCode:**
    - Open VSCode
    - Go to Extensions view (Cmd/Ctrl+Shift+X)
    - Click the `...` menu at the top
    - Select "Install from VSIX..."
-   - Choose the `beads-vscode-0.0.1.vsix` file
+   - Choose the `beady-0.1.0.vsix` file
 
    **Or via command line:**
    ```bash
-   code --install-extension beads-vscode-0.0.1.vsix
+   code --install-extension beady-0.1.0.vsix
    ```
 
 3. **Reload VSCode** (Cmd/Ctrl+Shift+P → "Developer: Reload Window")
@@ -45,10 +45,10 @@ If you're actively developing:
 
 ```bash
 # macOS/Linux:
-ln -s $(pwd) ~/.vscode/extensions/beads-vscode
+ln -s $(pwd) ~/.vscode/extensions/beady
 
 # Windows (PowerShell as Admin):
-New-Item -ItemType SymbolicLink -Path "$env:USERPROFILE\.vscode\extensions\beads-vscode" -Target (Get-Location)
+New-Item -ItemType SymbolicLink -Path "$env:USERPROFILE\.vscode\extensions\beady" -Target (Get-Location)
 ```
 
 Then reload VSCode.
@@ -204,7 +204,7 @@ The extension automatically watches your `.beads/issues.jsonl` file and refreshe
 
 Or via command line:
 ```bash
-code --uninstall-extension beads.beads-vscode
+code --uninstall-extension klabo.beady
 ```
 
 ---
@@ -214,7 +214,7 @@ code --uninstall-extension beads.beads-vscode
 - Read [CONTRIBUTING.md](CONTRIBUTING.md) to contribute
 - See [DISTRIBUTION.md](DISTRIBUTION.md) to publish your own version
 - Check [README.md](README.md) for full documentation
-- Report issues on [GitHub](https://github.com/kris-hansen/beads-vscode/issues)
+- Report issues on [GitHub](https://github.com/joelklabo/beady/issues)
 
 ---
 

@@ -28,11 +28,11 @@ suite('Headless harness smoke', () => {
     if (instanceId) {
       const expectedSlug = sanitize(instanceId);
       assert.ok(
-        baseName.startsWith(`beads-vscode-${expectedSlug}-`),
+        baseName.startsWith(`beady-${expectedSlug}-`),
         'base dir should include sanitized instance id',
       );
     } else {
-      assert.ok(baseName.startsWith('beads-vscode-'), 'base dir should follow beads prefix');
+      assert.ok(baseName.startsWith('beady-'), 'base dir should follow beads prefix');
     }
 
     // Ensure directories exist during the test run

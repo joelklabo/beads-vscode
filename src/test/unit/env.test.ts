@@ -46,7 +46,7 @@ describe('buildTestEnv', () => {
     const expectedSlug = sanitize(process.env.VSCODE_TEST_INSTANCE_ID!);
 
     assert.ok(baseDir.startsWith(tmpRoot), 'temp base should live under repo tmp/');
-    assert.ok(baseName.startsWith(`beads-vscode-${expectedSlug}-`));
+    assert.ok(baseName.startsWith(`beady-${expectedSlug}-`));
     assert.strictEqual(path.dirname(env.extensionsDir), baseDir, 'shared base for isolation');
     assert.notStrictEqual(env.userDataDir, env.extensionsDir, 'distinct dirs');
 

@@ -18,7 +18,7 @@ Use these npm scripts to run VS Code integration tests without stealing focus an
 - All scripts compile first (`npm run compile`) and then execute `node ./out/test/runTest.js` with the prepared environment.
 
 ## Parallel runs
-- Always set a unique `VSCODE_TEST_INSTANCE_ID` when running multiple terminals or CI shards so each run gets its own `tmp/beads-vscode-<id>-*` directory.
+- Always set a unique `VSCODE_TEST_INSTANCE_ID` when running multiple terminals or CI shards so each run gets its own `tmp/beady-<id>-*` directory.
 - Instance IDs are sanitized; prefer short alphanumerics plus dashes/underscores.
 
 ## Cleanup

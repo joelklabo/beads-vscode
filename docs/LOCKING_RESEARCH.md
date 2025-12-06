@@ -1,4 +1,4 @@
-# Locking Spike (beads-vscode-0kv)
+# Locking Spike (beady-0kv)
 
 **Setup**
 - Machine: macOS (bash 3.x), 5 concurrent agents

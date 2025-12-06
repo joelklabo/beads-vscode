@@ -1,6 +1,6 @@
 # Beads VSCode Extension Tests
 
-This directory contains unit tests and integration tests for the beads-vscode extension.
+This directory contains unit tests and integration tests for the beady extension.
 
 ## Test Structure
 

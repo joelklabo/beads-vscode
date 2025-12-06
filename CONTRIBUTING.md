@@ -19,8 +19,8 @@ Please be respectful and constructive in all interactions with the project. We a
 
 1. Fork and clone the repository:
    ```bash
-   git clone https://github.com/YOUR-USERNAME/beads-vscode.git
-   cd beads-vscode
+   git clone https://github.com/YOUR-USERNAME/beady.git
+   cd beady
    ```
 
 2. Install dependencies:
@@ -131,7 +131,7 @@ For feature requests, please describe:
 ## Project Structure
 
 ```
-beads-vscode/
+beady/
 ├── src/
 │   ├── extension.ts         # Main extension logic
 │   ├── utils.ts             # Testable utility functions

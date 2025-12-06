@@ -33,7 +33,7 @@ async function detectBdCliVersion(commandPath?: string): Promise<string | undefi
 export async function collectEnvironmentInfo(options: EnvironmentOptions = {}): Promise<EnvironmentInfo> {
   const osInfo = `${os.platform()} ${os.release()} (${os.arch()})`;
   const vscodeVersion = (vscode as any)?.version ?? 'unknown';
-  const extensionId = options.extensionId ?? '4UtopiaInc.beads-vscode';
+  const extensionId = options.extensionId ?? 'klabo.beady';
   const extensionVersion =
     vscode.extensions?.getExtension?.(extensionId)?.packageJSON?.version ?? 'unknown';
 

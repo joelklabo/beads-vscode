@@ -40,7 +40,7 @@ export async function buildTestEnv(): Promise<TestEnv> {
   const channel = parseChannel(process.env.VSCODE_TEST_CHANNEL);
 
   await mkdir(WORKSPACE_TMP, { recursive: true });
-  const base = await mkdtemp(path.join(WORKSPACE_TMP, `beads-vscode-${instanceId}-`));
+  const base = await mkdtemp(path.join(WORKSPACE_TMP, `beady-${instanceId}-`));
   const userDataDir = path.join(base, 'user-data');
   const extensionsDir = path.join(base, 'extensions');
 

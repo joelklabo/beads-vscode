@@ -40,7 +40,7 @@ Environment variables:
 - `HEARTBEAT_STALE_SECONDS` – stale threshold used by the sweeper (default 300)
 - `LOCK_TIMEOUT` (or `LOCK_TIMEOUT_SECONDS`) – seconds to wait when acquiring locks (default 10; `start` uses 5s, `finish` uses 300s for merge queue)
 
-These can be set per invocation, e.g. `HEARTBEAT_INTERVAL=10 ./scripts/task-worktree.sh start Cherry beads-vscode-123`.
+These can be set per invocation, e.g. `HEARTBEAT_INTERVAL=10 ./scripts/task-worktree.sh start Cherry beady-123`.
 
 ## Notes
 

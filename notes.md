@@ -39,7 +39,7 @@ Remediation checklist for broken worktrees
 - For in_progress without worktree: `bd update <task> --status open --assignee ""` under claim lock (or rely on stale sweep), then prune worktrees (`git worktree prune`).
 - For stale heartbeats: delete the hb file and rerun `status` (sweep), or `cleanup` the worker.
 - For stuck merge queue: identify process holding `.beads/merge.lock`; if none, remove lock and rerun `finish`.
-## Multi-agent & UI testing research (beads-vscode-arh)
+## Multi-agent & UI testing research (beady-arh)
 
 ### Tooling survey
 - VS Code extension UI: @vscode/test-electron (official), Playwright w/ VS Code Server (experimental), vscode-extension-tester (Selenium-based, heavier).
@@ -68,7 +68,7 @@ Remediation checklist for broken worktrees
 - Implement harness runner in scripts/agent-harness: temp repo, seed tasks, spawn N agents running claim-next/finish loops, export trace JSON, assert no deadlocks.
 - Add comparison table to this note (tool vs. pros/cons vs. CI support).
 
-## File size & collision audit (beads-vscode-2ty)
+## File size & collision audit (beady-2ty)
 
 Snapshot: 2025-12-04. LOC from wc -l (excluding node_modules/out); churn = count of commits touching file (`git log --name-only` uniq).
 
@@ -97,7 +97,7 @@ Recommended sequencing (reduce merge pain):
 4) Move activity feed fetch/format into a service and shrink provider.  
 5) Restructure tests to mirror new module boundaries (smaller, focused files).
 
-## AI & VS Code APIs (beads-vscode-8ve)
+## AI & VS Code APIs (beady-8ve)
 
 Context (2025-12-04): VS Code 1.104 adds auto model selection and a custom OpenAI-compatible provider in Insiders; Chat Participant API docs refreshed 2025-11-12; GitHub Copilot Extension (server-side) sunsets 2025-11-10 (chat participants not affected).
 
@@ -129,7 +129,7 @@ Context (2025-12-04): VS Code 1.104 adds auto model selection and a custom OpenA
 - Pure `vscode.lm` path: **GO** (fallback/offline).
 - Server-side Copilot Extension (GitHub App): **NO-GO** (sunset 2025-11-10).
 
-## Ink TUI & worktree research (beads-vscode-op4)
+## Ink TUI & worktree research (beady-op4)
 
 ### Toolkit comparison
 | Stack | Pros | Cons | Verdict |
@@ -157,7 +157,7 @@ Context (2025-12-04): VS Code 1.104 adds auto model selection and a custom OpenA
 - Guard latency: shelling to `worktree-guard.sh` on every mutation may add ~50–150ms; cache “last ok” per worktree for N seconds while keeping explicit hook for force refresh.
 - Multi-worktree concurrency: need dedupe of activity rows by `(worktreeId,id,timestamp)` to avoid double rendering (helper added in `tui/src/lib/worktree.ts`).
 - Accessibility: screen reader coverage for Ink is limited; keep keymaps discoverable in help modal.
-## Ink TUI parity thoughts (beads-vscode-1u7)
+## Ink TUI parity thoughts (beady-1u7)
 
 - Surfaces to align: list/search/sort, detail view, edit/update, dependency graph, stale/risk badges, worktree badges.
 - Worktree integration: show badge in status bar and list header; guard before mutations via shared wrapper (needs TUI hook).

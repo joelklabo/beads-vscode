@@ -1,6 +1,6 @@
 {
   "name": "@beads/platform-vscode",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "main": "../../out/extension.js",
   "types": "../../out/extension.d.ts",

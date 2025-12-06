@@ -5,7 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
 # Find the newest VSIX produced by `npm run package`.
-VSIX_FILE=${VSIX_FILE:-$(ls -t beads-vscode-*.vsix 2>/dev/null | head -n 1 || true)}
+VSIX_FILE=${VSIX_FILE:-$(ls -t beady-*.vsix 2>/dev/null | head -n 1 || true)}
 if [[ -z "${VSIX_FILE}" ]]; then
   echo "[install-local] No VSIX found. Run 'npm run package' first." >&2
   exit 1

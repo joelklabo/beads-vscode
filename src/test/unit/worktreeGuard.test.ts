@@ -15,12 +15,12 @@ import {
 describe('worktree helpers', () => {
   it('formats worktree labels with branch when present', () => {
     const entry: WorktreeEntry = {
-      id: 'Marvin/beads-vscode-123',
-      path: '/tmp/worktrees/Marvin/beads-vscode-123',
-      branch: 'Marvin/beads-vscode-123',
+      id: 'Marvin/beady-123',
+      path: '/tmp/worktrees/Marvin/beady-123',
+      branch: 'Marvin/beady-123',
       lastSeen: Date.now()
     };
-    assert.strictEqual(formatWorktreeLabel(entry), 'Marvin/beads-vscode-123 (Marvin/beads-vscode-123)');
+    assert.strictEqual(formatWorktreeLabel(entry), 'Marvin/beady-123 (Marvin/beady-123)');
   });
 
   it('filters stale entries based on timestamp', () => {
@@ -32,9 +32,9 @@ describe('worktree helpers', () => {
   });
 
   it('derives currentWorktreeId from canonical path', () => {
-    const id = currentWorktreeId('/Users/me/code/worktrees/Marvin/beads-vscode-xyz');
-    assert.strictEqual(id, 'Marvin/beads-vscode-xyz');
-    assert.strictEqual(currentWorktreeId('/Users/me/code/beads-vscode'), undefined);
+    const id = currentWorktreeId('/Users/me/code/worktrees/Marvin/beady-xyz');
+    assert.strictEqual(id, 'Marvin/beady-xyz');
+    assert.strictEqual(currentWorktreeId('/Users/me/code/beady'), undefined);
   });
 
   it('writes and reads registry atomically', () => {

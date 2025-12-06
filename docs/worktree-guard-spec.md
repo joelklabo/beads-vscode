@@ -60,10 +60,10 @@ Implementation Hooks
   "generatedAt": 1733290000000,
   "entries": [
     {
-      "id": "Cherry/beads-vscode-123",
-      "name": "Cherry/beads-vscode-123",
-      "path": "/abs/path/../worktrees/Cherry/beads-vscode-123",
-      "branch": "Cherry/beads-vscode-123",
+      "id": "Cherry/beady-123",
+      "name": "Cherry/beady-123",
+      "path": "/abs/path/../worktrees/Cherry/beady-123",
+      "branch": "Cherry/beady-123",
       "commit": "abc123",
       "lastSeen": 1733290000000,
       "lockedBy": "merge" // optional

@@ -1,4 +1,4 @@
-# Epic: Modularize code for multi-agent work (beads-vscode-j44)
+# Epic: Modularize code for multi-agent work (beady-j44)
 
 ## Goal
 Refactor the extension into smaller, domain-focused modules to reduce merge conflicts and clarify ownership, with no core file > ~300 lines.

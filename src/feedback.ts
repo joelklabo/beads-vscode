@@ -291,7 +291,7 @@ export async function createFeedbackIssue(
     options.octokit ??
     new Octokit({
       auth: authToken,
-      userAgent: 'beads-vscode-feedback'
+      userAgent: 'beady-feedback'
     });
 
   try {

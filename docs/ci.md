@@ -5,7 +5,7 @@ The README badges link to the GitHub Actions **Test** workflow and Codecov cover
 ## Workflows & badges
 - Workflow: `.github/workflows/test.yml` (push to `main`/`develop`, pull requests, manual dispatch).
 - Jobs: `lint` (ci:lint + size check), `test` matrix (ci:unit + ci:integration), `coverage` (ci:coverage on Ubuntu/stable/Node 20), `package` (vsix artifact).
-- Badge: `https://github.com/joelklabo/beads-vscode/actions/workflows/test.yml/badge.svg?branch=main`.
+- Badge: `https://github.com/joelklabo/beady/actions/workflows/test.yml/badge.svg?branch=main`.
 - Concurrency: cancel-in-progress per workflow/ref to avoid duplicate PR runs.
 
 ## Matrix

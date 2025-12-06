@@ -27,7 +27,7 @@ case "$COMMAND" in
   start)
     if [[ -z "$WORKER" || -z "$TASK_ID" ]]; then
       echo "Usage: $0 start <worker-name> <task-id>"
-      echo "Example: $0 start agent-1 beads-vscode-abc"
+      echo "Example: $0 start agent-1 beady-abc"
       exit 1
     fi
 
@@ -79,7 +79,7 @@ case "$COMMAND" in
   finish)
     if [[ -z "$WORKER" || -z "$TASK_ID" ]]; then
       echo "Usage: $0 finish <worker-name> <task-id>"
-      echo "Example: $0 finish agent-1 beads-vscode-abc"
+      echo "Example: $0 finish agent-1 beady-abc"
       exit 1
     fi
 
@@ -221,8 +221,8 @@ Branch: $BRANCH"; then
     echo "  cleanup <worker>           Delete all local branches for a worker"
     echo ""
     echo "Examples:"
-    echo "  $0 start agent-1 beads-vscode-abc"
-    echo "  $0 finish agent-1 beads-vscode-abc"
+    echo "  $0 start agent-1 beady-abc"
+    echo "  $0 finish agent-1 beady-abc"
     echo "  $0 status"
     echo "  $0 cleanup agent-1"
     ;;

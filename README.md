@@ -1,10 +1,10 @@
-# Beads VS Code Extension
-[![CI](https://github.com/joelklabo/beads-vscode/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/joelklabo/beads-vscode/actions/workflows/test.yml) [![VS Code Channels](https://img.shields.io/badge/vscode%20channels-stable%20%7C%20insiders-blue)](docs/testing-headless.md) [![Coverage](https://img.shields.io/badge/coverage-pending-lightgrey)](#testing)
+# Beady VS Code Extension
+[![CI](https://github.com/joelklabo/beady/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/joelklabo/beady/actions/workflows/test.yml) [![VS Code Channels](https://img.shields.io/badge/vscode%20channels-stable%20%7C%20insiders-blue)](docs/testing-headless.md) [![Coverage](https://img.shields.io/badge/coverage-pending-lightgrey)](#testing)
 
-![Beads VS Code Extension](beads-visual.png)
+![Beady VS Code Extension](beady-visual.png)
 
-[![Test status](https://github.com/joelklabo/beads-vscode/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/joelklabo/beads-vscode/actions/workflows/test.yml)
-[![Coverage](https://codecov.io/gh/joelklabo/beads-vscode/branch/main/graph/badge.svg)](https://codecov.io/gh/joelklabo/beads-vscode)
+[![Test status](https://github.com/joelklabo/beady/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/joelklabo/beady/actions/workflows/test.yml)
+[![Coverage](https://codecov.io/gh/joelklabo/beady/branch/main/graph/badge.svg)](https://codecov.io/gh/joelklabo/beady)
 
 This Visual Studio Code extension provides a simple explorer view for [Beads](https://github.com/steveyegge/beads) projects so that you can manage your beads without leaving the editor.
 
