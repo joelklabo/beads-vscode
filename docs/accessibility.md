@@ -23,9 +23,8 @@ This document summarizes the accessibility affordances for dependency visualizat
 - Tree items announce assignee and status through accessibility labels so status/assignee cues are not color-only.
 
 ## Sort picker and assignee grouping
-- Sort picker command opens a Quick Pick with a clear title/placeholder that includes the current mode; options have concise descriptions (ID, Status, Epic, Assignee) and are fully keyboard navigable.
-- Active sort mode is reflected in the explorer description/context so screen readers announce it; avoid color-only cues in the toolbar.
-- Assignee sections announce assignee name and item count (e.g., "Assignee Ada — 3 items"); the Unassigned bucket is labeled explicitly.
+- Sort control surfaces the current mode in the explorer description (e.g., "Sort: Status (grouped)") so screen readers announce it; avoid color-only cues in the toolbar. When a Quick Pick is shown, include the current mode in the title/placeholder.
+- Assignee sections (and assignee rows) announce assignee name and item count (e.g., "Assignee Ada — 3 items"); the Unassigned bucket is labeled explicitly.
 - Section icons use VS Code theme colors plus text; focus outlines remain visible in high-contrast/forced-colors modes.
 - Assignee labels used for UI, aria-labels, and collapse state are sanitized; aria-label keeps the full sanitized name even when the visible label is truncated.
 
