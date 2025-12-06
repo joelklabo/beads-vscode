@@ -1,6 +1,6 @@
 # ADR: VS Code recommendations for bd/.beads projects
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2025-12-06
 - Owner: dontstop
 - Related issues: beads-d6q (epic), beads-lwl (this ADR), beads-wwf (metadata), beads-usx (generator), beads-u8n (tests), beads-91e (docs)
