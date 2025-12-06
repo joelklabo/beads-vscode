@@ -101,9 +101,9 @@ describe('Control tooltips', () => {
     assert.match(text, /esc/i);
   });
 
-  it('toggle sort tooltip describes cycling', () => {
+  it('toggle sort tooltip describes choosing a mode', () => {
     const text = resolve('command.beads.toggleSortMode');
-    assert.match(text, /cycle/i);
+    assert.match(text, /(choose|pick)/i);
     assert.match(text, /sort/i);
   });
 

@@ -499,6 +499,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   setTreeView(treeView: vscode.TreeView<TreeItemType>): void {
     this.treeView = treeView;
     this.updateQuickFilterUi();
+    this.syncSortModeContext();
   }
 
   setStatusBarItem(statusBarItem: vscode.StatusBarItem): void {
@@ -1459,6 +1460,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     if (saved) {
       this.sortMode = saved;
     }
+    this.syncSortModeContext();
   }
 
   private saveSortMode(): void {
@@ -1589,9 +1591,25 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     void vscode.commands.executeCommand('setContext', 'beads.activeQuickFilterLabel', label);
     void vscode.commands.executeCommand('setContext', 'beads.quickFilterActive', !!key);
 
-    if (this.treeView) {
-      this.treeView.description = quickFiltersEnabled ? t('Filter: {0}', label || t('All items')) : undefined;
+    this.updateTreeDescription();
+  }
+
+  private updateTreeDescription(): void {
+    if (!this.treeView) {
+      return;
     }
+
+    const quickFiltersEnabled = vscode.workspace.getConfiguration('beads').get<boolean>('quickFilters.enabled', false);
+    const filterLabel = quickFiltersEnabled ? this.getQuickFilterLabel(this.quickFilter) : undefined;
+    const parts: string[] = [];
+
+    if (quickFiltersEnabled) {
+      parts.push(t('Filter: {0}', filterLabel || t('All items')));
+    }
+
+    parts.push(t('Sort: {0}', this.getSortModeLabel()));
+
+    this.treeView.description = parts.join(' • ');
   }
 
   private getQuickFilterKey(): string | undefined {
@@ -1725,32 +1743,54 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     this.onDidChangeTreeDataEmitter.fire(element);
   }
 
-  toggleSortMode(): void {
-    // Cycle through: id → status → epic → assignee → id
-    if (this.sortMode === 'id') {
-      this.sortMode = 'status';
-    } else if (this.sortMode === 'status') {
-      this.sortMode = 'epic';
-    } else if (this.sortMode === 'epic') {
-      this.sortMode = 'assignee';
-    } else {
-      this.sortMode = 'id';
+  async toggleSortMode(): Promise<void> {
+    const options: Array<vscode.QuickPickItem & { value: 'id' | 'status' | 'epic' | 'assignee' }> = [
+      { value: 'id', label: t('ID (natural)'), description: t('Sort by issue ID (default)'), picked: this.sortMode === 'id' },
+      { value: 'status', label: t('Status'), description: t('Group by status buckets'), picked: this.sortMode === 'status' },
+      { value: 'epic', label: t('Epic'), description: t('Group under parent epics'), picked: this.sortMode === 'epic' },
+      { value: 'assignee', label: t('Assignee'), description: t('Group by assignee with Unassigned last'), picked: this.sortMode === 'assignee' },
+    ];
+
+    const selection = await vscode.window.showQuickPick(options, {
+      title: t('Choose sort mode'),
+      placeHolder: t('Current: {0}', this.getSortModeLabel()),
+      matchOnDescription: true,
+      matchOnDetail: true,
+      canPickMany: false,
+    });
+
+    if (!selection || selection.value === this.sortMode) {
+      return;
     }
+
+    this.sortMode = selection.value;
     this.saveSortMode();
+    this.syncSortModeContext();
     this.onDidChangeTreeDataEmitter.fire();
-    const modeDisplay =
-      this.sortMode === 'id'
-        ? t('ID (natural)')
-        : this.sortMode === 'status'
-          ? t('Status')
-          : this.sortMode === 'epic'
-            ? t('Epic')
-            : t('Assignee');
-    void vscode.window.showInformationMessage(t('Sort mode: {0}', modeDisplay));
+    void vscode.window.showInformationMessage(t('Sort mode: {0}', this.getSortModeLabel()));
   }
 
   getSortMode(): 'id' | 'status' | 'epic' | 'assignee' {
     return this.sortMode;
+  }
+
+  private getSortModeLabel(mode: 'id' | 'status' | 'epic' | 'assignee' = this.sortMode): string {
+    switch (mode) {
+      case 'status':
+        return t('Status');
+      case 'epic':
+        return t('Epic');
+      case 'assignee':
+        return t('Assignee');
+      default:
+        return t('ID (natural)');
+    }
+  }
+
+  private syncSortModeContext(): void {
+    void vscode.commands.executeCommand('setContext', 'beads.activeSortMode', this.sortMode);
+    void vscode.commands.executeCommand('setContext', 'beads.activeSortModeLabel', this.getSortModeLabel());
+    this.updateTreeDescription();
   }
 
   private applySortOrder(items: BeadItemData[]): BeadItemData[] {
