@@ -1,0 +1,24 @@
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                                                                              │
+│ wt:beads-c4w · Issues view                                                   │
+│                                                                              │
+│ ╭───────────────────╮ ╭────────────────╮ ╭──────────────────╮                │
+│ │ ○ Dashboard (g d) │ │ ● Issues (g i) │ │ ○ Activity (g a) │                │
+│ ╰───────────────────╯ ╰────────────────╯ ╰──────────────────╯                │
+│                                                                              │
+│ ╭───────────────╮ ╭──────────────────╮  Theme: auto                          │
+│ │ ○ Graph (g g) │ │ ○ Settings (g s) │                                       │
+│ ╰───────────────╯ ╰──────────────────╯                                       │
+│                                                                              │
+│ ╭──────────────────────────────────────────────────────────────────────────╮ │
+│ │ Issues                                                          10 items │ │
+│ │ ▶ TUI-101 · Deterministic fixtures for TUI harness                       │ │
+│ │ Baseline dataset that avoids network/FS side effects.                    │ │
+│ │   TUI-102 · Render dense lists on narrow terminals                       │ │
+│ │ Exercise wrapping and truncation with long descriptions that extend bey… │ │
+│ │   TUI-103 · Unicode σ alignment in lists                                 │ │
+│ │ Verify full-width glyphs like 世界 and symbols σ render without shiftin… │ │  
+│ │   TUI-104 · Refactor dependency graph layout                             │ │
+│ │ Produce compact graph output that fits within 80 columns.                │ │
+│ │   TUI-105 · Keyboard cheat sheet overlay                                 │ │
+│ │ Show quick keymap hints inside status bar.                               │ │
