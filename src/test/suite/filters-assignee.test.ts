@@ -81,7 +81,7 @@ suite('Filter & assignee flows', () => {
     assert.ok((provider as any).treeView.description?.includes('In Progress'));
   });
 
-  test('assignee sort keeps unassigned last and shows badges', async () => {
+  test('assignee sort groups into sections with unassigned last', async () => {
     const context = createContextStub();
     const provider = new BeadsTreeDataProvider(context as any);
     (provider as any).sortMode = 'assignee';
@@ -93,14 +93,41 @@ suite('Filter & assignee flows', () => {
     ] as BeadItemData[];
 
     const roots = await provider.getChildren();
-    const beadNodes = roots.filter((node: any) => node instanceof BeadTreeItem);
-    const ids = beadNodes.map((n: any) => n.bead.id);
-    assert.deepStrictEqual(ids, ['task-a', 'task-b', 'task-c']);
+    const sections = roots.filter((node: any) => node.contextValue === 'assigneeSection');
+    const labels = sections.map((s: any) => s.label);
+    assert.deepStrictEqual(labels, ['Alice', 'Bob', 'Unassigned']);
 
-    beadNodes.forEach((node: any) => {
-      const desc = node.description || '';
-      assert.ok(/open|blocked|in progress/i.test(desc), 'description should contain status');
-      assert.ok(desc.includes('·'), 'description should show badge separators');
-    });
+    const aliceChildren = await provider.getChildren(sections[0]);
+    assert.deepStrictEqual(aliceChildren.map((n: any) => n.bead.id), ['task-a']);
+
+    const bobChildren = await provider.getChildren(sections[1]);
+    assert.deepStrictEqual(bobChildren.map((n: any) => n.bead.id), ['task-b']);
+
+    const unassignedChildren = await provider.getChildren(sections[2]);
+    assert.deepStrictEqual(unassignedChildren.map((n: any) => n.bead.id), ['task-c']);
+  });
+
+  test('assignee collapse state persists per bucket', async () => {
+    const context = createContextStub();
+    const provider = new BeadsTreeDataProvider(context as any);
+    (provider as any).sortMode = 'assignee';
+
+    (provider as any).items = [
+      { id: 'task-a', title: 'Alpha', status: 'open', assignee: 'Ada' },
+      { id: 'task-b', title: 'Beta', status: 'open', assignee: 'Ada' },
+      { id: 'task-c', title: 'Gamma', status: 'open', assignee: '' },
+    ] as BeadItemData[];
+
+    const roots = await provider.getChildren();
+    const sections = roots.filter((n: any) => n.contextValue === 'assigneeSection');
+
+    await provider.handleCollapseChange(sections[0], true);
+
+    const provider2 = new BeadsTreeDataProvider(context as any);
+    (provider2 as any).sortMode = 'assignee';
+    (provider2 as any).items = (provider as any).items;
+    const roots2 = await provider2.getChildren();
+    const adaSection = roots2.find((n: any) => n.contextValue === 'assigneeSection' && n.label === 'Ada');
+    assert.strictEqual(adaSection.collapsibleState, createVscodeStub().TreeItemCollapsibleState.Collapsed);
   });
 });
