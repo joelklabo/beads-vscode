@@ -2,10 +2,6 @@ import assert from 'assert';
 import React from 'react';
 import { startApp } from '../start';
 
-const fakeRender = (): void => {
-  /* noop render stub for tests */
-};
-
 const makeStdin = (opts: Partial<NodeJS.ReadStream>): NodeJS.ReadStream =>
   ({
     isTTY: opts.isTTY,
@@ -35,6 +31,20 @@ function run(): void {
   });
   assert.strictEqual(codeTty, 0, 'TTY should return 0');
   assert.ok(rendered, 'Render function should be invoked');
+
+  // Harness mode should bypass TTY guard when requireTTY is false
+  let harnessRendered = false;
+  const harnessCode = startApp({
+    stdin: makeStdin({ isTTY: false }),
+    requireTTY: false,
+    renderFn: ((node: React.ReactElement) => {
+      harnessRendered = Boolean(node);
+      return node;
+    }) as any,
+    appProps: { initialTab: 'graph' } as any,
+  });
+  assert.strictEqual(harnessCode, 0, 'Harness mode should allow non-TTY');
+  assert.ok(harnessRendered, 'Harness render should be invoked');
 
   console.log('✅ startApp tests passed');
 }
