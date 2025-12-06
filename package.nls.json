@@ -13,6 +13,7 @@
   "command.beads.visualizeDependencies": "Beads: Visualize Dependencies",
   "command.beads.sendFeedback": "Beads: Send Feedback",
   "command.beads.clearSortOrder": "Beads: Clear Manual Sort Order",
+  "command.beads.pickSortMode": "Beads: Choose Sort Mode",
   "command.beads.toggleSortMode": "Beads: Cycle Sort Mode (ID → Status → Epic → Assignee)",
   "command.beads.refreshActivityFeed": "Beads: Refresh Activity Feed",
   "command.beads.filterActivityFeed": "Beads: Filter Activity Feed",
