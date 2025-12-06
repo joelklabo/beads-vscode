@@ -1,8 +1,4 @@
 import * as vscode from 'vscode';
-import { execFile } from 'child_process';
-import { promises as fs } from 'fs';
-import * as path from 'path';
-import { promisify } from 'util';
 import {
   BeadItemData,
   formatError,
@@ -14,9 +10,7 @@ import {
   isStale,
   validateDependencyAdd,
   sanitizeDependencyId,
-  getCliExecutionConfig,
   collectCliErrorOutput,
-  warnIfDependencyEditingUnsupported as warnIfDependencyEditingUnsupportedCli,
   writeBeadsMarkdownFile,
   MarkdownExportHeaders,
   writeBeadsCsvFile,
@@ -51,7 +45,6 @@ import {
   applyQuickFilter,
   toggleQuickFilter,
   normalizeQuickFilter,
-  BdCliClient,
 } from './utils';
 import { ActivityFeedTreeDataProvider, ActivityEventItem } from './activityFeedProvider';
 import { EventType } from './activityFeed';
@@ -88,8 +81,10 @@ import { registerSendFeedbackCommand } from './commands/sendFeedback';
 import { buildDependencyGraphHtml } from './graph/view';
 import { DependencyTreeProvider } from './dependencyTreeProvider';
 import { currentWorktreeId } from './worktree';
+import { warnIfDependencyEditingUnsupported } from './services/runtimeEnvironment';
+import { BdCommandOptions, formatBdError, resolveBeadId, runBdCommand } from './services/cliService';
+import * as path from 'path';
 
-const execFileAsync = promisify(execFile);
 const t = vscode.l10n.t;
 const PROJECT_ROOT_ERROR = t('Unable to resolve project root. Set "beady.projectRoot" or open a workspace folder.');
 const INVALID_ID_MESSAGE = t('Issue ids must contain only letters, numbers, ._- and be under 64 characters.');
@@ -118,124 +113,8 @@ function createNonce(): string {
   return Math.random().toString(36).slice(2, 15) + Math.random().toString(36).slice(2, 15);
 }
 
-let guardWarningShown = false;
-let dependencyVersionWarned = false;
-
-const MIN_DEPENDENCY_CLI = '0.29.0';
-
 const STATUS_SECTION_ORDER: string[] = ['in_progress', 'open', 'blocked', 'closed'];
 const DEFAULT_COLLAPSED_SECTION_KEYS: string[] = [...STATUS_SECTION_ORDER, 'ungrouped'];
-
-async function runWorktreeGuard(projectRoot: string): Promise<void> {
-  const config = vscode.workspace.getConfiguration('beady');
-  const guardEnabled = config.get<boolean>('enableWorktreeGuard', true);
-  if (!guardEnabled) {
-    if (!guardWarningShown) {
-      guardWarningShown = true;
-      void vscode.window.showWarningMessage(t('Worktree guard disabled; operations may be unsafe.'));
-    }
-    return;
-  }
-
-  const guardPath = path.join(projectRoot, 'scripts', 'worktree-guard.sh');
-  try {
-    await fs.access(guardPath);
-  } catch {
-    return;
-  }
-
-  await execFileAsync(guardPath, { cwd: projectRoot });
-}
-
-async function ensureWorkspaceTrusted(workspaceFolder?: vscode.WorkspaceFolder): Promise<void> {
-  if (vscode.workspace.isTrusted) {
-    return;
-  }
-
-  const isTestEnv = process.env.NODE_ENV === 'test' || process.env.VSCODE_TEST === 'true' || !!process.env.VSCODE_TEST_INSTANCE_ID;
-  const requestTrust = (vscode.workspace as any).requestWorkspaceTrust;
-
-  if (vscode.workspace.isTrusted || isTestEnv || typeof requestTrust !== 'function') {
-    return;
-  }
-
-  const trustLabel = t('Trust workspace');
-  const message = t('Beads needs a trusted workspace before it can modify issues.');
-  const choice = await vscode.window.showWarningMessage(message, trustLabel, t('Cancel'));
-  if (choice === trustLabel) {
-    const granted = await requestTrust.call(vscode.workspace);
-    if (granted || vscode.workspace.isTrusted) {
-      return;
-    }
-  }
-
-  throw new Error(t('Operation blocked: workspace is not trusted.'));
-}
-
-async function warnIfDependencyEditingUnsupported(workspaceFolder?: vscode.WorkspaceFolder): Promise<void> {
-  const config = vscode.workspace.getConfiguration('beady', workspaceFolder);
-  if (!config.get<boolean>('enableDependencyEditing', false) || dependencyVersionWarned) {
-    return;
-  }
-
-  const commandPathSetting = config.get<string>('commandPath', 'bd');
-  try {
-    const commandPath = await findBdCommand(commandPathSetting);
-    await warnIfDependencyEditingUnsupportedCli(commandPath, MIN_DEPENDENCY_CLI, workspaceFolder?.uri.fsPath, (message) => {
-      dependencyVersionWarned = true;
-      void vscode.window.showWarningMessage(message);
-    });
-  } catch (error) {
-    dependencyVersionWarned = true;
-    void vscode.window.showWarningMessage(
-      'Could not determine bd version; dependency editing may be unsupported. Ensure bd is installed and on your PATH.'
-    );
-  }
-}
-
-
-interface BdCommandOptions {
-  workspaceFolder?: vscode.WorkspaceFolder;
-  requireGuard?: boolean;
-}
-
-// Surface bd stderr to users while redacting workspace paths to avoid leaking secrets.
-function formatBdError(prefix: string, error: unknown, projectRoot?: string): string {
-  const workspacePaths = projectRoot ? [projectRoot] : [];
-  const worktreeId = projectRoot ? currentWorktreeId(projectRoot) : undefined;
-  const combined = collectCliErrorOutput(error);
-  const sanitized = sanitizeErrorMessage(combined || error, workspacePaths, worktreeId);
-  return sanitized ? `${prefix}: ${sanitized}` : prefix;
-}
-
-function resolveBeadId(input: any): string | undefined {
-  return sanitizeDependencyId(input?.id ?? input?.bead?.id ?? input?.issueId);
-}
-
-async function runBdCommand(args: string[], projectRoot: string, options: BdCommandOptions = {}): Promise<void> {
-  const workspaceFolder = options.workspaceFolder ?? vscode.workspace.getWorkspaceFolder(vscode.Uri.file(projectRoot));
-  const requireGuard = options.requireGuard !== false;
-
-  await ensureWorkspaceTrusted(workspaceFolder);
-
-  if (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0 && !workspaceFolder) {
-    throw new Error(t('Project root {0} is not within an open workspace folder', projectRoot));
-  }
-
-  if (requireGuard) {
-    await runWorktreeGuard(projectRoot);
-  }
-
-  const config = vscode.workspace.getConfiguration('beady', workspaceFolder);
-  const commandPathSetting = config.get<string>('commandPath', 'bd');
-  const commandPath = await findBdCommand(commandPathSetting);
-  const cliPolicy = getCliExecutionConfig(config);
-  const worktreeId = currentWorktreeId(projectRoot);
-  const client = new BdCliClient({ commandPath, cwd: projectRoot, policy: cliPolicy, workspacePaths: [projectRoot], worktreeId });
-
-  await client.run(args);
-}
-
 type TreeItemType = SummaryHeaderItem | StatusSectionItem | WarningSectionItem | EpicStatusSectionItem | AssigneeSectionItem | EpicTreeItem | UngroupedSectionItem | BeadTreeItem | BeadDetailItem;
 
 type StatusLabelMap = {
