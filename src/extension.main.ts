@@ -1933,6 +1933,16 @@ function getBeadDetailHtml(
     closed: '#73c991',
   };
 
+  const getStatusLabel = (status?: string): string => {
+    if (!status) {
+      return '';
+    }
+    const key = status as keyof StatusLabelMap;
+    return strings.statusLabels[key] ?? status;
+  };
+
+
+
   const renderBranch = (
     nodes: any[],
     parentId: string,
@@ -2064,14 +2074,6 @@ function getBeadDetailHtml(
   }[item.status || 'open'] || '#666';
 
   const priorityLabel = formatPriorityLabel(priority);
-
-  const getStatusLabel = (status?: string): string => {
-    if (!status) {
-      return '';
-    }
-    const key = status as keyof StatusLabelMap;
-    return strings.statusLabels[key] ?? status;
-  };
 
   const statusDisplay = getStatusLabel(item.status) || strings.statusLabels.open;
 

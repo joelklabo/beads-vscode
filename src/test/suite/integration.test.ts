@@ -7,7 +7,7 @@ import { promisify } from 'util';
 import * as vscode from 'vscode';
 import { BeadItemData, normalizeBead } from '@beads/core';
 import { getStaleInfo, isStale } from '../../utils/stale';
-import { BeadsTreeDataProvider, EpicTreeItem, UngroupedSectionItem, BeadTreeItem } from '../../extension';
+import { BeadsTreeDataProvider, EpicTreeItem, UngroupedSectionItem, BeadTreeItem, openBeadFromFeed } from '../../extension';
 import { EpicStatusSectionItem } from '../../providers/beads/items';
 
 const execFileAsync = promisify(execFile);
@@ -617,4 +617,45 @@ suite('Epic tree integration', () => {
     assert.deepStrictEqual(ungroupedChildren.map(child => child.bead.id), ['orphan-1']);
     assert.strictEqual(ungrouped.description, '1 item');
   });
+
+  test('detail webview renders dependency status labels without crashing', async () => {
+    const context: any = {
+      subscriptions: [],
+      workspaceState: {
+        get: (_key: string) => undefined,
+        update: () => Promise.resolve(),
+      },
+    };
+
+    const provider = new BeadsTreeDataProvider(context);
+    (provider as any).items = [
+      {
+        id: 'issue-1',
+        title: 'Parent with dependency',
+        issueType: 'task',
+        status: 'blocked',
+        raw: {
+          dependencies: [
+            { depends_on_id: 'issue-2', dep_type: 'blocks' },
+          ],
+        },
+      },
+      {
+        id: 'issue-2',
+        title: 'Upstream issue',
+        issueType: 'task',
+        status: 'in_progress',
+        raw: { dependencies: [] },
+      },
+    ];
+
+    const opened = await openBeadFromFeed('issue-1', provider);
+    assert.strictEqual(opened, true, 'detail webview should open');
+    const panel = (provider as any)['openPanels']?.get('issue-1');
+    assert.ok(panel, 'webview panel should be registered');
+    const html = String(panel?.webview?.html || '');
+    assert.ok(html.includes('In Progress'), 'dependency status label should be present');
+    panel?.dispose();
+  });
+
 });

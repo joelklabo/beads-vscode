@@ -49,6 +49,55 @@ function createVscodeStub() {
     }
   }
 
+
+  const createUri = (fsPath: string) => ({
+    fsPath,
+    toString: () => fsPath,
+  });
+
+  const Uri = {
+    file: createUri,
+    parse: createUri,
+    joinPath: (...parts: any[]) => {
+      const pathParts = parts.map((p: any) => {
+        if (typeof p === 'string') {
+          return p;
+        }
+        if (p && typeof p.fsPath === 'string') {
+          return p.fsPath;
+        }
+        return String(p ?? '');
+      });
+      return createUri(pathParts.join('/'));
+    },
+  };
+
+  const createWebviewPanel = () => {
+    const disposeListeners: Array<() => void> = [];
+    const webviewListeners: Array<(msg: any) => void> = [];
+    const webview = {
+      html: '',
+      cspSource: 'vscode-resource',
+      onDidReceiveMessage: (cb: any) => {
+        webviewListeners.push(cb);
+        return { dispose: () => undefined };
+      },
+      postMessage: async (_message: any) => true,
+    } as any;
+
+    return {
+      webview,
+      onDidDispose: (cb: any) => {
+        disposeListeners.push(cb);
+        return { dispose: () => undefined };
+      },
+      dispose: () => {
+        disposeListeners.splice(0).forEach(fn => fn());
+      },
+      reveal: () => undefined,
+    } as any;
+  };
+
   const t = (message: string, ...args: any[]) =>
     message.replace(/\{(\d+)\}/g, (_match, index) => String(args[Number(index)] ?? `{${index}}`));
 
@@ -59,8 +108,10 @@ function createVscodeStub() {
     ThemeIcon,
     ThemeColor,
     MarkdownString,
+    Uri,
     EventEmitter,
     TreeItemCollapsibleState: { None: 0, Collapsed: 1, Expanded: 2 },
+    ViewColumn: { One: 1 },
     workspace: {
       workspaceFolders: [] as any[],
       getConfiguration: () => ({ get: (_k: string, fallback: any) => fallback }),
@@ -68,7 +119,9 @@ function createVscodeStub() {
     window: {
       showInformationMessage: () => undefined,
       showErrorMessage: () => undefined,
-      createTreeView: () => ({})
+      showWarningMessage: () => undefined,
+      createTreeView: () => ({}),
+      createWebviewPanel: (_viewType: string, _title: string, _showOptions: any, _options: any) => createWebviewPanel(),
     },
     commands: { executeCommand: () => undefined },
     StatusBarAlignment: { Left: 1 },
@@ -103,6 +156,7 @@ describe('Extension tree items', () => {
   let BeadTreeItem: any;
   let EpicTreeItem: any;
   let BeadsTreeDataProvider: any;
+  let openBeadFromFeed: any;
 
   before(() => {
     const moduleAny = Module as any;
@@ -120,6 +174,7 @@ describe('Extension tree items', () => {
     BeadTreeItem = extension.BeadTreeItem;
     EpicTreeItem = extension.EpicTreeItem;
     BeadsTreeDataProvider = extension.BeadsTreeDataProvider;
+    openBeadFromFeed = extension.openBeadFromFeed;
   });
 
   after(() => {
@@ -417,4 +472,38 @@ describe('Extension tree items', () => {
 
     provider.dispose();
   });
+
+  it('opens bead detail panel with dependency status labels without crashing', async () => {
+    const context = createContextStub();
+    const provider = new BeadsTreeDataProvider(context as any);
+    (provider as any).items = [
+      {
+        id: 'task-1',
+        title: 'Has deps',
+        issueType: 'task',
+        status: 'blocked',
+        raw: {
+          dependencies: [
+            { depends_on_id: 'task-2', dep_type: 'blocks' },
+          ],
+        },
+      },
+      {
+        id: 'task-2',
+        title: 'Upstream task',
+        issueType: 'task',
+        status: 'in_progress',
+        raw: { dependencies: [] },
+      },
+    ];
+
+    const opened = await openBeadFromFeed('task-1', provider as any);
+    assert.strictEqual(opened, true, 'detail view should open');
+    const panel = (provider as any)['openPanels']?.get('task-1');
+    assert.ok(panel, 'detail panel should be registered');
+    const html = String(panel.webview.html || '');
+    assert.ok(html.includes('In Progress'), 'dependency status label should be rendered');
+    provider.dispose();
+  });
+
 });
