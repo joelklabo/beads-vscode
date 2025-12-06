@@ -33,7 +33,7 @@ Please be respectful and constructive in all interactions with the project. We a
    code .
    ```
 
-4. Press F5 to launch the Extension Development Host
+4. Press F5 to launch the Extension Development Host (uses the bundled `dist/extension.js`; run `npm run watch` to keep bundle + typecheck hot while debugging).
 
 ## Development Workflow
 
@@ -48,6 +48,8 @@ Please be respectful and constructive in all interactions with the project. We a
 
 3. Run tests and linting (from your task worktree root):
    ```bash
+   npm run test:bundle      # bundle smoke: compile + bundle + stubbed load of dist/extension.js
+   npm run check:vsix-size  # packages a VSIX to temp; fails if above ADR size budget
    npm run ci:verify        # lint + localization + compile + unit + headless integration
    npm run ci:coverage      # optional: unit coverage report in coverage/
    ```
@@ -72,6 +74,7 @@ Please be respectful and constructive in all interactions with the project. We a
   - Linux: `npm run test:integration:headless` (wraps `xvfb-run -a`).
   - macOS/Windows: `npm run test:integration:stable` (or `...:insiders`).
 - Set `VSCODE_TEST_INSTANCE_ID` when running multiple terminals/worktrees to isolate temp data; temp dirs are created under `tmp/` in the repo.
+- Bundle smoke + fast checks: `npm run test:bundle` (compile + bundle + stubbed load) before shipping.
 - Full suite: `npm run lint && npm run compile && npm run test:unit && npm run test:integration`.
 
 - Write unit tests for new utility functions in `src/test/unit/`

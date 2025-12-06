@@ -1,6 +1,8 @@
 # Testing Guide for Beads VSCode Extension
 
 ## One-liners
+- `npm run test:bundle` — compile + bundle + stubbed load of `dist/extension.js` to catch missing externals early.
+- `npm run check:vsix-size` — packages a VSIX to a temp file and fails if it exceeds the ADR budget (override with `VSIX_MAX_BYTES`).
 - `npm run test:all` — lint + VS Code unit + core unit + TUI + web smoke + bd-cli sanity.
 - `npm run ci:verify` — lint + localization + compile + unit + headless integration (mirrors the CI Test workflow).
 - `npm run ci:coverage` — runs the unit suite under c8 and writes text + LCOV reports to `coverage/` (coverage includes `src/**`, `packages/**/src/**`, `tui/src/**`, `web/src/**`; excludes `out/test/**`).
@@ -10,6 +12,14 @@
 - Location: `src/test/unit/` (plus a few compiled helpers under `out/test/*`).
 - Run: `npm run test:unit` (compiles then executes `npm run test:unit:run`).
 - Coverage: `npm run ci:coverage` and open `coverage/lcov-report/index.html`.
+
+## Bundle smoke test
+- Location: `src/test/bundle.smoke.test.ts` (compiled to `out/test/bundle.smoke.test.js`).
+- Run: `npm run test:bundle` (compiles, bundles, then loads the bundled module with a stubbed VS Code host to catch missing externals).
+
+## VSIX size gate
+- Command: `npm run check:vsix-size` (requires dist to exist; uses `VSIX_MAX_BYTES` to override the ADR budget).
+- Produces a VSIX in a temp directory, reports zipped size, and exits non-zero on budget violations.
 
 ## Workspace package tests
 - Core: `npm run test:core` (node:test via tsx; exercises `packages/core/src/**` including CLI client sanitization).
