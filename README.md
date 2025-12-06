@@ -10,24 +10,23 @@ This Visual Studio Code extension provides a simple explorer view for [Beads](ht
 
 ## Architecture (high level)
 
-The project is moving to a layered, multi-surface layout so VS Code, a web client, and the Ink-based TUI can share logic:
+The project is consolidating to a VS Code-only layout with a thin activation layer and modular services/commands/views:
 ```
              bd CLI (--no-daemon)
                     |
-              packages/core
+              @beads/core (models, store, CLI client, sanitizers)
                     |
-             packages/ui-headless  (React hooks/state, no DOM/Ink)
-              /                 \
-      packages/ui-web      packages/ui-ink
-           |                    |
-          web app           tui app
-
-             packages/platform-vscode (activation + wiring only)
+        @beads/platform-vscode
+          • services/runtimeEnvironment (trust, guard, root resolution)
+          • services/cliService (BdCliClient factory)
+          • providers/beads/lifecycle (store + watchers)
+          • commands/* (domain modules)
+          • views/* (explorer, activity, dependency tree, graph webview)
+                    |
+             VS Code UI (commands, trees, webviews)
 ```
 
-Details and rules live in `docs/adr/2025-12-core-layering.md` and the short `docs/architecture.md` overview. `extension.ts` now stays lean (activation/wiring only) while domain logic, CLI calls, and stores sit in shared packages.
-
-The Ink-based TUI also rides on the shared layers: it instantiates `BeadsStore` from `@beads/core`, calls the CLI through `BdCliClient` (which injects `--no-daemon` and sanitizes stderr), and routes mutating commands through `runGuardedBd` from `tui/lib/worktree` so the worktree guard script runs before any bd edits.
+See `docs/architecture.md` and `docs/adr/2025-12-vscode-architecture.md` for details. `extension.ts` stays lean while orchestration lives in `extension.main` and modules under `src/services`, `src/commands`, `src/views`, and `src/providers/beads`.
 
 ### Workspace layout & commands
 - Bundle entrypoint: `npm run bundle` (outputs `dist/extension.js` used by VS Code); `npm run watch` runs bundle:watch + typecheck for F5.
