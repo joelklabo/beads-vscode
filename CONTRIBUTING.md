@@ -193,7 +193,7 @@ Create a test `.beads/issues.jsonl` file:
 Configure the extension to use it:
 ```json
 {
-  "beads.dataFile": ".beads/issues.jsonl"
+  "beady.dataFile": ".beads/issues.jsonl"
 }
 ```
 

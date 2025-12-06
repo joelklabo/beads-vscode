@@ -324,13 +324,13 @@ npx bd --no-daemon blocked --json
 ## Configuration
 
 Extension settings in `package.json`:
-- `beads.commandPath` - Path to `bd` CLI (default: "bd")
-- `beads.projectRoot` - Override workspace root
-- `beads.dataFile` - Path to data file (default: ".beads/issues.jsonl")
+- `beady.commandPath` - Path to `bd` CLI (default: "bd")
+- `beady.projectRoot` - Override workspace root
+- `beady.dataFile` - Path to data file (default: ".beads/issues.jsonl")
 
 ## Commands
 
-All commands prefixed with `beads.`:
+All commands prefixed with `beady.`:
 - `refresh`, `search`, `clearSearch` - View management
 - `openBead`, `createBead`, `deleteBeads` - Issue CRUD
 - `editExternalReference` - Edit external refs

@@ -39,7 +39,7 @@
 
 ## Stale / Warning bucket checks
 - Unit coverage lives in `src/test/unit/extension.test.ts` (warning excludes closed tasks/epics and handles empty epics). Run `npm run test:unit -- --grep "stale"` for a focused pass.
-- Manual spot-check: set `beads.staleThresholdMinutes` low, mark a task `in_progress`, wait past the threshold, and confirm it shows in Warning; closing the item should drop it from Warning immediately.
+- Manual spot-check: set `beady.staleThresholdMinutes` low, mark a task `in_progress`, wait past the threshold, and confirm it shows in Warning; closing the item should drop it from Warning immediately.
 - Empty epics behave the same way: an open empty epic shows in Warning, but closing it moves it to Closed and keeps it out of Warning across refreshes.
 
 ## Integration tests (headless by default)

@@ -97,7 +97,7 @@ export class ActivityEventItem extends vscode.TreeItem {
     this.iconPath = new vscode.ThemeIcon(event.iconName, new vscode.ThemeColor(iconColors[event.colorClass] || 'foreground'));
     this.tooltip = this.buildTooltip(event, worktreeId, summary);
     this.command = {
-      command: 'beads.activityFeed.openEvent',
+      command: 'beady.activityFeed.openEvent',
       title: 'Open Issue',
       arguments: [event.issueId],
     };

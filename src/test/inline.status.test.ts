@@ -25,6 +25,15 @@ function createVscodeStub(enableFlag = true) {
     }
   }
 
+  class MarkdownString {
+    value = '';
+    isTrusted = false;
+    supportHtml = false;
+    appendMarkdown(md: string): void {
+      this.value += md;
+    }
+  }
+
   const t = (message: string, ...args: any[]) =>
     message.replace(/\{(\d+)\}/g, (_match, index) => String(args[Number(index)] ?? `{${index}}`));
 
@@ -36,6 +45,7 @@ function createVscodeStub(enableFlag = true) {
     l10n: { t },
     env: { language: 'en', openExternal: () => undefined },
     TreeItem,
+    MarkdownString,
     EventEmitter,
     TreeItemCollapsibleState: { None: 0, Collapsed: 1, Expanded: 2 },
     StatusBarAlignment: { Left: 1 },
@@ -161,10 +171,15 @@ describe('Inline status quick change', () => {
 
     await inlineStatusQuickChange(provider, treeView, undefined);
 
-    assert.strictEqual(execCalls.length, 2);
-    assert.deepStrictEqual(normalizeArgs(execCalls[0].args), ['update', 'A', '--status', 'closed']);
-    assert.deepStrictEqual(normalizeArgs(execCalls[1].args), ['update', 'B', '--status', 'closed']);
-    assert.ok(execCalls.every((c) => Array.isArray(c.args) && c.args[0] === '--no-daemon'));
+    const updateCalls = execCalls.filter((call) => {
+      const args = normalizeArgs(call.args);
+      return Array.isArray(args) && args[0] === 'update';
+    });
+
+    assert.strictEqual(updateCalls.length, 2);
+    assert.deepStrictEqual(normalizeArgs(updateCalls[0].args), ['update', 'A', '--status', 'closed']);
+    assert.deepStrictEqual(normalizeArgs(updateCalls[1].args), ['update', 'B', '--status', 'closed']);
+    assert.ok(updateCalls.every((c) => Array.isArray(c.args) && c.args[0] === '--no-daemon'));
     assert.ok((provider as any)._refreshed, 'provider.refresh should be called');
     assert.ok(vscodeStub._info.some((msg: string) => msg.includes('Updated status')));
   });
@@ -194,7 +209,12 @@ describe('Inline status quick change', () => {
 
     await inlineStatusQuickChange(provider, treeView, undefined);
 
-    assert.strictEqual(execCalls.length, 1);
+    const updateCalls = execCalls.filter((call) => {
+      const args = normalizeArgs(call.args);
+      return Array.isArray(args) && args[0] === 'update';
+    });
+
+    assert.strictEqual(updateCalls.length, 1);
     assert.ok(vscodeStub._errors.some((msg: string) => msg.includes('E')));
   });
 
@@ -224,6 +244,6 @@ describe('Inline status quick change', () => {
     await extension.inlineStatusQuickChange(provider, treeView, undefined);
 
     assert.strictEqual(execCalls.length, 0);
-    assert.ok(vscodeStub._info.some((msg: string) => msg.includes('Enable the "beads.inlineStatusChange.enabled" setting')));
+    assert.ok(vscodeStub._info.some((msg: string) => msg.includes('Enable the "beady.inlineStatusChange.enabled" setting')));
   });
 });

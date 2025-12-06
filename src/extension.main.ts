@@ -88,7 +88,7 @@ import { currentWorktreeId } from './worktree';
 
 const execFileAsync = promisify(execFile);
 const t = vscode.l10n.t;
-const PROJECT_ROOT_ERROR = t('Unable to resolve project root. Set "beads.projectRoot" or open a workspace folder.');
+const PROJECT_ROOT_ERROR = t('Unable to resolve project root. Set "beady.projectRoot" or open a workspace folder.');
 const INVALID_ID_MESSAGE = t('Issue ids must contain only letters, numbers, ._- and be under 64 characters.');
 
 function validationMessage(kind: 'title' | 'label' | 'status', reason?: string): string {
@@ -124,7 +124,7 @@ const STATUS_SECTION_ORDER: string[] = ['in_progress', 'open', 'blocked', 'close
 const DEFAULT_COLLAPSED_SECTION_KEYS: string[] = [...STATUS_SECTION_ORDER, 'ungrouped'];
 
 async function runWorktreeGuard(projectRoot: string): Promise<void> {
-  const config = vscode.workspace.getConfiguration('beads');
+  const config = vscode.workspace.getConfiguration('beady');
   const guardEnabled = config.get<boolean>('enableWorktreeGuard', true);
   if (!guardEnabled) {
     if (!guardWarningShown) {
@@ -170,7 +170,7 @@ async function ensureWorkspaceTrusted(workspaceFolder?: vscode.WorkspaceFolder):
 }
 
 async function warnIfDependencyEditingUnsupported(workspaceFolder?: vscode.WorkspaceFolder): Promise<void> {
-  const config = vscode.workspace.getConfiguration('beads', workspaceFolder);
+  const config = vscode.workspace.getConfiguration('beady', workspaceFolder);
   if (!config.get<boolean>('enableDependencyEditing', false) || dependencyVersionWarned) {
     return;
   }
@@ -223,7 +223,7 @@ async function runBdCommand(args: string[], projectRoot: string, options: BdComm
     await runWorktreeGuard(projectRoot);
   }
 
-  const config = vscode.workspace.getConfiguration('beads', workspaceFolder);
+  const config = vscode.workspace.getConfiguration('beady', workspaceFolder);
   const commandPathSetting = config.get<string>('commandPath', 'bd');
   const commandPath = await findBdCommand(commandPathSetting);
   const cliPolicy = getCliExecutionConfig(config);
@@ -413,8 +413,8 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   readonly onDidChangeTreeData = this.onDidChangeTreeDataEmitter.event;
 
   // Drag and drop support
-  readonly dropMimeTypes = ['application/vnd.code.tree.beadsExplorer'];
-  readonly dragMimeTypes = ['application/vnd.code.tree.beadsExplorer'];
+  readonly dropMimeTypes = ['application/vnd.code.tree.beadyExplorer'];
+  readonly dragMimeTypes = ['application/vnd.code.tree.beadyExplorer'];
 
   private items: BeadItemData[] = [];
   private document: BeadsDocument | undefined;
@@ -521,7 +521,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     }
 
     // Get stale threshold from configuration (in minutes, convert to hours for isStale)
-    const config = vscode.workspace.getConfiguration('beads');
+    const config = vscode.workspace.getConfiguration('beady');
     const thresholdMinutes = config.get<number>('staleThresholdMinutes', 10);
     const thresholdHours = thresholdMinutes / 60;
 
@@ -556,7 +556,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
         staleCount,
         staleCount !== 1 ? 's' : '',
         thresholdMinutes);
-      this.statusBarItem.command = 'beadsExplorer.focus';
+      this.statusBarItem.command = 'beadyExplorer.focus';
       this.statusBarItem.show();
       return;
     }
@@ -564,7 +564,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     if (this.feedbackEnabled) {
       this.statusBarItem.text = `$(comment-discussion) ${t('Send Feedback')}`;
       this.statusBarItem.tooltip = t('Share feedback or report a bug (opens GitHub)');
-      this.statusBarItem.command = 'beads.sendFeedback';
+      this.statusBarItem.command = 'beady.sendFeedback';
       this.statusBarItem.show();
       return;
     }
@@ -623,7 +623,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   
   private createStatusSections(items: BeadItemData[]): (StatusSectionItem | WarningSectionItem)[] {
     // Get stale threshold from configuration (in minutes, convert to hours for isStale)
-    const config = vscode.workspace.getConfiguration('beads');
+    const config = vscode.workspace.getConfiguration('beady');
     const thresholdMinutes = config.get<number>('staleThresholdMinutes', 10);
     const thresholdHours = thresholdMinutes / 60;
     
@@ -680,7 +680,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   
   private createEpicTree(items: BeadItemData[]): (EpicStatusSectionItem | UngroupedSectionItem | WarningSectionItem | EpicTreeItem)[] {
     // Get stale threshold from configuration (in minutes, convert to hours for isStale)
-    const config = vscode.workspace.getConfiguration('beads');
+    const config = vscode.workspace.getConfiguration('beady');
     const thresholdMinutes = config.get<number>('staleThresholdMinutes', 10);
     const thresholdHours = thresholdMinutes / 60;
     
@@ -813,7 +813,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     this.primaryConfigForFavorites = undefined;
 
     for (const folder of targets) {
-      const config = vscode.workspace.getConfiguration('beads', folder);
+      const config = vscode.workspace.getConfiguration('beady', folder);
       const projectRoot = resolveProjectRoot(config, folder);
       if (!projectRoot) {
         continue;
@@ -839,7 +839,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     this.items = snapshot.items;
     this.document = snapshot.workspaces[0]?.document;
 
-    const favoritesConfig = this.primaryConfigForFavorites ?? vscode.workspace.getConfiguration('beads');
+    const favoritesConfig = this.primaryConfigForFavorites ?? vscode.workspace.getConfiguration('beady');
     const favoritesEnabled = favoritesConfig.get<boolean>('favorites.enabled', false);
     if (favoritesEnabled && this.items.length > 0) {
       const favoriteLabel = getFavoriteLabel(favoritesConfig);
@@ -980,7 +980,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
       {
         label: t('Stale in progress'),
         description: this.getQuickFilterDescription({ kind: 'stale' }),
-        detail: t('Uses the beads.staleThresholdMinutes setting'),
+        detail: t('Uses the beady.staleThresholdMinutes setting'),
         key: 'stale',
         preset: { kind: 'stale' },
         picked: activeKey === 'stale'
@@ -1140,7 +1140,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
       return;
     }
 
-    const config = vscode.workspace.getConfiguration('beads');
+    const config = vscode.workspace.getConfiguration('beady');
     const projectRoot = resolveProjectRoot(config);
 
     if (!projectRoot) {
@@ -1173,7 +1173,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
       return;
     }
 
-    const config = vscode.workspace.getConfiguration('beads');
+    const config = vscode.workspace.getConfiguration('beady');
     const projectRoot = resolveProjectRoot(config);
 
     if (!projectRoot) {
@@ -1206,7 +1206,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
       return;
     }
 
-    const config = vscode.workspace.getConfiguration('beads');
+    const config = vscode.workspace.getConfiguration('beady');
     const projectRoot = resolveProjectRoot(config);
 
     if (!projectRoot) {
@@ -1226,7 +1226,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   }
 
   async addDependency(item: BeadItemData, targetId: string): Promise<void> {
-    const config = vscode.workspace.getConfiguration('beads');
+    const config = vscode.workspace.getConfiguration('beady');
     const dependencyEditingEnabled = config.get<boolean>('enableDependencyEditing', false);
     if (!dependencyEditingEnabled) {
       void vscode.window.showWarningMessage(t('Enable dependency editing in settings to add dependencies.'));
@@ -1270,7 +1270,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   }
 
   async removeDependency(sourceId: string, targetId: string): Promise<void> {
-    const config = vscode.workspace.getConfiguration('beads');
+    const config = vscode.workspace.getConfiguration('beady');
     const dependencyEditingEnabled = config.get<boolean>('enableDependencyEditing', false);
     if (!dependencyEditingEnabled) {
       void vscode.window.showWarningMessage(t('Enable dependency editing in settings to remove dependencies.'));
@@ -1332,7 +1332,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
       return;
     }
 
-    const config = vscode.workspace.getConfiguration('beads');
+    const config = vscode.workspace.getConfiguration('beady');
     const projectRoot = resolveProjectRoot(config);
 
     if (!projectRoot) {
@@ -1365,7 +1365,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     };
 
     treeItem.command = {
-      command: 'beads.openBead',
+      command: 'beady.openBead',
       title: t('Open Bead'),
       arguments: [item],
     };
@@ -1381,11 +1381,11 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
       return;
     }
     const items = beadItems.map(item => item.bead);
-    dataTransfer.set('application/vnd.code.tree.beadsExplorer', new vscode.DataTransferItem(items));
+    dataTransfer.set('application/vnd.code.tree.beadyExplorer', new vscode.DataTransferItem(items));
   }
 
   async handleDrop(target: TreeItemType | undefined, dataTransfer: vscode.DataTransfer, _token: vscode.CancellationToken): Promise<void> {
-    const transferItem = dataTransfer.get('application/vnd.code.tree.beadsExplorer');
+    const transferItem = dataTransfer.get('application/vnd.code.tree.beadyExplorer');
     if (!transferItem) {
       return;
     }
@@ -1438,7 +1438,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   }
 
   private loadSortOrder(): void {
-    const saved = this.context.workspaceState.get<Record<string, number>>('beads.manualSortOrder');
+    const saved = this.context.workspaceState.get<Record<string, number>>('beady.manualSortOrder');
     if (saved) {
       this.manualSortOrder = new Map(Object.entries(saved));
     }
@@ -1449,29 +1449,29 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     this.manualSortOrder.forEach((index, id) => {
       obj[id] = index;
     });
-    void this.context.workspaceState.update('beads.manualSortOrder', obj);
+    void this.context.workspaceState.update('beady.manualSortOrder', obj);
   }
 
   clearSortOrder(): void {
     this.manualSortOrder.clear();
-    void this.context.workspaceState.update('beads.manualSortOrder', undefined);
+    void this.context.workspaceState.update('beady.manualSortOrder', undefined);
     this.onDidChangeTreeDataEmitter.fire();
     void vscode.window.showInformationMessage(t('Manual sort order cleared'));
   }
 
   private loadSortMode(): void {
-    const saved = this.context.workspaceState.get<'id' | 'status' | 'epic' | 'assignee'>('beads.sortMode');
+    const saved = this.context.workspaceState.get<'id' | 'status' | 'epic' | 'assignee'>('beady.sortMode');
     if (saved) {
       this.sortMode = saved;
     }
   }
 
   private saveSortMode(): void {
-    void this.context.workspaceState.update('beads.sortMode', this.sortMode);
+    void this.context.workspaceState.update('beady.sortMode', this.sortMode);
   }
   
   private loadCollapsedSections(): void {
-    const savedSections = this.context.workspaceState.get<string[]>('beads.collapsedSections');
+    const savedSections = this.context.workspaceState.get<string[]>('beady.collapsedSections');
     if (savedSections !== undefined) {
       this.collapsedSections = new Set(savedSections.filter(key => !key.startsWith('epic-')));
       // Migration: legacy epic keys stored in collapsedSections (epic-<id>)
@@ -1485,7 +1485,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
       this.collapsedSections = new Set(DEFAULT_COLLAPSED_SECTION_KEYS);
     }
 
-    const savedEpics = this.context.workspaceState.get<Record<string, boolean>>('beads.collapsedEpics');
+    const savedEpics = this.context.workspaceState.get<Record<string, boolean>>('beady.collapsedEpics');
     if (savedEpics) {
       this.collapsedEpics = new Map(Object.entries(savedEpics));
     }
@@ -1494,7 +1494,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   private saveCollapsedSections(): void {
     // Persist non-epic sections
     const sectionStates = Array.from(this.collapsedSections).filter(key => !key.startsWith('epic-'));
-    void this.context.workspaceState.update('beads.collapsedSections', sectionStates);
+    void this.context.workspaceState.update('beady.collapsedSections', sectionStates);
 
     // Persist epic collapse states separately
     const epicState: Record<string, boolean> = {};
@@ -1503,20 +1503,20 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
         epicState[epicId] = true;
       }
     });
-    void this.context.workspaceState.update('beads.collapsedEpics', epicState);
+    void this.context.workspaceState.update('beady.collapsedEpics', epicState);
   }
 
   private loadExpandedRows(): void {
-    const saved = this.context.workspaceState.get<string[]>('beads.expandedRows');
+    const saved = this.context.workspaceState.get<string[]>('beady.expandedRows');
     this.expandedRows = new Set(saved ?? []);
   }
 
   private saveExpandedRows(): void {
-    void this.context.workspaceState.update('beads.expandedRows', Array.from(this.expandedRows));
+    void this.context.workspaceState.update('beady.expandedRows', Array.from(this.expandedRows));
   }
 
   private loadQuickFilter(): void {
-    const saved = this.context.workspaceState.get<QuickFilterPreset>('beads.quickFilterPreset');
+    const saved = this.context.workspaceState.get<QuickFilterPreset>('beady.quickFilterPreset');
     this.quickFilter = normalizeQuickFilter(saved);
     if (saved && !this.quickFilter) {
       void vscode.window.showWarningMessage(t('Ignoring invalid quick filter; showing all items.'));
@@ -1587,12 +1587,12 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   }
 
   private updateQuickFilterUi(): void {
-    const quickFiltersEnabled = vscode.workspace.getConfiguration('beads').get<boolean>('quickFilters.enabled', false);
+    const quickFiltersEnabled = vscode.workspace.getConfiguration('beady').get<boolean>('quickFilters.enabled', false);
     const key = quickFiltersEnabled ? this.getQuickFilterKey() ?? '' : '';
     const label = quickFiltersEnabled ? this.getQuickFilterLabel(this.quickFilter) : '';
-    void vscode.commands.executeCommand('setContext', 'beads.activeQuickFilter', key);
-    void vscode.commands.executeCommand('setContext', 'beads.activeQuickFilterLabel', label);
-    void vscode.commands.executeCommand('setContext', 'beads.quickFilterActive', !!key);
+    void vscode.commands.executeCommand('setContext', 'beady.activeQuickFilter', key);
+    void vscode.commands.executeCommand('setContext', 'beady.activeQuickFilterLabel', label);
+    void vscode.commands.executeCommand('setContext', 'beady.quickFilterActive', !!key);
 
     if (this.treeView) {
       this.treeView.description = quickFiltersEnabled ? t('Filter: {0}', label || t('All items')) : undefined;
@@ -1613,7 +1613,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
       void vscode.window.showWarningMessage(t('Invalid quick filter selection; showing all items.'));
     }
     this.quickFilter = normalized;
-    void this.context.workspaceState.update('beads.quickFilterPreset', normalized);
+    void this.context.workspaceState.update('beady.quickFilterPreset', normalized);
     this.updateQuickFilterUi();
     this.onDidChangeTreeDataEmitter.fire();
   }
@@ -1639,7 +1639,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
       this.activeWorkspaceFolder = undefined;
     }
     const label = this.activeWorkspaceFolder?.name ?? t('All Workspaces');
-    void vscode.commands.executeCommand('setContext', 'beads.activeWorkspaceLabel', label);
+    void vscode.commands.executeCommand('setContext', 'beady.activeWorkspaceLabel', label);
   }
 
   private restoreWorkspaceSelection(): void {
@@ -1650,7 +1650,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   async setActiveWorkspace(selectionId: string): Promise<void> {
     this.applyWorkspaceSelection(selectionId);
     await saveWorkspaceSelection(this.context, this.activeWorkspaceId);
-    void vscode.commands.executeCommand('setContext', 'beads.activeWorkspaceLabel', this.activeWorkspaceFolder?.name ?? t('All Workspaces'));
+    void vscode.commands.executeCommand('setContext', 'beady.activeWorkspaceLabel', this.activeWorkspaceFolder?.name ?? t('All Workspaces'));
     await this.refresh();
   }
 
@@ -1918,7 +1918,7 @@ function getBeadDetailHtml(
   const dependencies = raw?.dependencies || [];
   const assignee = deriveAssigneeName(item, strings.assigneeFallback);
   const labels = raw?.labels || [];
-  const dependencyEditingEnabled = vscode.workspace.getConfiguration('beads').get<boolean>('enableDependencyEditing', false);
+  const dependencyEditingEnabled = vscode.workspace.getConfiguration('beady').get<boolean>('enableDependencyEditing', false);
 
   // Build dependency trees for visualization
   const treeData = allItems && allItems.length > 0 ? buildDependencyTrees(allItems, item.id) : { upstream: [], downstream: [] };
@@ -3890,7 +3890,7 @@ async function openBead(item: BeadItemData, provider: BeadsTreeDataProvider): Pr
         return;
       }
       case 'deleteBead': {
-        const projectRoot = resolveProjectRoot(vscode.workspace.getConfiguration('beads'));
+        const projectRoot = resolveProjectRoot(vscode.workspace.getConfiguration('beady'));
         if (!projectRoot) {
           void vscode.window.showErrorMessage(PROJECT_ROOT_ERROR);
           return;
@@ -3970,12 +3970,12 @@ async function createBead(): Promise<void> {
     return;
   }
 
-  const config = vscode.workspace.getConfiguration('beads');
+  const config = vscode.workspace.getConfiguration('beady');
   const projectRoot = resolveProjectRoot(config);
 
   try {
     await runBdCommand(['create', name], projectRoot!);
-    void vscode.commands.executeCommand('beads.refresh');
+    void vscode.commands.executeCommand('beady.refresh');
     void vscode.window.showInformationMessage(t('Created bead: {0}', name));
   } catch (error) {
     void vscode.window.showErrorMessage(formatError(t('Failed to create bead'), error));
@@ -4010,7 +4010,7 @@ async function addDependencyCommand(
   sourceItem?: BeadItemData,
   edge?: { sourceId?: string; targetId?: string }
 ): Promise<void> {
-  const config = vscode.workspace.getConfiguration('beads');
+  const config = vscode.workspace.getConfiguration('beady');
   const dependencyEditingEnabled = config.get<boolean>('enableDependencyEditing', false);
   if (!dependencyEditingEnabled) {
     void vscode.window.showWarningMessage(t('Enable dependency editing in settings to add dependencies.'));
@@ -4060,7 +4060,7 @@ async function addDependencyCommand(
 }
 
 async function removeDependencyCommand(provider: BeadsTreeDataProvider, edge?: DependencyEdge, options?: { contextId?: string }): Promise<void> {
-  const config = vscode.workspace.getConfiguration('beads');
+  const config = vscode.workspace.getConfiguration('beady');
   const dependencyEditingEnabled = config.get<boolean>('enableDependencyEditing', false);
   if (!dependencyEditingEnabled) {
     void vscode.window.showWarningMessage(t('Enable dependency editing in settings to remove dependencies.'));
@@ -4121,7 +4121,7 @@ async function visualizeDependencies(provider: BeadsTreeDataProvider): Promise<v
   const statusLabels = getStatusLabels();
   const dependencyStrings = buildDependencyTreeStrings(statusLabels);
   const locale = vscode.env.language || 'en';
-  const dependencyEditingEnabled = vscode.workspace.getConfiguration('beads').get<boolean>('enableDependencyEditing', false);
+  const dependencyEditingEnabled = vscode.workspace.getConfiguration('beady').get<boolean>('enableDependencyEditing', false);
 
   const panel = vscode.window.createWebviewPanel(
     'beadDependencyTree',
@@ -4923,7 +4923,7 @@ async function openActivityFeedPanel(activityFeedProvider: ActivityFeedTreeDataP
   );
 
   // Get events from the provider
-  const projectRoot = vscode.workspace.getConfiguration('beads').get<string>('projectRoot') ||
+  const projectRoot = vscode.workspace.getConfiguration('beady').get<string>('projectRoot') ||
     (vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? '');
   
   const { fetchEvents } = await import('./activityFeed');
@@ -4953,12 +4953,12 @@ async function openActivityFeedPanel(activityFeedProvider: ActivityFeedTreeDataP
 }
 
 async function exportBeadsCsv(provider: BeadsTreeDataProvider, treeView: vscode.TreeView<TreeItemType>): Promise<void> {
-  const config = vscode.workspace.getConfiguration('beads');
+  const config = vscode.workspace.getConfiguration('beady');
   const featureEnabled = config.get<boolean>('exportCsv.enabled', false);
 
   if (!featureEnabled) {
     void vscode.window.showInformationMessage(
-      t('Enable the "beads.exportCsv.enabled" setting to export beads to CSV.')
+      t('Enable the "beady.exportCsv.enabled" setting to export beads to CSV.')
     );
     return;
   }
@@ -5013,12 +5013,12 @@ async function exportBeadsCsv(provider: BeadsTreeDataProvider, treeView: vscode.
 }
 
 async function exportBeadsMarkdown(provider: BeadsTreeDataProvider, treeView: vscode.TreeView<TreeItemType>): Promise<void> {
-  const config = vscode.workspace.getConfiguration('beads');
+  const config = vscode.workspace.getConfiguration('beady');
   const featureEnabled = config.get<boolean>('exportMarkdown.enabled', false);
 
   if (!featureEnabled) {
     void vscode.window.showInformationMessage(
-      t('Enable the "beads.exportMarkdown.enabled" setting to export beads to Markdown.')
+      t('Enable the "beady.exportMarkdown.enabled" setting to export beads to Markdown.')
     );
     return;
   }
@@ -5145,7 +5145,7 @@ async function bulkUpdateStatus(
   if (!bulkConfig.enabled) {
     const message = bulkConfig.validationError
       ? t('Bulk actions are disabled: {0}', bulkConfig.validationError)
-      : t('Enable "beads.bulkActions.enabled" to run bulk status updates.');
+      : t('Enable "beady.bulkActions.enabled" to run bulk status updates.');
     void vscode.window.showWarningMessage(message);
     return;
   }
@@ -5187,7 +5187,7 @@ async function bulkUpdateStatus(
     return;
   }
 
-  const config = vscode.workspace.getConfiguration('beads');
+  const config = vscode.workspace.getConfiguration('beady');
   const projectRoot = resolveProjectRoot(config);
 
   if (!projectRoot) {
@@ -5228,7 +5228,7 @@ async function bulkUpdateLabel(
   if (!bulkConfig.enabled) {
     const message = bulkConfig.validationError
       ? t('Bulk actions are disabled: {0}', bulkConfig.validationError)
-      : t('Enable "beads.bulkActions.enabled" to run bulk label updates.');
+      : t('Enable "beady.bulkActions.enabled" to run bulk label updates.');
     void vscode.window.showWarningMessage(message);
     return;
   }
@@ -5274,7 +5274,7 @@ async function bulkUpdateLabel(
     return;
   }
 
-  const config = vscode.workspace.getConfiguration('beads');
+  const config = vscode.workspace.getConfiguration('beady');
   const projectRoot = resolveProjectRoot(config);
 
   if (!projectRoot) {
@@ -5336,10 +5336,10 @@ async function toggleFavorites(
   context: vscode.ExtensionContext,
   runCommand: RunBdCommandFn = runBdCommand
 ): Promise<void> {
-  const config = vscode.workspace.getConfiguration('beads');
+  const config = vscode.workspace.getConfiguration('beady');
   const favoritesEnabled = config.get<boolean>('favorites.enabled', false);
   if (!favoritesEnabled) {
-    void vscode.window.showWarningMessage(t('Enable "beads.favorites.enabled" to toggle favorites.'));
+    void vscode.window.showWarningMessage(t('Enable "beady.favorites.enabled" to toggle favorites.'));
     return;
   }
 
@@ -5493,11 +5493,11 @@ async function restoreFocus(treeView: vscode.TreeView<TreeItemType>, provider: B
 }
 
 async function inlineEditTitle(provider: BeadsTreeDataProvider, treeView: vscode.TreeView<TreeItemType>): Promise<void> {
-  const config = vscode.workspace.getConfiguration('beads');
+  const config = vscode.workspace.getConfiguration('beady');
   const featureEnabled = config.get<boolean>('inlineStatusChange.enabled', false);
   if (!featureEnabled) {
     void vscode.window.showInformationMessage(
-      t('Enable the "beads.inlineStatusChange.enabled" setting to rename items inline.')
+      t('Enable the "beady.inlineStatusChange.enabled" setting to rename items inline.')
     );
     return;
   }
@@ -5524,11 +5524,11 @@ async function inlineEditTitle(provider: BeadsTreeDataProvider, treeView: vscode
 }
 
 async function inlineEditLabels(provider: BeadsTreeDataProvider, treeView: vscode.TreeView<TreeItemType>): Promise<void> {
-  const config = vscode.workspace.getConfiguration('beads');
+  const config = vscode.workspace.getConfiguration('beady');
   const featureEnabled = config.get<boolean>('inlineStatusChange.enabled', false);
   if (!featureEnabled) {
     void vscode.window.showInformationMessage(
-      t('Enable the "beads.inlineStatusChange.enabled" setting to edit labels inline.')
+      t('Enable the "beady.inlineStatusChange.enabled" setting to edit labels inline.')
     );
     return;
   }
@@ -5590,12 +5590,12 @@ async function inlineStatusQuickChange(
   treeView: vscode.TreeView<TreeItemType>,
   activityFeedView?: vscode.TreeView<vscode.TreeItem>
 ): Promise<void> {
-  const config = vscode.workspace.getConfiguration('beads');
+  const config = vscode.workspace.getConfiguration('beady');
   const featureEnabled = config.get<boolean>('inlineStatusChange.enabled', false);
 
   if (!featureEnabled) {
     void vscode.window.showInformationMessage(
-      t('Enable the "beads.inlineStatusChange.enabled" setting to change status inline.')
+      t('Enable the "beady.inlineStatusChange.enabled" setting to change status inline.')
     );
     return;
   }
@@ -5717,7 +5717,7 @@ export function activate(context: vscode.ExtensionContext): void {
       throw new Error('Beads tree provider failed to initialize');
     }
     const provider = providerRef;
-  const treeView = vscode.window.createTreeView('beadsExplorer', {
+  const treeView = vscode.window.createTreeView('beadyExplorer', {
     treeDataProvider: provider,
     dragAndDropController: provider,
     canSelectMany: true,
@@ -5727,7 +5727,7 @@ export function activate(context: vscode.ExtensionContext): void {
   provider.setTreeView(treeView);
 
   const dependencyTreeProvider = new DependencyTreeProvider(() => provider['items'] as BeadItemData[] | undefined);
-  const dependencyTreeView = vscode.window.createTreeView('beadsDependencyTree', {
+  const dependencyTreeView = vscode.window.createTreeView('beadyDependencyTree', {
     treeDataProvider: dependencyTreeProvider,
     showCollapseAll: true,
   });
@@ -5756,37 +5756,37 @@ export function activate(context: vscode.ExtensionContext): void {
     const count = vscode.workspace.workspaceFolders?.length ?? 0;
     const options = getWorkspaceOptions(vscode.workspace.workspaceFolders);
     const active = options.find((opt) => opt.id === provider.getActiveWorkspaceId()) ?? options[0];
-    void vscode.commands.executeCommand('setContext', 'beads.multiRootAvailable', count > 1);
-    void vscode.commands.executeCommand('setContext', 'beads.activeWorkspaceLabel', active?.label ?? '');
+    void vscode.commands.executeCommand('setContext', 'beady.multiRootAvailable', count > 1);
+    void vscode.commands.executeCommand('setContext', 'beady.activeWorkspaceLabel', active?.label ?? '');
   };
 
   const applyBulkActionsContext = (): void => {
     const bulkConfig = getBulkActionsConfig();
-    void vscode.commands.executeCommand('setContext', 'beads.bulkActionsEnabled', bulkConfig.enabled);
-    void vscode.commands.executeCommand('setContext', 'beads.bulkActionsMaxSelection', bulkConfig.maxSelection);
+    void vscode.commands.executeCommand('setContext', 'beady.bulkActionsEnabled', bulkConfig.enabled);
+    void vscode.commands.executeCommand('setContext', 'beady.bulkActionsMaxSelection', bulkConfig.maxSelection);
   };
 
   const applyQuickFiltersContext = (): void => {
-    const quickFiltersEnabled = vscode.workspace.getConfiguration('beads').get<boolean>('quickFilters.enabled', false);
-    void vscode.commands.executeCommand('setContext', 'beads.quickFiltersEnabled', quickFiltersEnabled);
+    const quickFiltersEnabled = vscode.workspace.getConfiguration('beady').get<boolean>('quickFilters.enabled', false);
+    void vscode.commands.executeCommand('setContext', 'beady.quickFiltersEnabled', quickFiltersEnabled);
     provider.syncQuickFilterContext();
   };
 
   const applySortPickerContext = (): void => {
-    const enabled = vscode.workspace.getConfiguration('beads').get<boolean>('sortPicker.enabled', true);
+    const enabled = vscode.workspace.getConfiguration('beady').get<boolean>('sortPicker.enabled', true);
     provider.setSortPickerEnabled(enabled);
-    void vscode.commands.executeCommand('setContext', 'beads.sortPickerEnabled', enabled);
+    void vscode.commands.executeCommand('setContext', 'beady.sortPickerEnabled', enabled);
   };
 
   const applyFavoritesContext = (): void => {
-    const favoritesEnabled = vscode.workspace.getConfiguration('beads').get<boolean>('favorites.enabled', false);
-    void vscode.commands.executeCommand('setContext', 'beads.favoritesEnabled', favoritesEnabled);
+    const favoritesEnabled = vscode.workspace.getConfiguration('beady').get<boolean>('favorites.enabled', false);
+    void vscode.commands.executeCommand('setContext', 'beady.favoritesEnabled', favoritesEnabled);
   };
 
   const applyFeedbackContext = (): void => {
     const enablement = computeFeedbackEnablement();
     provider.setFeedbackEnabled(enablement.enabled);
-    void vscode.commands.executeCommand('setContext', 'beads.feedbackEnabled', enablement.enabled);
+    void vscode.commands.executeCommand('setContext', 'beady.feedbackEnabled', enablement.enabled);
   };
 
   applyWorkspaceContext();
@@ -5838,25 +5838,25 @@ export function activate(context: vscode.ExtensionContext): void {
     collapseListener,
     activityFeedView,
     activityFeedStatus,
-    vscode.commands.registerCommand('beads.refresh', () => provider.refresh()),
-    vscode.commands.registerCommand('beads.search', () => provider.search()),
-    vscode.commands.registerCommand('beads.clearSearch', () => provider.clearSearch()),
-    vscode.commands.registerCommand('beads.clearSortOrder', () => provider.clearSortOrder()),
-    vscode.commands.registerCommand('beads.applyQuickFilterPreset', () => provider.applyQuickFilterPreset()),
-    vscode.commands.registerCommand('beads.clearQuickFilters', () => provider.clearQuickFilter()),
-    vscode.commands.registerCommand('beads.openBead', (item: BeadItemData) => openBead(item, provider)),
-    vscode.commands.registerCommand('beads.createBead', () => createBead()),
-    vscode.commands.registerCommand('beads.selectWorkspace', () => selectWorkspace(provider)),
-    vscode.commands.registerCommand('beads.addDependency', (item?: BeadItemData) => addDependencyCommand(provider, item)),
-    vscode.commands.registerCommand('beads.removeDependency', (item?: BeadItemData) => removeDependencyCommand(provider, undefined, { contextId: item?.id })),
-    vscode.commands.registerCommand('beads.dependencyTree.pickRoot', async () => {
+    vscode.commands.registerCommand('beady.refresh', () => provider.refresh()),
+    vscode.commands.registerCommand('beady.search', () => provider.search()),
+    vscode.commands.registerCommand('beady.clearSearch', () => provider.clearSearch()),
+    vscode.commands.registerCommand('beady.clearSortOrder', () => provider.clearSortOrder()),
+    vscode.commands.registerCommand('beady.applyQuickFilterPreset', () => provider.applyQuickFilterPreset()),
+    vscode.commands.registerCommand('beady.clearQuickFilters', () => provider.clearQuickFilter()),
+    vscode.commands.registerCommand('beady.openBead', (item: BeadItemData) => openBead(item, provider)),
+    vscode.commands.registerCommand('beady.createBead', () => createBead()),
+    vscode.commands.registerCommand('beady.selectWorkspace', () => selectWorkspace(provider)),
+    vscode.commands.registerCommand('beady.addDependency', (item?: BeadItemData) => addDependencyCommand(provider, item)),
+    vscode.commands.registerCommand('beady.removeDependency', (item?: BeadItemData) => removeDependencyCommand(provider, undefined, { contextId: item?.id })),
+    vscode.commands.registerCommand('beady.dependencyTree.pickRoot', async () => {
       const root = await pickBeadQuick(provider['items'] as BeadItemData[] | undefined, t('Select issue for dependency tree'));
       if (root) {
         dependencyTreeProvider.setRoot(root.id);
       }
     }),
-    vscode.commands.registerCommand('beads.dependencyTree.addUpstream', async () => {
-      const editingEnabled = vscode.workspace.getConfiguration('beads').get<boolean>('enableDependencyEditing', false);
+    vscode.commands.registerCommand('beady.dependencyTree.addUpstream', async () => {
+      const editingEnabled = vscode.workspace.getConfiguration('beady').get<boolean>('enableDependencyEditing', false);
       if (!editingEnabled) {
         void vscode.window.showWarningMessage(t('Enable dependency editing in settings to add dependencies.'));
         return;
@@ -5875,8 +5875,8 @@ export function activate(context: vscode.ExtensionContext): void {
       await addDependencyCommand(provider, root, { sourceId: root.id, targetId: target.id });
       dependencyTreeProvider.refresh();
     }),
-    vscode.commands.registerCommand('beads.dependencyTree.addDownstream', async () => {
-      const editingEnabled = vscode.workspace.getConfiguration('beads').get<boolean>('enableDependencyEditing', false);
+    vscode.commands.registerCommand('beady.dependencyTree.addDownstream', async () => {
+      const editingEnabled = vscode.workspace.getConfiguration('beady').get<boolean>('enableDependencyEditing', false);
       if (!editingEnabled) {
         void vscode.window.showWarningMessage(t('Enable dependency editing in settings to add dependencies.'));
         return;
@@ -5895,8 +5895,8 @@ export function activate(context: vscode.ExtensionContext): void {
       await addDependencyCommand(provider, dependent, { sourceId: dependent.id, targetId: root.id });
       dependencyTreeProvider.refresh();
     }),
-    vscode.commands.registerCommand('beads.dependencyTree.remove', async (node?: any) => {
-      const editingEnabled = vscode.workspace.getConfiguration('beads').get<boolean>('enableDependencyEditing', false);
+    vscode.commands.registerCommand('beady.dependencyTree.remove', async (node?: any) => {
+      const editingEnabled = vscode.workspace.getConfiguration('beady').get<boolean>('enableDependencyEditing', false);
       if (!editingEnabled) {
         void vscode.window.showWarningMessage(t('Enable dependency editing in settings to remove dependencies.'));
         return;
@@ -5907,20 +5907,20 @@ export function activate(context: vscode.ExtensionContext): void {
       await removeDependencyCommand(provider, { sourceId: node.sourceId, targetId: node.targetId }, { contextId: dependencyTreeProvider.getRootId() });
       dependencyTreeProvider.refresh();
     }),
-    vscode.commands.registerCommand('beads.visualizeDependencies', () => visualizeDependencies(provider)),
-    vscode.commands.registerCommand('beads.exportCsv', () => exportBeadsCsv(provider, treeView)),
-    vscode.commands.registerCommand('beads.exportMarkdown', () => exportBeadsMarkdown(provider, treeView)),
-    vscode.commands.registerCommand('beads.bulkUpdateStatus', () => bulkUpdateStatus(provider, treeView)),
-    vscode.commands.registerCommand('beads.bulkAddLabel', () => bulkUpdateLabel(provider, treeView, 'add')),
-    vscode.commands.registerCommand('beads.bulkRemoveLabel', () => bulkUpdateLabel(provider, treeView, 'remove')),
-    vscode.commands.registerCommand('beads.toggleFavorite', () => toggleFavorites(provider, treeView, context)),
-    vscode.commands.registerCommand('beads.inlineStatusChange', () => inlineStatusQuickChange(provider, treeView, activityFeedView)),
-    vscode.commands.registerCommand('beads.inlineEditTitle', () => inlineEditTitle(provider, treeView)),
-    vscode.commands.registerCommand('beads.inlineEditLabels', () => inlineEditLabels(provider, treeView)),
+    vscode.commands.registerCommand('beady.visualizeDependencies', () => visualizeDependencies(provider)),
+    vscode.commands.registerCommand('beady.exportCsv', () => exportBeadsCsv(provider, treeView)),
+    vscode.commands.registerCommand('beady.exportMarkdown', () => exportBeadsMarkdown(provider, treeView)),
+    vscode.commands.registerCommand('beady.bulkUpdateStatus', () => bulkUpdateStatus(provider, treeView)),
+    vscode.commands.registerCommand('beady.bulkAddLabel', () => bulkUpdateLabel(provider, treeView, 'add')),
+    vscode.commands.registerCommand('beady.bulkRemoveLabel', () => bulkUpdateLabel(provider, treeView, 'remove')),
+    vscode.commands.registerCommand('beady.toggleFavorite', () => toggleFavorites(provider, treeView, context)),
+    vscode.commands.registerCommand('beady.inlineStatusChange', () => inlineStatusQuickChange(provider, treeView, activityFeedView)),
+    vscode.commands.registerCommand('beady.inlineEditTitle', () => inlineEditTitle(provider, treeView)),
+    vscode.commands.registerCommand('beady.inlineEditLabels', () => inlineEditLabels(provider, treeView)),
     
     // Activity Feed commands
-    vscode.commands.registerCommand('beads.refreshActivityFeed', () => activityFeedProvider.refresh('manual')),
-    vscode.commands.registerCommand('beads.filterActivityFeed', async () => {
+    vscode.commands.registerCommand('beady.refreshActivityFeed', () => activityFeedProvider.refresh('manual')),
+    vscode.commands.registerCommand('beady.filterActivityFeed', async () => {
       const options: Array<vscode.QuickPickItem & { value: string }> = [
         { label: t('All Events'), description: t('Show all event types'), value: 'all' },
         { label: t('Created'), description: t('Show issue creation events'), value: 'created' },
@@ -5967,18 +5967,18 @@ export function activate(context: vscode.ExtensionContext): void {
           break;
       }
     }),
-    vscode.commands.registerCommand('beads.clearActivityFeedFilter', () => {
+    vscode.commands.registerCommand('beady.clearActivityFeedFilter', () => {
       activityFeedProvider.clearFilters();
       void vscode.window.showInformationMessage(t('Activity feed filter cleared'));
     }),
-    vscode.commands.registerCommand('beads.activityFeed.openEvent', (issueId?: string) => openActivityFeedEvent(issueId)),
-    vscode.commands.registerCommand('beads.activityFeed.openSelected', () => openActivityFeedEvent()),
-    vscode.commands.registerCommand('beads.openActivityFeedPanel', () => 
+    vscode.commands.registerCommand('beady.activityFeed.openEvent', (issueId?: string) => openActivityFeedEvent(issueId)),
+    vscode.commands.registerCommand('beady.activityFeed.openSelected', () => openActivityFeedEvent()),
+    vscode.commands.registerCommand('beady.openActivityFeedPanel', () => 
       openActivityFeedPanel(activityFeedProvider, provider)
     ),
-    vscode.commands.registerCommand('beads.openInProgressPanel', () => openInProgressPanel(provider)),
+    vscode.commands.registerCommand('beady.openInProgressPanel', () => openInProgressPanel(provider)),
 
-    vscode.commands.registerCommand('beads.editExternalReference', async (item: BeadItemData) => {
+    vscode.commands.registerCommand('beady.editExternalReference', async (item: BeadItemData) => {
       if (!item) {
         return;
       }
@@ -6002,7 +6002,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
       await provider.updateExternalReference(item, newValue.trim().length > 0 ? newValue.trim() : undefined);
     }),
-    vscode.commands.registerCommand('beads.deleteBeads', async () => {
+    vscode.commands.registerCommand('beady.deleteBeads', async () => {
       // Get selected items from tree view
       const selection = treeView.selection;
 
@@ -6041,7 +6041,7 @@ export function activate(context: vscode.ExtensionContext): void {
       }
 
       // Delete each bead
-      const config = vscode.workspace.getConfiguration('beads');
+      const config = vscode.workspace.getConfiguration('beady');
       const projectRoot = resolveProjectRoot(config) || (vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd());
 
       try {
@@ -6071,31 +6071,31 @@ export function activate(context: vscode.ExtensionContext): void {
   });
 
   const configurationWatcher = vscode.workspace.onDidChangeConfiguration((event) => {
-    if (event.affectsConfiguration('beads.enableDependencyEditing')) {
+    if (event.affectsConfiguration('beady.enableDependencyEditing')) {
       const folders = vscode.workspace.workspaceFolders ?? [];
       folders.forEach((workspaceFolder) => {
         void warnIfDependencyEditingUnsupported(workspaceFolder);
       });
     }
 
-    if (event.affectsConfiguration('beads.bulkActions')) {
+    if (event.affectsConfiguration('beady.bulkActions')) {
       applyBulkActionsContext();
     }
 
-    if (event.affectsConfiguration('beads.favorites')) {
+    if (event.affectsConfiguration('beady.favorites')) {
       applyFavoritesContext();
       void provider.refresh();
     }
 
-    if (event.affectsConfiguration('beads.quickFilters')) {
+    if (event.affectsConfiguration('beady.quickFilters')) {
       applyQuickFiltersContext();
     }
 
-    if (event.affectsConfiguration('beads.sortPicker')) {
+    if (event.affectsConfiguration('beady.sortPicker')) {
       applySortPickerContext();
     }
 
-    if (event.affectsConfiguration('beads.feedback') || event.affectsConfiguration('beads.projectRoot')) {
+    if (event.affectsConfiguration('beady.feedback') || event.affectsConfiguration('beady.projectRoot')) {
       applyFeedbackContext();
     }
   });
@@ -6117,8 +6117,8 @@ export function activate(context: vscode.ExtensionContext): void {
     showActivationError(undefined, error);
   }
 
-  registerSortCommand('beads.pickSortMode', (p) => p.pickSortMode());
-  registerSortCommand('beads.toggleSortMode', (p) => p.toggleSortMode());
+  registerSortCommand('beady.pickSortMode', (p) => p.pickSortMode());
+  registerSortCommand('beady.toggleSortMode', (p) => p.toggleSortMode());
 }
 
 export function deactivate(): void {

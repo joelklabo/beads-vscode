@@ -95,7 +95,7 @@ function resolveConfig(
     return configOrWorkspace as vscode.WorkspaceConfiguration;
   }
 
-  return vscode.workspace.getConfiguration('beads', configOrWorkspace as vscode.WorkspaceFolder | undefined);
+  return vscode.workspace.getConfiguration('beady', configOrWorkspace as vscode.WorkspaceFolder | undefined);
 }
 
 export function getFeedbackConfig(workspaceFolder?: vscode.WorkspaceFolder): FeedbackConfig {

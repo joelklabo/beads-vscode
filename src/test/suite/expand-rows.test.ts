@@ -65,7 +65,7 @@ suite('Expandable rows', () => {
 
     // Simulate user expanding via keyboard/mouse
     provider.handleCollapseChange(bead, false);
-    const stored = context.workspaceState.get('beads.expandedRows');
+    const stored = context.workspaceState.get('beady.expandedRows');
     assert.deepStrictEqual(stored, ['task-1']);
 
     roots = await provider.getChildren();
@@ -80,7 +80,7 @@ suite('Expandable rows', () => {
 
     // Collapse and ensure state is cleared
     provider.handleCollapseChange(expanded, true);
-    const cleared = context.workspaceState.get('beads.expandedRows');
+    const cleared = context.workspaceState.get('beady.expandedRows');
     assert.deepStrictEqual(cleared, []);
   });
 });

@@ -81,9 +81,9 @@ The extension needs to know where your beads data file is located.
 1. Open VSCode Settings (Cmd/Ctrl+,)
 2. Search for "beads"
 3. Set:
-   - **Beads: Data File** - Path to your issues file (default: `.beads/issues.jsonl`)
-   - **Beads: Project Root** - Override project root if needed
-   - **Beads: Command Path** - Path to `beads` CLI (default: `beads`)
+   - **Beady: Data File** - Path to your issues file (default: `.beads/issues.jsonl`)
+   - **Beady: Project Root** - Override project root if needed
+   - **Beady: Command Path** - Path to `beads` CLI (default: `beads`)
 
 ### 2. Create Test Data (Optional)
 
@@ -126,8 +126,8 @@ The tree view shows all your beads with:
 - **Create** ➕ - Create a new issue (requires `beads` CLI)
 
 **Filter + sort:**
-- The toolbar chip shows `Filter: <mode>` (Issues, Epics, Favorites, Recent, Blockers, etc.). Click it or run `Beads: Switch Filter Mode…` to change scopes; the same quick pick works keyboard-only and keeps the active label visible.
-- Use `Beads: Toggle Sort Mode` to cycle to **assignee sort**; names sort case-insensitively with **Unassigned** pinned last.
+- The toolbar chip shows `Filter: <mode>` (Issues, Epics, Favorites, Recent, Blockers, etc.). Click it or run `Beady: Switch Filter Mode…` to change scopes; the same quick pick works keyboard-only and keeps the active label visible.
+- Use `Beady: Toggle Sort Mode` to cycle to **assignee sort**; names sort case-insensitively with **Unassigned** pinned last.
 - Rows always show assignee and status pills; press Space/Enter or the chevron to expand a row for labels, priority, updated time, and external refs without leaving the list.
 
 **Keyboard shortcuts:**
@@ -135,10 +135,10 @@ The tree view shows all your beads with:
 
 ### 4. Dependency editing (optional)
 
-1. Enable `beads.enableDependencyEditing` in VS Code settings (flagged preview; requires `bd` ≥ 0.29.0).
+1. Enable `beady.enableDependencyEditing` in VS Code settings (flagged preview; requires `bd` ≥ 0.29.0).
 2. Open the **Dependency Tree** view (shows upstream/downstream for the currently selected issue).
 3. Use the toolbar actions **Add Upstream** / **Add Downstream** to link issues. The picker prevents self-links, duplicates, and cycles before calling `bd dep add --no-daemon`.
-4. Remove a link from the command palette with `Beads: Dependency Tree: Remove` or from the dependency section in the issue detail panel.
+4. Remove a link from the command palette with `Beady: Dependency Tree: Remove` or from the dependency section in the issue detail panel.
 
 ### 5. Auto-Refresh
 
@@ -170,7 +170,7 @@ The extension automatically watches your `.beads/issues.jsonl` file and refreshe
 ### Create command not working
 
 1. Ensure `beads` CLI is installed: `which beads`
-2. Set `beads.commandPath` in settings if it's not in your PATH
+2. Set `beady.commandPath` in settings if it's not in your PATH
 3. Verify project root is set correctly
 
 ---
@@ -225,6 +225,6 @@ code --uninstall-extension klabo.beady
 ## Tips & Tricks
 
 - **Filtering:** Currently view-all, but you can use Cmd/Ctrl+F in the details panel
-- **Multi-workspace:** Set `beads.projectRoot` per workspace folder
+- **Multi-workspace:** Set `beady.projectRoot` per workspace folder
 - **Custom commands:** The beads CLI supports many operations - use terminal for advanced workflows
 - **File format:** You can manually edit `.beads/issues.jsonl` - each line is independent JSON

@@ -3,7 +3,7 @@
 The Warning bucket surfaces items that need attention without ever mixing in closed work.
 
 ## What shows up
-- **Stale tasks**: `status === "in_progress"` and `inProgressSince` is older than `beads.staleThresholdMinutes` (default 10 minutes; converted to hours internally).
+- **Stale tasks**: `status === "in_progress"` and `inProgressSince` is older than `beady.staleThresholdMinutes` (default 10 minutes; converted to hours internally).
 - **Empty epics**: epics with no children that are not closed. They appear so owners can either add work or close them.
 - **Placement**: the Warning bucket sits above other sections in both Status and Epic sort modes.
 

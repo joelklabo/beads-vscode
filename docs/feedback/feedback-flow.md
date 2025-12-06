@@ -4,11 +4,11 @@ These settings shape how feedback is collected and sent. The feature is **opt-in
 
 ## Settings and defaults
 
-- `beads.feedback.enabled` (default: `false`)
+- `beady.feedback.enabled` (default: `false`)
   - Master flag that hides feedback commands/UI when off or misconfigured.
-- `beads.feedback.repository` (default: empty)
+- `beady.feedback.repository` (default: empty)
   - Target GitHub repository in `owner/repo` form. Invalid values are rejected by the settings UI.
-- `beads.feedback.labels` (object)
+- `beady.feedback.labels` (object)
   - Maps feedback types to labels. Default mapping:
 
     | Type      | Default label |
@@ -19,14 +19,14 @@ These settings shape how feedback is collected and sent. The feature is **opt-in
     | `other`   | `feedback`    |
 
   - Additional keys may be added; empty strings skip labeling for that type.
-- `beads.feedback.useGitHubCli` (default: `false`)
+- `beady.feedback.useGitHubCli` (default: `false`)
   - Prefer the `gh` CLI for submissions when available; falls back to direct API.
-- `beads.feedback.includeAnonymizedLogs` (default: `true`)
+- `beady.feedback.includeAnonymizedLogs` (default: `true`)
   - Allow attaching sanitized logs/metadata. Users are prompted before anything is sent.
 
 ## Validation
 
-- `beads.feedback.repository` must match `owner/repo` (`^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$`).
+- `beady.feedback.repository` must match `owner/repo` (`^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$`).
 - The feature flag is treated as disabled if the repository setting is missing or invalid.
 
 ## Operational notes

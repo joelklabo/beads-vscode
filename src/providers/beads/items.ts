@@ -144,7 +144,7 @@ export class BeadTreeItem extends vscode.TreeItem {
     const label = sanitizeInlineText(rawLabel) || rawLabel;
     super(label, expanded ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed);
 
-    const config = vscode.workspace.getConfiguration('beads');
+    const config = vscode.workspace.getConfiguration('beady');
     const thresholdMinutes = config.get<number>('staleThresholdMinutes', 10);
     const thresholdHours = thresholdMinutes / 60;
     const staleInfo = getStaleInfo(bead);
@@ -246,7 +246,7 @@ export class BeadTreeItem extends vscode.TreeItem {
     }
 
     this.command = {
-      command: 'beads.openBead',
+      command: 'beady.openBead',
       title: 'Open Bead',
       arguments: [bead],
     };

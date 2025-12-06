@@ -37,7 +37,7 @@ class DependencyTreeNodeItem extends vscode.TreeItem {
 
     if (bead) {
       this.command = {
-        command: 'beads.openBead',
+        command: 'beady.openBead',
         title: 'Open Bead',
         arguments: [bead],
       };

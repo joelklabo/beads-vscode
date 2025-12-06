@@ -43,7 +43,7 @@ export interface WorkspaceOption {
   workspaceFolder?: vscode.WorkspaceFolder | null;
 }
 
-const WORKSPACE_SELECTION_KEY = 'beads.activeWorkspaceId';
+const WORKSPACE_SELECTION_KEY = 'beady.activeWorkspaceId';
 
 export function getWorkspaceOptions(workspaceFolders: readonly vscode.WorkspaceFolder[] | undefined): WorkspaceOption[] {
   const options: WorkspaceOption[] = [{ id: 'all', label: 'All Workspaces', workspaceFolder: null }];

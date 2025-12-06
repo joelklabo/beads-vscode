@@ -76,8 +76,8 @@ suite('Filter & assignee flows', () => {
         return acc;
       }, {} as Record<string, any>);
 
-    assert.strictEqual(contexts['beads.activeQuickFilter'], 'status:in_progress');
-    assert.strictEqual(contexts['beads.quickFilterActive'], true);
+    assert.strictEqual(contexts['beady.activeQuickFilter'], 'status:in_progress');
+    assert.strictEqual(contexts['beady.quickFilterActive'], true);
     assert.ok((provider as any).treeView.description?.includes('In Progress'));
   });
 

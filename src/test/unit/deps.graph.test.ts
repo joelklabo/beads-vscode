@@ -22,9 +22,37 @@ describe('Dependency graph helpers', () => {
     const t = (message: string, ...args: any[]) =>
       message.replace(/\{(\d+)\}/g, (_match, index) => String(args[Number(index)] ?? `{${index}}`));
 
+    class TreeItem {
+      constructor(public label?: any, public collapsibleState: number = 0) {}
+    }
+
+    const TreeItemCollapsibleState = { None: 0, Collapsed: 1, Expanded: 2 };
+
+    class ThemeIcon {
+      constructor(public id: string, public color?: any) {}
+    }
+
+    class ThemeColor {
+      constructor(public id: string) {}
+    }
+
+    class MarkdownString {
+      value = '';
+      isTrusted = false;
+      supportHtml = false;
+      appendMarkdown(md: string): void {
+        this.value += md;
+      }
+    }
+
     const vscodeStub = {
       l10n: { t },
       env: { language: 'en' },
+      TreeItem,
+      TreeItemCollapsibleState,
+      ThemeIcon,
+      ThemeColor,
+      MarkdownString,
       workspace: {
         getConfiguration: () => ({
           get: (key: string, fallback: any) => (key === 'enableDependencyEditing' ? true : fallback),

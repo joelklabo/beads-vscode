@@ -142,7 +142,7 @@ describe('Activity feed open behavior', () => {
     };
 
     const item = new ActivityEventItem(event);
-    assert.strictEqual(item.command?.command, 'beads.activityFeed.openEvent');
+    assert.strictEqual(item.command?.command, 'beady.activityFeed.openEvent');
     assert.deepStrictEqual(item.command?.arguments, [event.issueId]);
   });
 

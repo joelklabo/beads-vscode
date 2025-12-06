@@ -257,7 +257,7 @@ export class ActivityFeedTreeDataProvider implements vscode.TreeDataProvider<Act
   }
 
   private resolveProjectRoot(): string | undefined {
-    const config = vscode.workspace.getConfiguration('beads');
+    const config = vscode.workspace.getConfiguration('beady');
     const projectRootConfig = config.get<string>('projectRoot');
 
     if (projectRootConfig && projectRootConfig.trim().length > 0) {

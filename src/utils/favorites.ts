@@ -3,7 +3,7 @@ import { isValidBeadId } from '../littleGlen/validation';
 import { BeadItemData } from './beads';
 import { redactLogContent } from './fs';
 
-const LOCAL_FAVORITES_KEY = 'beads.favorites.local';
+const LOCAL_FAVORITES_KEY = 'beady.favorites.local';
 const FAVORITE_LABEL_REGEX = /^[A-Za-z0-9 .:_-]{1,64}$/;
 
 function buildLabelFavorites(items: BeadItemData[], favoriteLabel: string): Set<string> {
