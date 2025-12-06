@@ -475,6 +475,30 @@ describe('Extension tree items', () => {
     provider.dispose();
   });
 
+  it('closed visibility toggle combines with quick filters and search', () => {
+    const context = createContextStub();
+    const provider = new BeadsTreeDataProvider(context as any);
+
+    (provider as any).items = [
+      { id: 'open-1', title: 'Alpha open', issueType: 'task', status: 'open' },
+      { id: 'closed-1', title: 'Alpha closed', issueType: 'task', status: 'closed' },
+      { id: 'blocked-1', title: 'Alpha blocked', issueType: 'task', status: 'blocked' },
+    ];
+
+    provider.toggleClosedVisibility();
+
+    (provider as any).quickFilter = { kind: 'status', value: 'blocked' };
+    let filtered = (provider as any).filterItems((provider as any).items);
+    assert.deepStrictEqual(filtered.map((i: any) => i.id), ['blocked-1']);
+
+    (provider as any).quickFilter = undefined;
+    (provider as any).searchQuery = 'alpha';
+    filtered = (provider as any).filterItems((provider as any).items);
+    assert.deepStrictEqual(filtered.map((i: any) => i.id).sort(), ['blocked-1', 'open-1']);
+
+    provider.dispose();
+  });
+
   it('opens bead detail panel with dependency status labels without crashing', async () => {
     const context = createContextStub();
     const provider = new BeadsTreeDataProvider(context as any);

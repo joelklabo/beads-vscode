@@ -436,6 +436,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   private feedbackEnabled: boolean = false;
   private lastStaleCount: number = 0;
   private lastThresholdMinutes: number = 10;
+  private showClosed: boolean = true;
 
   // Workspace selection
   private activeWorkspaceId: string = 'all';
@@ -475,6 +476,8 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     this.loadExpandedRows();
     // Load quick filter preset
     this.loadQuickFilter();
+    // Load closed visibility toggle
+    this.loadClosedVisibility();
     // Restore workspace selection
     this.restoreWorkspaceSelection();
     // Start periodic refresh for stale detection
@@ -511,6 +514,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     this.treeView = treeView;
     this.updateQuickFilterUi();
     this.updateSortDescription();
+    this.syncClosedVisibilityContext();
   }
 
   setStatusBarItem(statusBarItem: vscode.StatusBarItem): void {
@@ -968,6 +972,10 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
 
   private filterItems(items: BeadItemData[]): BeadItemData[] {
     let filtered = applyQuickFilter(items, this.quickFilter);
+
+    if (!this.showClosed) {
+      filtered = filtered.filter((item) => item.status !== 'closed');
+    }
 
     if (!this.searchQuery) {
       return filtered;
@@ -1628,6 +1636,12 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     this.syncQuickFilterContext();
   }
 
+  private loadClosedVisibility(): void {
+    const saved = this.context.workspaceState.get<boolean>('beady.showClosed');
+    this.showClosed = saved !== undefined ? saved : true;
+    this.syncClosedVisibilityContext();
+  }
+
   private getQuickFilterLabel(preset?: QuickFilterPreset): string {
     if (!preset) {
       return t('All items');
@@ -1690,6 +1704,12 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     this.updateQuickFilterUi();
   }
 
+  private syncClosedVisibilityContext(): void {
+    void vscode.commands.executeCommand('setContext', 'beady.showClosed', this.showClosed);
+    void vscode.commands.executeCommand('setContext', 'beady.closedHidden', !this.showClosed);
+    this.updateViewDescription();
+  }
+
   private updateQuickFilterUi(): void {
     const quickFiltersEnabled = vscode.workspace.getConfiguration('beady').get<boolean>('quickFilters.enabled', false);
     const key = quickFiltersEnabled ? this.getQuickFilterKey() ?? '' : '';
@@ -1697,10 +1717,27 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     void vscode.commands.executeCommand('setContext', 'beady.activeQuickFilter', key);
     void vscode.commands.executeCommand('setContext', 'beady.activeQuickFilterLabel', label);
     void vscode.commands.executeCommand('setContext', 'beady.quickFilterActive', !!key);
+    this.updateViewDescription();
+  }
 
-    if (this.treeView) {
-      this.treeView.description = quickFiltersEnabled ? t('Filter: {0}', label || t('All items')) : undefined;
+  private updateViewDescription(): void {
+    if (!this.treeView) {
+      return;
     }
+
+    const quickFiltersEnabled = vscode.workspace.getConfiguration('beady').get<boolean>('quickFilters.enabled', false);
+    const parts: string[] = [];
+
+    if (quickFiltersEnabled) {
+      const label = this.getQuickFilterLabel(this.quickFilter);
+      parts.push(t('Filter: {0}', label || t('All items')));
+    }
+
+    if (!this.showClosed) {
+      parts.push(t('Closed hidden'));
+    }
+
+    this.treeView.description = parts.length > 0 ? parts.join(' · ') : undefined;
   }
 
   private getQuickFilterKey(): string | undefined {
@@ -1725,6 +1762,22 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   clearQuickFilter(): void {
     this.setQuickFilter(undefined);
     void vscode.window.showInformationMessage(t('Quick filters cleared'));
+  }
+
+  getQuickFilter(): QuickFilterPreset | undefined {
+    return this.quickFilter;
+  }
+
+  getClosedVisibility(): boolean {
+    return this.showClosed;
+  }
+
+  toggleClosedVisibility(): void {
+    this.showClosed = !this.showClosed;
+    void this.context.workspaceState.update('beady.showClosed', this.showClosed);
+    this.syncClosedVisibilityContext();
+    this.updateBadge();
+    this.onDidChangeTreeDataEmitter.fire();
   }
 
 
@@ -1762,11 +1815,6 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     this.applyWorkspaceSelection(this.activeWorkspaceId);
     void this.refresh();
   }
-
-  getQuickFilter(): QuickFilterPreset | undefined {
-    return this.quickFilter;
-  }
-
   toggleSectionCollapse(status: string): void {
     if (this.collapsedSections.has(status)) {
       this.collapsedSections.delete(status);
@@ -5956,6 +6004,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('beady.clearSortOrder', () => provider.clearSortOrder()),
     vscode.commands.registerCommand('beady.applyQuickFilterPreset', () => provider.applyQuickFilterPreset()),
     vscode.commands.registerCommand('beady.clearQuickFilters', () => provider.clearQuickFilter()),
+    vscode.commands.registerCommand('beady.toggleClosedVisibility', () => provider.toggleClosedVisibility()),
     vscode.commands.registerCommand('beady.openBead', (item: BeadItemData) => openBead(item, provider)),
     vscode.commands.registerCommand('beady.createBead', () => createBead()),
     vscode.commands.registerCommand('beady.selectWorkspace', () => selectWorkspace(provider)),

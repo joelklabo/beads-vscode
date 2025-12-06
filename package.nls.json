@@ -58,6 +58,7 @@
   "command.beady.toggleFavorite": "Beady: Toggle Favorite",
   "command.beady.applyQuickFilterPreset": "Beady: Filter Mode Picker",
   "command.beady.clearQuickFilters": "Beady: Clear Filter (Show all items)",
+  "command.beady.toggleClosedVisibility": "Beady: Toggle Closed Items",
   "command.beady.openInProgressPanel": "Beady: Open In-Progress Spotlight",
   "command.beady.inlineEditTitle": "Beady: Rename (Inline)",
   "command.beady.inlineEditLabels": "Beady: Edit Labels (Inline)",

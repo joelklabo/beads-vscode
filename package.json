@@ -191,6 +191,11 @@
         "icon": "$(clear-all)"
       },
       {
+        "command": "beady.toggleClosedVisibility",
+        "title": "%command.beady.toggleClosedVisibility%",
+        "icon": "$(eye-closed)"
+      },
+      {
         "command": "beady.openInProgressPanel",
         "title": "%command.beady.openInProgressPanel%",
         "icon": "$(pulse)"
@@ -438,6 +443,12 @@
           "command": "beady.toggleSortMode",
           "when": "view == beadyExplorer && !beady.sortPickerEnabled",
           "group": "navigation@1"
+        },
+        {
+          "command": "beady.toggleClosedVisibility",
+          "when": "view == beadyExplorer",
+          "group": "navigation@1.4",
+          "toggled": "beady.closedHidden"
         },
         {
           "command": "beady.search",
@@ -820,6 +831,7 @@
     "onCommand:beady.toggleSortMode",
     "onCommand:beady.applyQuickFilterPreset",
     "onCommand:beady.clearQuickFilters",
+    "onCommand:beady.toggleClosedVisibility",
     "onCommand:beady.refreshActivityFeed",
     "onCommand:beady.filterActivityFeed",
     "onCommand:beady.clearActivityFeedFilter",
