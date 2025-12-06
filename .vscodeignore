@@ -1,19 +1,31 @@
+# Keep VSIX lean: ship only the bundled runtime in dist/ plus metadata files.
+
+# Workspace + tooling scaffolding
 .vscode/**
-.git/**
-# Keep runtime dependencies bundled; exclude only dev/test packages
-node_modules/@types/**
-node_modules/@typescript-eslint/**
-node_modules/eslint/**
-node_modules/mocha/**
-node_modules/typescript/**
-node_modules/@vscode/test-electron/**
 .vscode-test/**
-out/test/**
-src/**
-**/*.map
-.eslintrc.json
-tsconfig.json
-.eslintignore
-**/*.ts
+.git/**
 .beads/**
 .claude/**
+tmp/**
+
+# Source and build outputs not needed at runtime
+src/**
+out/**
+packages/**
+web/**
+tui/**
+docs/**
+test/**
+scripts/**
+
+# Dependencies bundled into dist/
+node_modules/**
+
+# Dev artifacts and maps
+**/*.ts
+**/*.map
+.eslintrc.json
+.eslintignore
+tsconfig.json
+tsconfig.*.json
+package-lock.json
