@@ -133,4 +133,46 @@ suite('Filter & assignee flows', () => {
     const adaSection = roots2.find((n: any) => n.contextValue === 'assigneeSection' && n.assignee === 'Ada');
     assert.strictEqual(adaSection.collapsibleState, createVscodeStub().TreeItemCollapsibleState.Collapsed);
   });
+
+  test('closed toggle hides items in assignee view and persists', async () => {
+    const context = createContextStub();
+    const provider = new BeadsTreeDataProvider(context as any);
+    (provider as any).sortMode = 'assignee';
+
+    const items: BeadItemData[] = [
+      { id: 'task-open', title: 'Open item', status: 'open', assignee: 'Ada' },
+      { id: 'task-closed', title: 'Closed item', status: 'closed', assignee: 'Ada' },
+      { id: 'task-unassigned', title: 'Lonely', status: 'open', assignee: '' },
+    ];
+
+    (provider as any).items = items;
+
+    provider.toggleClosedVisibility();
+
+    const contexts = vscodeStub.commands._calls
+      .filter((c: any) => c.command === 'setContext')
+      .reduce((acc: any, c: any) => {
+        acc[c.args[0]] = c.args[1];
+        return acc;
+      }, {} as Record<string, any>);
+
+    assert.strictEqual(contexts['beady.showClosed'], false);
+    assert.strictEqual(contexts['beady.closedHidden'], true);
+
+    const roots = await provider.getChildren();
+    const sections = roots.filter((n: any) => n.contextValue === 'assigneeSection');
+    const adaSection = sections.find((n: any) => n.assignee === 'Ada');
+    assert.ok(adaSection, 'assignee section should exist');
+    const adaChildren = await provider.getChildren(adaSection!);
+    assert.deepStrictEqual(adaChildren.map((n: any) => n.bead.id), ['task-open']);
+
+    // Persisted state respected by new provider
+    const provider2 = new BeadsTreeDataProvider(context as any);
+    (provider2 as any).sortMode = 'assignee';
+    (provider2 as any).items = items;
+    const roots2 = await provider2.getChildren();
+    const adaSection2 = roots2.find((n: any) => n.contextValue === 'assigneeSection' && n.assignee === 'Ada');
+    const adaChildren2 = await provider2.getChildren(adaSection2!);
+    assert.deepStrictEqual(adaChildren2.map((n: any) => n.bead.id), ['task-open']);
+  });
 });
