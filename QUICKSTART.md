@@ -20,8 +20,9 @@ This packages the extension, installs the freshest `.vsix` via the VS Code CLI, 
 1. **Package the extension:**
    ```bash
    npm install
-   npm run compile
-   npx vsce package
+   npm run bundle
+   npm run check:vsix-size
+   npx vsce package --follow-symlinks
    ```
    This creates `beady-0.1.0.vsix`
 
@@ -59,8 +60,11 @@ Then reload VSCode.
 
 - Shared packages live under `packages/` (`@beads/core`, `@beads/ui-headless`, platform adapters). VS Code wiring sits in `packages/platform-vscode`; web/TUI shells live in `web/` and `tui/`.
 - Install once at the root: `npm install`
+- Bundle runtime: `npm run bundle` (outputs `dist/extension.js` used by VS Code);
+  `npm run test:bundle` smokes the bundle with a stubbed VS Code host and exits if the module fails to load.
 - Build per surface: `npm run build:core`, `npm run build:vscode`, `npm run build:tui`, `npm run build:web`
 - Tests: `npm run test:unit` (VS Code), `npm run test:core`, `npm run test:tui`, `npm run test:web:skeleton`, or `npm run test:all` for the whole matrix
+- Size budget: `npm run check:vsix-size` packages a VSIX to a temp file and fails if it exceeds the ADR budget (override with `VSIX_MAX_BYTES`).
 - All bd invocations run with `--no-daemon` via the shared CLI client; avoid touching `.beads` files directly.
 
 ## First Time Setup

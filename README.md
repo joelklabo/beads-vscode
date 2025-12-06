@@ -30,8 +30,10 @@ Details and rules live in `docs/adr/2025-12-core-layering.md` and the short `doc
 The Ink-based TUI also rides on the shared layers: it instantiates `BeadsStore` from `@beads/core`, calls the CLI through `BdCliClient` (which injects `--no-daemon` and sanitizes stderr), and routes mutating commands through `runGuardedBd` from `tui/lib/worktree` so the worktree guard script runs before any bd edits.
 
 ### Workspace layout & commands
-- Build: `npm run build:core`, `npm run build:vscode`, `npm run build:tui`, `npm run build:web` (skips if the web workspace is absent)
-- Tests: `npm run test:unit` (VS Code), `npm run test:core`, `npm run test:tui`, `npm run test:web:skeleton`
+- Bundle entrypoint: `npm run bundle` (outputs `dist/extension.js` used by VS Code); `npm run watch` runs bundle:watch + typecheck for F5.
+- Build helpers: `npm run build:core`, `npm run build:vscode`, `npm run build:tui`, `npm run build:web` (skips if the web workspace is absent)
+- Tests: `npm run test:unit` (VS Code), `npm run test:bundle` (bundle smoke), `npm run test:core`, `npm run test:tui`, `npm run test:web:skeleton`
+- Size gate: `npm run check:vsix-size` (packages a VSIX and fails if the bundled VSIX exceeds the ADR budget)
 - Full sweep: `npm run test:all` or `npm run ci:verify` (mirrors the CI **Test** workflow)
 - All bd calls enforce `--no-daemon`; do not write directly to `.beads` DB files—go through the CLI/shared store
 
@@ -213,6 +215,13 @@ See [TESTING.md](TESTING.md) for more information about the test infrastructure.
 - `npm run ci:integration` runs a single headless integration pass; use `ci:unit` for just the compiled unit suite.
 - `npm run ci:coverage` generates text and LCOV coverage reports in `coverage/` (open `coverage/lcov-report/index.html`).
 - Workflow details and badges: [docs/ci.md](docs/ci.md).
+
+### Bundling & size budget
+
+- Runtime entrypoint lives in `dist/extension.js`; build it with `npm run bundle` (or keep it live with `npm run watch`).
+- Smoke the bundle with `npm run test:bundle` (requires `npm run compile` + bundle and ensures the bundled module loads with a stubbed VS Code host).
+- Enforce the VSIX budget from the [bundling ADR](docs/adr/2025-12-vscode-bundling.md) via `npm run check:vsix-size` (packs a VSIX to a temp path and fails if it exceeds the budget; override with `VSIX_MAX_BYTES`).
+- Publishing/packaging will reuse the bundle; see the `.vscodeignore` rationale in the ADR for what ships vs. gets trimmed.
 
 ### Install local build (auto-reload)
 

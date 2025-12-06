@@ -741,7 +741,9 @@
     "web:dev": "npm run -w @beads/web dev",
     "web:preview": "npm run -w @beads/web preview",
     "tui:start": "npm run -w @beads/tui start",
-    "recommend:add": "tsx scripts/add-vscode-recommendation.ts"
+    "recommend:add": "tsx scripts/add-vscode-recommendation.ts",
+    "test:bundle": "npm run compile && npm run bundle && node ./out/test/bundle.smoke.test.js",
+    "check:vsix-size": "node scripts/check-vsix-size.js"
   },
   "devDependencies": {
     "@beads/bd": "^0.29.0",
