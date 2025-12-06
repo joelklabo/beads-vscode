@@ -242,7 +242,7 @@ describe('Bulk status command', () => {
 
     await fn({ refresh: async () => undefined } as any, treeView, async () => { throw new Error('should not run'); });
 
-    assert.ok(vscodeStub._warnings.some((msg: string) => msg.includes('beads.bulkActions.enabled')));
+    assert.ok(vscodeStub._warnings.some((msg: string) => msg.includes('beady.bulkActions.enabled')));
   });
 
   it('enforces max selection limit', async () => {

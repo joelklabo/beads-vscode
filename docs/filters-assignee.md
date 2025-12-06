@@ -3,14 +3,14 @@
 Design contract for clearer filter selection, consistent assignee display, and an expandable row affordance across list views.
 
 ## Usage quick hits
-- Toolbar chip always reads `Filter: <mode>`; click or run `Beads: Switch Filter Mode…` to change scopes. The active label is visible even in high-contrast themes.
+- Toolbar chip always reads `Filter: <mode>`; click or run `Beady: Switch Filter Mode…` to change scopes. The active label is visible even in high-contrast themes.
 - Cycle sort until **assignee** to group by owner; names sort case-insensitively with **Unassigned** pinned to the bottom.
 - Every row shows assignee + status pills (collapsed and expanded). Press Space/Enter or click the chevron to toggle details; focus and `aria-expanded` stay in sync.
 - See also the overview in [README](../README.md#filters-and-badges) and [QUICKSTART](../QUICKSTART.md#filter--sort), and release notes in [CHANGELOG](../CHANGELOG.md#unreleased).
 
 ## Filter surface
 - **Toolbar chips** (primary): one chip per mode with `aria-pressed` state. Label pattern `Filter: <mode>` (Issues, Epics, Favorites, Recent, Blockers, etc.). Tooltip summarizes scope (e.g., "Issues only" vs "Epics + children").
-- **Command palette mirror**: `Beads: Switch Filter Mode…` opens a quick pick grouped by category (Issues / Epics / Favorites / Other). Each entry shows the same scope hint and whether it affects children.
+- **Command palette mirror**: `Beady: Switch Filter Mode…` opens a quick pick grouped by category (Issues / Epics / Favorites / Other). Each entry shows the same scope hint and whether it affects children.
 - **Scope clarity**: all filter copy differentiates issue-level vs epic-level vs mixed scopes. When a mode hides epics (or tasks), the empty states say why.
 - **Persistence**: selection is stored per workspace; reopening restores the last mode.
 

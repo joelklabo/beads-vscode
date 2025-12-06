@@ -11,18 +11,18 @@
 - Introducing new status values or priority/grouping dimensions.
 
 ## Constraints and assumptions
-- Workspace state persists under `beads.*` keys; migrations must be backward-safe.
+- Workspace state persists under `beady.*` keys; migrations must be backward-safe.
 - Manual sort order stays intact across mode switches and remains the only re-ordering applied in ID mode.
 - Feature must honor worktree guard and existing command contexts; no new permissions.
 - Default sort mode remains configurable; picker is enabled by default but can be disabled via setting.
 
 ## Interaction design
-- Command: keep `beads.toggleSortMode` id but present a Quick Pick titled **"Choose sort mode"** instead of cycling.
+- Command: keep `beady.toggleSortMode` id but present a Quick Pick titled **"Choose sort mode"** instead of cycling.
 - Options (ordered): ID (natural), Status, Epic, Assignee. The current mode is preselected; description shows how items will be grouped/sorted.
-- Acceptance: selecting an option updates the tree immediately, persists to `workspaceState`, updates status/description/tooltip, and sets a context key (e.g., `beads.activeSortMode`).
+- Acceptance: selecting an option updates the tree immediately, persists to `workspaceState`, updates status/description/tooltip, and sets a context key (e.g., `beady.activeSortMode`).
 - Cancellation: Escape or closing the picker makes no changes and does not emit stale info messages.
 - Messaging: on change, show a concise info toast (e.g., "Sort mode: Assignee") but suppress on cancel.
-- Default: picker opens with the last mode; if none saved, use setting `beads.sort.default` (fallback `id`).
+- Default: picker opens with the last mode; if none saved, use setting `beady.sort.default` (fallback `id`).
 
 ## Assignee grouping behavior
 - When mode = Assignee, the root renders collapsible sections per assignee plus an **Unassigned** bucket.
@@ -34,9 +34,9 @@
 - Filters/search: apply quick filters/search before grouping; empty buckets are omitted.
 
 ## Persistence and migration
-- Reuse `beads.sortMode` for the selected mode; on first run, migrate legacy values (`id|status|epic|assignee`) verbatim.
-- Add optional setting `beads.sort.default` (string enum) and `beads.sort.pickerEnabled` (boolean, default true) to gate rollout.
-- Collapsed sections: maintain existing `beads.collapsedSections`; for assignee buckets, store sanitized keys under a new map (e.g., `beads.collapsedAssignees`) to avoid leaking raw names.
+- Reuse `beady.sortMode` for the selected mode; on first run, migrate legacy values (`id|status|epic|assignee`) verbatim.
+- Add optional setting `beady.sort.default` (string enum) and `beady.sort.pickerEnabled` (boolean, default true) to gate rollout.
+- Collapsed sections: maintain existing `beady.collapsedSections`; for assignee buckets, store sanitized keys under a new map (e.g., `beady.collapsedAssignees`) to avoid leaking raw names.
 - Manual sort: no migration; retained and only applied when mode=ID.
 
 ## Accessibility requirements
@@ -62,4 +62,4 @@
 2) Ship picker + context/description updates.
 3) Ship assignee grouping sections + collapse persistence.
 4) Add tests (picker flows, grouping, sanitization) and docs.
-5) Enable by default; allow disabling via `beads.sort.pickerEnabled` if issues arise.
+5) Enable by default; allow disabling via `beady.sort.pickerEnabled` if issues arise.

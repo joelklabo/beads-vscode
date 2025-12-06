@@ -33,6 +33,15 @@ function createVscodeStub(options: VscodeStubOptions = {}) {
     }
   }
 
+  class MarkdownString {
+    value = '';
+    isTrusted = false;
+    supportHtml = false;
+    appendMarkdown(md: string): void {
+      this.value += md;
+    }
+  }
+
   const t = (message: string, ...args: any[]) =>
     message.replace(/\{(\d+)\}/g, (_match, index) => String(args[Number(index)] ?? `{${index}}`));
 
@@ -42,6 +51,7 @@ function createVscodeStub(options: VscodeStubOptions = {}) {
     l10n: { t },
     env: { language: 'en', openExternal: () => undefined },
     TreeItem,
+    MarkdownString,
     EventEmitter,
     TreeItemCollapsibleState: { None: 0, Collapsed: 1, Expanded: 2 },
     StatusBarAlignment: { Left: 1 },
@@ -180,7 +190,7 @@ describe('toggleFavorites validation', () => {
     assert.strictEqual(runnerCalls.length, 1, 'should toggle only once for duplicates');
     assert.deepStrictEqual(runnerCalls[0].args, ['label', 'add', 'DUP-1', 'favorite']);
     assert.ok(vscodeStub._warnings.some((msg: string) => msg.toLowerCase().includes('duplicate')));
-    const favorites = vscodeStub._stateStore.get('beads.favorites.local') ?? [];
+    const favorites = vscodeStub._stateStore.get('beady.favorites.local') ?? [];
     assert.ok(favorites.includes('DUP-1'));
   });
 
@@ -195,7 +205,7 @@ describe('toggleFavorites validation', () => {
 
     assert.strictEqual(runnerCalls.length, 0, 'invalid label should block CLI calls');
     assert.ok(vscodeStub._errors.some((msg: string) => msg.toLowerCase().includes('invalid')));
-    const favorites = vscodeStub._stateStore.get('beads.favorites.local') ?? [];
+    const favorites = vscodeStub._stateStore.get('beady.favorites.local') ?? [];
     assert.ok(!favorites.includes('SAFE-1'));
   });
 

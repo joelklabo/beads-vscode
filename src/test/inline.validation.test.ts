@@ -30,6 +30,15 @@ describe('Inline edit validation', () => {
 
     class TreeItem { constructor(public label?: any, public collapsibleState: number = 0) {} }
 
+    class MarkdownString {
+      value = '';
+      isTrusted = false;
+      supportHtml = false;
+      appendMarkdown(md: string): void {
+        this.value += md;
+      }
+    }
+
     const t = (message: string, ...args: any[]) =>
       message.replace(/\{(\d+)\}/g, (_m, index) => String(args[Number(index)] ?? `{${index}}`));
 
@@ -37,6 +46,7 @@ describe('Inline edit validation', () => {
       l10n: { t },
       env: { language: 'en', openExternal: () => undefined },
       TreeItem,
+      MarkdownString,
       EventEmitter,
       TreeItemCollapsibleState: { None: 0, Collapsed: 1, Expanded: 2 },
       StatusBarAlignment: { Left: 1 },
@@ -173,7 +183,12 @@ describe('Inline edit validation', () => {
 
     await provider.updateTitle(item, 'Valid Title');
 
-    assert.strictEqual(execCalls.length, 1, 'cli should be invoked once');
+    const updateCalls = execCalls.filter((call) => {
+      const args = normalizeArgs(call.args);
+      return Array.isArray(args) && args[0] === 'update';
+    });
+
+    assert.strictEqual(updateCalls.length, 1, 'cli should be invoked once');
     const surfaced = [...vscodeStub._errors].join(' ');
     assert.ok(!surfaced.includes('/tmp/project'), 'path should be redacted');
     assert.ok(!surfaced.includes('xoxb-'), 'token should be redacted');

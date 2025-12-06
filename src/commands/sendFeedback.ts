@@ -117,5 +117,5 @@ export async function sendFeedback(context: vscode.ExtensionContext): Promise<vo
 }
 
 export function registerSendFeedbackCommand(context: vscode.ExtensionContext): vscode.Disposable {
-  return vscode.commands.registerCommand('beads.sendFeedback', () => sendFeedback(context));
+  return vscode.commands.registerCommand('beady.sendFeedback', () => sendFeedback(context));
 }

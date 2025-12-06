@@ -18,7 +18,7 @@ export function computeFeedbackEnablement(
   } = {}
 ): FeedbackEnablement {
   const workspaceFolder = options.workspaceFolder ?? vscode.workspace.workspaceFolders?.[0];
-  const config = options.config ?? vscode.workspace.getConfiguration('beads', workspaceFolder);
+  const config = options.config ?? vscode.workspace.getConfiguration('beady', workspaceFolder);
   const projectRoot = resolveProjectRoot(config, workspaceFolder);
   const feedbackConfig = options.feedbackConfig ?? getFeedbackConfig(workspaceFolder);
 

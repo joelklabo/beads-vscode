@@ -596,12 +596,12 @@ suite('Epic tree integration', () => {
 
     provider.handleCollapseChange(epicNode, true);
     assert.strictEqual(epicNode.collapsibleState, vscode.TreeItemCollapsibleState.Collapsed);
-    const stored = context.workspaceState.get<Record<string, boolean>>('beads.collapsedEpics', {});
+    const stored = context.workspaceState.get<Record<string, boolean>>('beady.collapsedEpics', {});
     assert.deepStrictEqual(stored, { 'epic-1': true });
 
     provider.handleCollapseChange(epicNode, false);
     assert.strictEqual(epicNode.collapsibleState, vscode.TreeItemCollapsibleState.Expanded);
-    const storedAfterExpand = context.workspaceState.get<Record<string, boolean>>('beads.collapsedEpics', {});
+    const storedAfterExpand = context.workspaceState.get<Record<string, boolean>>('beady.collapsedEpics', {});
     assert.deepStrictEqual(storedAfterExpand, {});
   });
 

@@ -32,6 +32,15 @@ function createVscodeStub(options: VscodeStubOptions = {}) {
     }
   }
 
+  class MarkdownString {
+    value = '';
+    isTrusted = false;
+    supportHtml = false;
+    appendMarkdown(md: string): void {
+      this.value += md;
+    }
+  }
+
   const t = (message: string, ...args: any[]) =>
     message.replace(/\{(\d+)\}/g, (_match, index) => String(args[Number(index)] ?? `{${index}}`));
 
@@ -41,6 +50,7 @@ function createVscodeStub(options: VscodeStubOptions = {}) {
     l10n: { t },
     env: { language: 'en', openExternal: () => undefined },
     TreeItem,
+    MarkdownString,
     EventEmitter,
     TreeItemCollapsibleState: { None: 0, Collapsed: 1, Expanded: 2 },
     StatusBarAlignment: { Left: 1 },
@@ -162,7 +172,7 @@ describe('toggleFavorites command', () => {
 
     assert.strictEqual(runnerCalls.length, 1);
     assert.deepStrictEqual(runnerCalls[0], { args: ['label', 'add', 'A', 'favorite'], projectRoot: '/tmp/project' });
-    assert.ok(vscodeStub._stateStore.get('beads.favorites.local').includes('A'));
+    assert.ok(vscodeStub._stateStore.get('beady.favorites.local').includes('A'));
     assert.ok((provider as any).refreshCalled, 'refresh should be called');
     assert.ok(vscodeStub._info.some((msg: string) => msg.includes('Marked')));
   });
@@ -178,7 +188,7 @@ describe('toggleFavorites command', () => {
     await toggleFavorites(provider, treeView, context, runner);
 
     assert.strictEqual(runnerCalls.length, 1, 'cli should be attempted');
-    assert.ok(vscodeStub._stateStore.get('beads.favorites.local').includes('B'));
+    assert.ok(vscodeStub._stateStore.get('beady.favorites.local').includes('B'));
     const hasWarning = vscodeStub._warnings.some((msg: string) => msg.toLowerCase().includes('failed'));
     const hasError = vscodeStub._errors.length > 0;
     assert.ok(hasWarning || hasError, 'should surface failure information');
@@ -187,7 +197,7 @@ describe('toggleFavorites command', () => {
   it('removes favorite in local mode without CLI', async () => {
     loadExtension({ useLabelStorage: false, favoritesEnabled: true });
     const context = createContextStub();
-    vscodeStub._stateStore.set('beads.favorites.local', ['C']);
+    vscodeStub._stateStore.set('beady.favorites.local', ['C']);
     const provider = { refresh: async () => undefined } as any;
     const bead = new BeadTreeItem({ id: 'C', title: 'C', status: 'open', raw: { labels: [] } });
     const treeView = { selection: [bead] } as any;
@@ -195,7 +205,7 @@ describe('toggleFavorites command', () => {
     await toggleFavorites(provider, treeView, context, runner);
 
     assert.strictEqual(runnerCalls.length, 0, 'cli should not be invoked in local mode');
-    const favorites = vscodeStub._stateStore.get('beads.favorites.local');
+    const favorites = vscodeStub._stateStore.get('beady.favorites.local');
     assert.ok(!favorites.includes('C'), 'favorite should be removed locally');
   });
 });

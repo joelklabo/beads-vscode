@@ -1,12 +1,12 @@
 # Dependency tree editing
 
-Design for inspecting and editing dependency directionality inside the VS Code extension. The feature is gated by `beads.enableDependencyEditing` and requires `bd >= 0.29.0`; editing controls stay hidden otherwise.
+Design for inspecting and editing dependency directionality inside the VS Code extension. The feature is gated by `beady.enableDependencyEditing` and requires `bd >= 0.29.0`; editing controls stay hidden otherwise.
 
 See also: the short how-to sections in [README](../README.md#dependency-tree-editing-preview) and [QUICKSTART](../QUICKSTART.md#4-dependency-editing-optional).
 
 ## Quick usage
-- Turn on `beads.enableDependencyEditing` (read-only view when off). CLI calls run with `--no-daemon` and guard against cycles/duplicates/self-links.
-- Open the **Dependency Tree** view; selecting an issue in the main Beads tree (or running **Beads: Dependency Tree: Pick Root**) sets the focus.
+- Turn on `beady.enableDependencyEditing` (read-only view when off). CLI calls run with `--no-daemon` and guard against cycles/duplicates/self-links.
+- Open the **Dependency Tree** view; selecting an issue in the main Beads tree (or running **Beady: Dependency Tree: Pick Root**) sets the focus.
 - Use the view toolbar actions **Add Upstream** / **Add Downstream** (or right-click the corresponding group header) to add links via a quick pick; the picker filters out the current issue and reuses bd `dep add` for the chosen direction.
 - Remove links from the context menu on a dependency node (or the command palette / detail panel remove buttons); this calls `bd dep remove` and refreshes the tree/graph.
 - Keyboard and screen reader affordances follow the VS Code tree defaults plus the behaviors documented below.
@@ -40,7 +40,7 @@ See also: the short how-to sections in [README](../README.md#dependency-tree-edi
   5) On success, announce and refetch tree/data; on failure, show stderr and keep focus on the picker.
 - **Remove dependency**
   1) User activates the `Remove` icon (or context menu entry) on a node.
-  2) Optional confirm dialog when in downstream section (default on when `beads.confirmDestructive` is true).
+  2) Optional confirm dialog when in downstream section (default on when `beady.confirmDestructive` is true).
   3) Call `bd dependency remove ... --no-daemon`; refresh and re-announce.
 - **Refresh**: button in header plus auto-refresh after any mutation or when file watcher notices `.beads/*.db` changes.
 

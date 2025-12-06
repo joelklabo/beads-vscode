@@ -41,184 +41,184 @@
   "contributes": {
     "commands": [
       {
-        "command": "beads.refresh",
-        "title": "%command.beads.refresh%",
+        "command": "beady.refresh",
+        "title": "%command.beady.refresh%",
         "icon": "$(refresh)"
       },
       {
-        "command": "beads.search",
-        "title": "%command.beads.search%",
+        "command": "beady.search",
+        "title": "%command.beady.search%",
         "icon": "$(search)"
       },
       {
-        "command": "beads.clearSearch",
-        "title": "%command.beads.clearSearch%",
+        "command": "beady.clearSearch",
+        "title": "%command.beady.clearSearch%",
         "icon": "$(clear-all)"
       },
       {
-        "command": "beads.openBead",
-        "title": "%command.beads.openBead%"
+        "command": "beady.openBead",
+        "title": "%command.beady.openBead%"
       },
       {
-        "command": "beads.createBead",
-        "title": "%command.beads.createBead%",
+        "command": "beady.createBead",
+        "title": "%command.beady.createBead%",
         "icon": "$(add)"
       },
       {
-        "command": "beads.addDependency",
-        "title": "%command.beads.addDependency%",
+        "command": "beady.addDependency",
+        "title": "%command.beady.addDependency%",
         "icon": "$(link)"
       },
       {
-        "command": "beads.dependencyTree.pickRoot",
-        "title": "%command.beads.dependencyTree.pickRoot%",
+        "command": "beady.dependencyTree.pickRoot",
+        "title": "%command.beady.dependencyTree.pickRoot%",
         "icon": "$(location)"
       },
       {
-        "command": "beads.dependencyTree.addUpstream",
-        "title": "%command.beads.dependencyTree.addUpstream%",
+        "command": "beady.dependencyTree.addUpstream",
+        "title": "%command.beady.dependencyTree.addUpstream%",
         "icon": "$(arrow-up)"
       },
       {
-        "command": "beads.dependencyTree.addDownstream",
-        "title": "%command.beads.dependencyTree.addDownstream%",
+        "command": "beady.dependencyTree.addDownstream",
+        "title": "%command.beady.dependencyTree.addDownstream%",
         "icon": "$(arrow-down)"
       },
       {
-        "command": "beads.dependencyTree.remove",
-        "title": "%command.beads.dependencyTree.remove%",
+        "command": "beady.dependencyTree.remove",
+        "title": "%command.beady.dependencyTree.remove%",
         "icon": "$(trash)"
       },
       {
-        "command": "beads.editExternalReference",
-        "title": "%command.beads.editExternalReference%"
+        "command": "beady.editExternalReference",
+        "title": "%command.beady.editExternalReference%"
       },
       {
-        "command": "beads.visualizeDependencies",
-        "title": "%command.beads.visualizeDependencies%",
+        "command": "beady.visualizeDependencies",
+        "title": "%command.beady.visualizeDependencies%",
         "icon": "$(graph)"
       },
       {
-        "command": "beads.exportCsv",
-        "title": "%command.beads.exportCsv%",
+        "command": "beady.exportCsv",
+        "title": "%command.beady.exportCsv%",
         "icon": "$(table)"
       },
       {
-        "command": "beads.exportMarkdown",
-        "title": "%command.beads.exportMarkdown%"
+        "command": "beady.exportMarkdown",
+        "title": "%command.beady.exportMarkdown%"
       },
       {
-        "command": "beads.inlineStatusChange",
-        "title": "%command.beads.inlineStatusChange%",
+        "command": "beady.inlineStatusChange",
+        "title": "%command.beady.inlineStatusChange%",
         "icon": "$(edit)"
       },
       {
-        "command": "beads.clearSortOrder",
-        "title": "%command.beads.clearSortOrder%",
+        "command": "beady.clearSortOrder",
+        "title": "%command.beady.clearSortOrder%",
         "icon": "$(list-ordered)"
       },
       {
-        "command": "beads.pickSortMode",
-        "title": "%command.beads.pickSortMode%",
+        "command": "beady.pickSortMode",
+        "title": "%command.beady.pickSortMode%",
         "icon": "$(list-filter)"
       },
       {
-        "command": "beads.toggleSortMode",
-        "title": "%command.beads.toggleSortMode%",
+        "command": "beady.toggleSortMode",
+        "title": "%command.beady.toggleSortMode%",
         "icon": "$(list-tree)"
       },
       {
-        "command": "beads.refreshActivityFeed",
-        "title": "%command.beads.refreshActivityFeed%",
+        "command": "beady.refreshActivityFeed",
+        "title": "%command.beady.refreshActivityFeed%",
         "icon": "$(refresh)"
       },
       {
-        "command": "beads.filterActivityFeed",
-        "title": "%command.beads.filterActivityFeed%",
+        "command": "beady.filterActivityFeed",
+        "title": "%command.beady.filterActivityFeed%",
         "icon": "$(filter)"
       },
       {
-        "command": "beads.clearActivityFeedFilter",
-        "title": "%command.beads.clearActivityFeedFilter%",
+        "command": "beady.clearActivityFeedFilter",
+        "title": "%command.beady.clearActivityFeedFilter%",
         "icon": "$(clear-all)"
       },
       {
-        "command": "beads.activityFeed.openEvent",
-        "title": "%command.beads.activityFeed.openEvent%"
+        "command": "beady.activityFeed.openEvent",
+        "title": "%command.beady.activityFeed.openEvent%"
       },
       {
-        "command": "beads.activityFeed.openSelected",
-        "title": "%command.beads.activityFeed.openSelected%"
+        "command": "beady.activityFeed.openSelected",
+        "title": "%command.beady.activityFeed.openSelected%"
       },
       {
-        "command": "beads.openActivityFeedPanel",
-        "title": "%command.beads.openActivityFeedPanel%",
+        "command": "beady.openActivityFeedPanel",
+        "title": "%command.beady.openActivityFeedPanel%",
         "icon": "$(timeline-open)"
       },
       {
-        "command": "beads.deleteBeads",
-        "title": "%command.beads.deleteBeads%",
+        "command": "beady.deleteBeads",
+        "title": "%command.beady.deleteBeads%",
         "icon": "$(trash)"
       },
       {
-        "command": "beads.bulkUpdateStatus",
-        "title": "%command.beads.bulkUpdateStatus%",
+        "command": "beady.bulkUpdateStatus",
+        "title": "%command.beady.bulkUpdateStatus%",
         "icon": "$(checklist)"
       },
       {
-        "command": "beads.bulkAddLabel",
-        "title": "%command.beads.bulkAddLabel%",
+        "command": "beady.bulkAddLabel",
+        "title": "%command.beady.bulkAddLabel%",
         "icon": "$(tag)"
       },
       {
-        "command": "beads.bulkRemoveLabel",
-        "title": "%command.beads.bulkRemoveLabel%",
+        "command": "beady.bulkRemoveLabel",
+        "title": "%command.beady.bulkRemoveLabel%",
         "icon": "$(tag)"
       },
       {
-        "command": "beads.toggleFavorite",
-        "title": "%command.beads.toggleFavorite%",
+        "command": "beady.toggleFavorite",
+        "title": "%command.beady.toggleFavorite%",
         "icon": "$(star)"
       },
       {
-        "command": "beads.applyQuickFilterPreset",
-        "title": "%command.beads.applyQuickFilterPreset%",
+        "command": "beady.applyQuickFilterPreset",
+        "title": "%command.beady.applyQuickFilterPreset%",
         "icon": "$(filter)"
       },
       {
-        "command": "beads.clearQuickFilters",
-        "title": "%command.beads.clearQuickFilters%",
+        "command": "beady.clearQuickFilters",
+        "title": "%command.beady.clearQuickFilters%",
         "icon": "$(clear-all)"
       },
       {
-        "command": "beads.openInProgressPanel",
-        "title": "%command.beads.openInProgressPanel%",
+        "command": "beady.openInProgressPanel",
+        "title": "%command.beady.openInProgressPanel%",
         "icon": "$(pulse)"
       },
       {
-        "command": "beads.inlineEditTitle",
-        "title": "%command.beads.inlineEditTitle%",
+        "command": "beady.inlineEditTitle",
+        "title": "%command.beady.inlineEditTitle%",
         "icon": "$(edit)"
       },
       {
-        "command": "beads.inlineEditLabels",
-        "title": "%command.beads.inlineEditLabels%",
+        "command": "beady.inlineEditLabels",
+        "title": "%command.beady.inlineEditLabels%",
         "icon": "$(tag)"
       }
     ],
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "beads",
-          "title": "Beads",
+          "id": "beady",
+          "title": "Beady",
           "icon": "$(symbol-event)"
         }
       ]
     },
     "views": {
-      "beads": [
+      "beady": [
         {
-          "id": "beadsExplorer",
+          "id": "beadyExplorer",
           "name": "Issues"
         },
         {
@@ -226,85 +226,85 @@
           "name": "Activity Feed"
         },
         {
-          "id": "beadsDependencyTree",
+          "id": "beadyDependencyTree",
           "name": "%view.dependencyTree.name%",
-          "when": "config.beads.enableDependencyEditing"
+          "when": "config.beady.enableDependencyEditing"
         }
       ]
     },
     "configuration": {
       "type": "object",
-      "title": "Beads",
+      "title": "Beady",
       "properties": {
-        "beads.commandPath": {
+        "beady.commandPath": {
           "type": "string",
           "default": "bd",
           "description": "Path to the bd CLI executable (defaults to 'bd' which should be in your PATH)"
         },
-        "beads.projectRoot": {
+        "beady.projectRoot": {
           "type": "string",
           "default": "",
           "description": "Override project root for beads commands"
         },
-        "beads.dataFile": {
+        "beady.dataFile": {
           "type": "string",
           "default": ".beads/issues.jsonl",
           "description": "Path to the beads data JSONL file (relative to the project root or absolute)"
         },
-        "beads.staleThresholdMinutes": {
+        "beady.staleThresholdMinutes": {
           "type": "number",
           "default": 10,
           "minimum": 1,
           "description": "Number of minutes after which an in-progress task is highlighted as stale. Tasks in progress longer than this threshold will be visually flagged to help identify potentially stuck work."
         },
-        "beads.enableWorktreeGuard": {
+        "beady.enableWorktreeGuard": {
           "type": "boolean",
           "default": true,
           "description": "Run worktree guard before mutating bd commands to prevent duplicate/unsafe worktrees"
         },
-        "beads.autoApplyWorktreeLabel": {
+        "beady.autoApplyWorktreeLabel": {
           "type": "boolean",
           "default": true,
           "description": "Show current worktree label in Beads views and tooltips"
         },
-        "beads.exportMarkdown.enabled": {
+        "beady.exportMarkdown.enabled": {
           "type": "boolean",
           "default": false,
           "markdownDescription": "Enable the experimental Markdown export command for the Beads explorer. When disabled, the command and toolbar entry are hidden."
         },
-        "beads.inlineStatusChange.enabled": {
+        "beady.inlineStatusChange.enabled": {
           "type": "boolean",
           "default": false,
           "markdownDescription": "Enable the inline status change command for Beads items. When disabled, related commands and menus are hidden."
         },
-        "beads.exportCsv.enabled": {
+        "beady.exportCsv.enabled": {
           "type": "boolean",
           "default": false,
           "markdownDescription": "Enable the experimental CSV export command for the Beads explorer. When disabled, the command and toolbar entry are hidden."
         },
-        "beads.exportCsv.delimiter": {
+        "beady.exportCsv.delimiter": {
           "type": "string",
           "default": ",",
           "markdownDescription": "Delimiter to use for CSV export. Accepts a single character, 'tab', or '\\\\t'."
         },
-        "beads.exportCsv.includeBom": {
+        "beady.exportCsv.includeBom": {
           "type": "boolean",
           "default": false,
           "markdownDescription": "Prefix CSV exports with a UTF-8 BOM (useful for Excel or apps that need BOM)."
         },
-        "beads.feedback.enabled": {
+        "beady.feedback.enabled": {
           "type": "boolean",
           "default": false,
           "markdownDescription": "Enable the experimental feedback flow. When disabled, feedback commands and UI are hidden."
         },
-        "beads.feedback.repository": {
+        "beady.feedback.repository": {
           "type": "string",
           "default": "",
           "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$",
           "patternErrorMessage": "Use the GitHub owner/repo format, for example: acme/widgets",
           "markdownDescription": "Default GitHub repository for feedback issues (owner/repo). Required when feedback is enabled."
         },
-        "beads.feedback.labels": {
+        "beady.feedback.labels": {
           "type": "object",
           "default": {
             "bug": "bug",
@@ -336,81 +336,81 @@
           },
           "markdownDescription": "Map feedback types to GitHub labels. Leave a value empty to skip labeling for that type."
         },
-        "beads.feedback.useGitHubCli": {
+        "beady.feedback.useGitHubCli": {
           "type": "boolean",
           "default": false,
           "markdownDescription": "Use the GitHub CLI (gh) for feedback submission when available. Falls back to API when disabled."
         },
-        "beads.feedback.includeAnonymizedLogs": {
+        "beady.feedback.includeAnonymizedLogs": {
           "type": "boolean",
           "default": true,
           "markdownDescription": "Allow attaching anonymized logs/metadata when sending feedback. Users are prompted before logs are included."
         },
-        "beads.enableDependencyEditing": {
+        "beady.enableDependencyEditing": {
           "type": "boolean",
           "default": false,
           "markdownDescription": "Enable experimental dependency editing UI (add/remove). Requires bd CLI support; shows warning when CLI version is too old."
         },
-        "beads.bulkActions.enabled": {
+        "beady.bulkActions.enabled": {
           "type": "boolean",
           "default": false,
           "markdownDescription": "Enable experimental bulk status/label actions in the tree and activity feed. When disabled, bulk commands and menus are hidden."
         },
-        "beads.bulkActions.maxSelection": {
+        "beady.bulkActions.maxSelection": {
           "type": "integer",
           "default": 50,
           "minimum": 1,
           "maximum": 200,
           "markdownDescription": "Maximum number of items allowed in a bulk action selection. Values outside 1-200 are ignored and the default is used."
         },
-        "beads.favorites.enabled": {
+        "beady.favorites.enabled": {
           "type": "boolean",
           "default": false,
           "markdownDescription": "Enable experimental favorites toggling. When disabled, favorite commands and menus are hidden."
         },
-        "beads.favorites.useLabelStorage": {
+        "beady.favorites.useLabelStorage": {
           "type": "boolean",
           "default": true,
           "markdownDescription": "Store favorites using bd labels. When disabled, favorites are stored locally in workspaceState only."
         },
-        "beads.favorites.label": {
+        "beady.favorites.label": {
           "type": "string",
           "default": "favorite",
           "markdownDescription": "Label name used when storing favorites via the bd CLI."
         },
-        "beads.cli.timeoutMs": {
+        "beady.cli.timeoutMs": {
           "type": "number",
           "default": 15000,
           "minimum": 1000,
           "description": "Maximum time in milliseconds to wait for bd CLI commands before aborting (default: 15000)."
         },
-        "beads.cli.retryCount": {
+        "beady.cli.retryCount": {
           "type": "number",
           "default": 1,
           "minimum": 0,
           "maximum": 5,
           "description": "How many times to retry a bd CLI command after a timeout (default: 1). Set to 0 to disable retries."
         },
-        "beads.cli.retryBackoffMs": {
+        "beady.cli.retryBackoffMs": {
           "type": "number",
           "default": 500,
           "minimum": 0,
           "maximum": 30000,
           "description": "Delay in milliseconds before each bd CLI retry attempt (default: 500)."
         },
-        "beads.offlineDetection.thresholdMs": {
+        "beady.offlineDetection.thresholdMs": {
           "type": "number",
           "default": 30000,
           "minimum": 5000,
           "maximum": 300000,
           "description": "Total elapsed time in milliseconds across retries before treating the bd CLI as offline (default: 30000)."
         },
-        "beads.quickFilters.enabled": {
+        "beady.quickFilters.enabled": {
           "type": "boolean",
           "default": false,
           "markdownDescription": "Enable quick filter presets in the Beads explorer toolbar and command palette."
         },
-        "beads.sortPicker.enabled": {
+        "beady.sortPicker.enabled": {
           "type": "boolean",
           "default": true,
           "markdownDescription": "Enable the explicit sort picker and assignee grouping. When disabled, sorting cycles through ID/Status/Epic only."
@@ -420,294 +420,294 @@
     "menus": {
       "view/title": [
         {
-          "command": "beads.applyQuickFilterPreset",
-          "when": "view == beadsExplorer && beads.quickFiltersEnabled",
+          "command": "beady.applyQuickFilterPreset",
+          "when": "view == beadyExplorer && beady.quickFiltersEnabled",
           "group": "navigation@1.5"
         },
         {
-          "command": "beads.clearQuickFilters",
-          "when": "view == beadsExplorer && beads.quickFiltersEnabled && beads.activeQuickFilter != ''",
+          "command": "beady.clearQuickFilters",
+          "when": "view == beadyExplorer && beady.quickFiltersEnabled && beady.activeQuickFilter != ''",
           "group": "navigation@1.6"
         },
         {
-          "command": "beads.pickSortMode",
-          "when": "view == beadsExplorer && beads.sortPickerEnabled",
+          "command": "beady.pickSortMode",
+          "when": "view == beadyExplorer && beady.sortPickerEnabled",
           "group": "navigation@1"
         },
         {
-          "command": "beads.toggleSortMode",
-          "when": "view == beadsExplorer && !beads.sortPickerEnabled",
+          "command": "beady.toggleSortMode",
+          "when": "view == beadyExplorer && !beady.sortPickerEnabled",
           "group": "navigation@1"
         },
         {
-          "command": "beads.search",
-          "when": "view == beadsExplorer",
+          "command": "beady.search",
+          "when": "view == beadyExplorer",
           "group": "navigation@2"
         },
         {
-          "command": "beads.clearSearch",
-          "when": "view == beadsExplorer",
+          "command": "beady.clearSearch",
+          "when": "view == beadyExplorer",
           "group": "navigation@3"
         },
         {
-          "command": "beads.refresh",
-          "when": "view == beadsExplorer",
+          "command": "beady.refresh",
+          "when": "view == beadyExplorer",
           "group": "navigation@4"
         },
         {
-          "command": "beads.createBead",
-          "when": "view == beadsExplorer",
+          "command": "beady.createBead",
+          "when": "view == beadyExplorer",
           "group": "navigation@5"
         },
         {
-          "command": "beads.visualizeDependencies",
-          "when": "view == beadsExplorer",
+          "command": "beady.visualizeDependencies",
+          "when": "view == beadyExplorer",
           "group": "navigation@6"
         },
         {
-          "command": "beads.exportCsv",
-          "when": "view == beadsExplorer && config.beads.exportCsv.enabled",
+          "command": "beady.exportCsv",
+          "when": "view == beadyExplorer && config.beady.exportCsv.enabled",
           "group": "navigation@7"
         },
         {
-          "command": "beads.exportMarkdown",
-          "when": "view == beadsExplorer && config.beads.exportMarkdown.enabled",
+          "command": "beady.exportMarkdown",
+          "when": "view == beadyExplorer && config.beady.exportMarkdown.enabled",
           "group": "navigation@7"
         },
         {
-          "command": "beads.inlineStatusChange",
-          "when": "view == beadsExplorer && config.beads.inlineStatusChange.enabled",
+          "command": "beady.inlineStatusChange",
+          "when": "view == beadyExplorer && config.beady.inlineStatusChange.enabled",
           "group": "navigation@8"
         },
         {
-          "command": "beads.bulkUpdateStatus",
-          "when": "view == beadsExplorer && beads.bulkActionsEnabled && beads.bulkActionsHasSelection",
+          "command": "beady.bulkUpdateStatus",
+          "when": "view == beadyExplorer && beady.bulkActionsEnabled && beady.bulkActionsHasSelection",
           "group": "navigation@9"
         },
         {
-          "command": "beads.bulkAddLabel",
-          "when": "view == beadsExplorer && beads.bulkActionsEnabled",
+          "command": "beady.bulkAddLabel",
+          "when": "view == beadyExplorer && beady.bulkActionsEnabled",
           "group": "navigation@9"
         },
         {
-          "command": "beads.bulkRemoveLabel",
-          "when": "view == beadsExplorer && beads.bulkActionsEnabled",
+          "command": "beady.bulkRemoveLabel",
+          "when": "view == beadyExplorer && beady.bulkActionsEnabled",
           "group": "navigation@9"
         },
         {
-          "command": "beads.clearSortOrder",
-          "when": "view == beadsExplorer",
+          "command": "beady.clearSortOrder",
+          "when": "view == beadyExplorer",
           "group": "1_sort@1"
         },
         {
-          "command": "beads.filterActivityFeed",
+          "command": "beady.filterActivityFeed",
           "when": "view == activityFeed",
           "group": "navigation@1"
         },
         {
-          "command": "beads.clearActivityFeedFilter",
+          "command": "beady.clearActivityFeedFilter",
           "when": "view == activityFeed",
           "group": "navigation@2"
         },
         {
-          "command": "beads.refreshActivityFeed",
+          "command": "beady.refreshActivityFeed",
           "when": "view == activityFeed",
           "group": "navigation@3"
         },
         {
-          "command": "beads.openActivityFeedPanel",
+          "command": "beady.openActivityFeedPanel",
           "when": "view == activityFeed",
           "group": "navigation@4"
         },
         {
-          "command": "beads.toggleFavorite",
-          "when": "view == beadsExplorer && beads.favoritesEnabled",
+          "command": "beady.toggleFavorite",
+          "when": "view == beadyExplorer && beady.favoritesEnabled",
           "group": "navigation@9"
         },
         {
-          "command": "beads.openInProgressPanel",
-          "when": "view == beadsExplorer",
+          "command": "beady.openInProgressPanel",
+          "when": "view == beadyExplorer",
           "group": "navigation@6.5"
         },
         {
-          "command": "beads.dependencyTree.pickRoot",
-          "when": "view == beadsDependencyTree",
+          "command": "beady.dependencyTree.pickRoot",
+          "when": "view == beadyDependencyTree",
           "group": "navigation@1"
         },
         {
-          "command": "beads.dependencyTree.addUpstream",
-          "when": "view == beadsDependencyTree && config.beads.enableDependencyEditing",
+          "command": "beady.dependencyTree.addUpstream",
+          "when": "view == beadyDependencyTree && config.beady.enableDependencyEditing",
           "group": "navigation@2"
         },
         {
-          "command": "beads.dependencyTree.addDownstream",
-          "when": "view == beadsDependencyTree && config.beads.enableDependencyEditing",
+          "command": "beady.dependencyTree.addDownstream",
+          "when": "view == beadyDependencyTree && config.beady.enableDependencyEditing",
           "group": "navigation@3"
         }
       ],
       "view/item/context": [
         {
-          "command": "beads.editExternalReference",
-          "when": "view == beadsExplorer && viewItem == bead",
+          "command": "beady.editExternalReference",
+          "when": "view == beadyExplorer && viewItem == bead",
           "group": "navigation@1"
         },
         {
-          "command": "beads.addDependency",
-          "when": "view == beadsExplorer && viewItem == bead && config.beads.enableDependencyEditing",
+          "command": "beady.addDependency",
+          "when": "view == beadyExplorer && viewItem == bead && config.beady.enableDependencyEditing",
           "group": "navigation@2"
         },
         {
-          "command": "beads.dependencyTree.addUpstream",
-          "when": "view == beadsDependencyTree && viewItem == dependencyGroupUpstream && config.beads.enableDependencyEditing",
+          "command": "beady.dependencyTree.addUpstream",
+          "when": "view == beadyDependencyTree && viewItem == dependencyGroupUpstream && config.beady.enableDependencyEditing",
           "group": "navigation@1"
         },
         {
-          "command": "beads.dependencyTree.addDownstream",
-          "when": "view == beadsDependencyTree && viewItem == dependencyGroupDownstream && config.beads.enableDependencyEditing",
+          "command": "beady.dependencyTree.addDownstream",
+          "when": "view == beadyDependencyTree && viewItem == dependencyGroupDownstream && config.beady.enableDependencyEditing",
           "group": "navigation@1"
         },
         {
-          "command": "beads.dependencyTree.remove",
-          "when": "view == beadsDependencyTree && (viewItem == dependencyNodeUpstream || viewItem == dependencyNodeDownstream) && config.beads.enableDependencyEditing",
+          "command": "beady.dependencyTree.remove",
+          "when": "view == beadyDependencyTree && (viewItem == dependencyNodeUpstream || viewItem == dependencyNodeDownstream) && config.beady.enableDependencyEditing",
           "group": "inline@2"
         },
         {
-          "command": "beads.exportCsv",
-          "when": "view == beadsExplorer && viewItem == bead && config.beads.exportCsv.enabled",
+          "command": "beady.exportCsv",
+          "when": "view == beadyExplorer && viewItem == bead && config.beady.exportCsv.enabled",
           "group": "navigation@3"
         },
         {
-          "command": "beads.exportMarkdown",
-          "when": "view == beadsExplorer && viewItem == bead && config.beads.exportMarkdown.enabled",
+          "command": "beady.exportMarkdown",
+          "when": "view == beadyExplorer && viewItem == bead && config.beady.exportMarkdown.enabled",
           "group": "navigation@3"
         },
         {
-          "command": "beads.inlineStatusChange",
-          "when": "view == beadsExplorer && viewItem == bead && config.beads.inlineStatusChange.enabled",
+          "command": "beady.inlineStatusChange",
+          "when": "view == beadyExplorer && viewItem == bead && config.beady.inlineStatusChange.enabled",
           "group": "navigation@4"
         },
         {
-          "command": "beads.inlineStatusChange",
-          "when": "view == activityFeed && viewItem == activityEvent && config.beads.inlineStatusChange.enabled",
+          "command": "beady.inlineStatusChange",
+          "when": "view == activityFeed && viewItem == activityEvent && config.beady.inlineStatusChange.enabled",
           "group": "navigation@1"
         },
         {
-          "command": "beads.deleteBeads",
-          "when": "view == beadsExplorer && viewItem == bead",
+          "command": "beady.deleteBeads",
+          "when": "view == beadyExplorer && viewItem == bead",
           "group": "7_modification@1"
         },
         {
-          "command": "beads.bulkUpdateStatus",
-          "when": "view == beadsExplorer && viewItem == bead && beads.bulkActionsEnabled && beads.bulkActionsHasSelection",
+          "command": "beady.bulkUpdateStatus",
+          "when": "view == beadyExplorer && viewItem == bead && beady.bulkActionsEnabled && beady.bulkActionsHasSelection",
           "group": "7_modification@2"
         },
         {
-          "command": "beads.bulkAddLabel",
-          "when": "view == beadsExplorer && viewItem == bead && beads.bulkActionsEnabled",
+          "command": "beady.bulkAddLabel",
+          "when": "view == beadyExplorer && viewItem == bead && beady.bulkActionsEnabled",
           "group": "7_modification@3"
         },
         {
-          "command": "beads.bulkRemoveLabel",
-          "when": "view == beadsExplorer && viewItem == bead && beads.bulkActionsEnabled",
+          "command": "beady.bulkRemoveLabel",
+          "when": "view == beadyExplorer && viewItem == bead && beady.bulkActionsEnabled",
           "group": "7_modification@4"
         },
         {
-          "command": "beads.toggleFavorite",
-          "when": "view == beadsExplorer && viewItem == bead && beads.favoritesEnabled",
+          "command": "beady.toggleFavorite",
+          "when": "view == beadyExplorer && viewItem == bead && beady.favoritesEnabled",
           "group": "7_modification@5"
         },
         {
-          "command": "beads.inlineEditTitle",
-          "when": "view == beadsExplorer && viewItem == bead && config.beads.inlineStatusChange.enabled",
+          "command": "beady.inlineEditTitle",
+          "when": "view == beadyExplorer && viewItem == bead && config.beady.inlineStatusChange.enabled",
           "group": "navigation@4"
         },
         {
-          "command": "beads.inlineEditLabels",
-          "when": "view == beadsExplorer && viewItem == bead && config.beads.inlineStatusChange.enabled",
+          "command": "beady.inlineEditLabels",
+          "when": "view == beadyExplorer && viewItem == bead && config.beady.inlineStatusChange.enabled",
           "group": "navigation@4"
         }
       ],
       "commandPalette": [
         {
-          "command": "beads.bulkUpdateStatus",
-          "when": "beads.bulkActionsEnabled && beads.bulkActionsHasSelection"
+          "command": "beady.bulkUpdateStatus",
+          "when": "beady.bulkActionsEnabled && beady.bulkActionsHasSelection"
         },
         {
-          "command": "beads.bulkAddLabel",
-          "when": "beads.bulkActionsEnabled"
+          "command": "beady.bulkAddLabel",
+          "when": "beady.bulkActionsEnabled"
         },
         {
-          "command": "beads.bulkRemoveLabel",
-          "when": "beads.bulkActionsEnabled"
+          "command": "beady.bulkRemoveLabel",
+          "when": "beady.bulkActionsEnabled"
         },
         {
-          "command": "beads.toggleFavorite",
-          "when": "beads.favoritesEnabled"
+          "command": "beady.toggleFavorite",
+          "when": "beady.favoritesEnabled"
         },
         {
-          "command": "beads.applyQuickFilterPreset",
-          "when": "beads.quickFiltersEnabled"
+          "command": "beady.applyQuickFilterPreset",
+          "when": "beady.quickFiltersEnabled"
         },
         {
-          "command": "beads.clearQuickFilters",
-          "when": "beads.quickFiltersEnabled && beads.activeQuickFilter != ''"
+          "command": "beady.clearQuickFilters",
+          "when": "beady.quickFiltersEnabled && beady.activeQuickFilter != ''"
         },
         {
-          "command": "beads.openInProgressPanel"
+          "command": "beady.openInProgressPanel"
         },
         {
-          "command": "beads.inlineEditTitle",
-          "when": "config.beads.inlineStatusChange.enabled"
+          "command": "beady.inlineEditTitle",
+          "when": "config.beady.inlineStatusChange.enabled"
         },
         {
-          "command": "beads.inlineEditLabels",
-          "when": "config.beads.inlineStatusChange.enabled"
+          "command": "beady.inlineEditLabels",
+          "when": "config.beady.inlineStatusChange.enabled"
         },
         {
-          "command": "beads.inlineStatusChange",
-          "when": "config.beads.inlineStatusChange.enabled"
+          "command": "beady.inlineStatusChange",
+          "when": "config.beady.inlineStatusChange.enabled"
         },
         {
-          "command": "beads.pickSortMode",
-          "when": "beads.sortPickerEnabled"
+          "command": "beady.pickSortMode",
+          "when": "beady.sortPickerEnabled"
         },
         {
-          "command": "beads.toggleSortMode",
-          "when": "!beads.sortPickerEnabled"
+          "command": "beady.toggleSortMode",
+          "when": "!beady.sortPickerEnabled"
         }
       ]
     },
     "keybindings": [
       {
-        "command": "beads.deleteBeads",
+        "command": "beady.deleteBeads",
         "key": "delete",
         "mac": "cmd+backspace",
-        "when": "focusedView == beadsExplorer && listHasSelectionOrFocus"
+        "when": "focusedView == beadyExplorer && listHasSelectionOrFocus"
       },
       {
-        "command": "beads.deleteBeads",
+        "command": "beady.deleteBeads",
         "key": "backspace",
-        "when": "focusedView == beadsExplorer && listHasSelectionOrFocus && !inputFocus"
+        "when": "focusedView == beadyExplorer && listHasSelectionOrFocus && !inputFocus"
       },
       {
-        "command": "beads.activityFeed.openSelected",
+        "command": "beady.activityFeed.openSelected",
         "key": "space",
         "when": "focusedView == activityFeed && listHasSelectionOrFocus && !inputFocus"
       },
       {
-        "command": "beads.inlineStatusChange",
+        "command": "beady.inlineStatusChange",
         "key": "enter",
-        "when": "focusedView == beadsExplorer && listHasSelectionOrFocus && config.beads.inlineStatusChange.enabled && !inputFocus"
+        "when": "focusedView == beadyExplorer && listHasSelectionOrFocus && config.beady.inlineStatusChange.enabled && !inputFocus"
       },
       {
-        "command": "beads.inlineEditTitle",
+        "command": "beady.inlineEditTitle",
         "key": "f2",
-        "when": "focusedView == beadsExplorer && listHasSelectionOrFocus && config.beads.inlineStatusChange.enabled && !inputFocus"
+        "when": "focusedView == beadyExplorer && listHasSelectionOrFocus && config.beady.inlineStatusChange.enabled && !inputFocus"
       },
       {
-        "command": "beads.inlineEditLabels",
+        "command": "beady.inlineEditLabels",
         "key": "ctrl+shift+l",
-        "when": "focusedView == beadsExplorer && listHasSelectionOrFocus && config.beads.inlineStatusChange.enabled && !inputFocus",
+        "when": "focusedView == beadyExplorer && listHasSelectionOrFocus && config.beady.inlineStatusChange.enabled && !inputFocus",
         "mac": "cmd+shift+l"
       }
     ]
@@ -802,37 +802,37 @@
     "zod": "^3.23.8"
   },
   "activationEvents": [
-    "onView:beadsExplorer",
+    "onView:beadyExplorer",
     "onView:activityFeed",
-    "onCommand:beads.refresh",
-    "onCommand:beads.search",
-    "onCommand:beads.clearSearch",
-    "onCommand:beads.openBead",
-    "onCommand:beads.createBead",
-    "onCommand:beads.addDependency",
-    "onCommand:beads.editExternalReference",
-    "onCommand:beads.visualizeDependencies",
-    "onCommand:beads.exportCsv",
-    "onCommand:beads.exportMarkdown",
-    "onCommand:beads.inlineStatusChange",
-    "onCommand:beads.clearSortOrder",
-    "onCommand:beads.pickSortMode",
-    "onCommand:beads.toggleSortMode",
-    "onCommand:beads.applyQuickFilterPreset",
-    "onCommand:beads.clearQuickFilters",
-    "onCommand:beads.refreshActivityFeed",
-    "onCommand:beads.filterActivityFeed",
-    "onCommand:beads.clearActivityFeedFilter",
-    "onCommand:beads.activityFeed.openEvent",
-    "onCommand:beads.activityFeed.openSelected",
-    "onCommand:beads.openActivityFeedPanel",
-    "onCommand:beads.bulkUpdateStatus",
-    "onCommand:beads.bulkAddLabel",
-    "onCommand:beads.bulkRemoveLabel",
-    "onCommand:beads.toggleFavorite",
-    "onCommand:beads.openInProgressPanel",
-    "onCommand:beads.inlineEditTitle",
-    "onCommand:beads.inlineEditLabels",
-    "onCommand:beads.selectWorkspace"
+    "onCommand:beady.refresh",
+    "onCommand:beady.search",
+    "onCommand:beady.clearSearch",
+    "onCommand:beady.openBead",
+    "onCommand:beady.createBead",
+    "onCommand:beady.addDependency",
+    "onCommand:beady.editExternalReference",
+    "onCommand:beady.visualizeDependencies",
+    "onCommand:beady.exportCsv",
+    "onCommand:beady.exportMarkdown",
+    "onCommand:beady.inlineStatusChange",
+    "onCommand:beady.clearSortOrder",
+    "onCommand:beady.pickSortMode",
+    "onCommand:beady.toggleSortMode",
+    "onCommand:beady.applyQuickFilterPreset",
+    "onCommand:beady.clearQuickFilters",
+    "onCommand:beady.refreshActivityFeed",
+    "onCommand:beady.filterActivityFeed",
+    "onCommand:beady.clearActivityFeedFilter",
+    "onCommand:beady.activityFeed.openEvent",
+    "onCommand:beady.activityFeed.openSelected",
+    "onCommand:beady.openActivityFeedPanel",
+    "onCommand:beady.bulkUpdateStatus",
+    "onCommand:beady.bulkAddLabel",
+    "onCommand:beady.bulkRemoveLabel",
+    "onCommand:beady.toggleFavorite",
+    "onCommand:beady.openInProgressPanel",
+    "onCommand:beady.inlineEditTitle",
+    "onCommand:beady.inlineEditLabels",
+    "onCommand:beady.selectWorkspace"
   ]
 }

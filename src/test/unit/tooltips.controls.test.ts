@@ -41,10 +41,40 @@ function createVscodeStub() {
   const t = (message: string, ...args: any[]) =>
     message.replace(/\{(\d+)\}/g, (_match, index) => String(args[Number(index)] ?? `{${index}}`));
 
+  class TreeItem {
+    public label?: any;
+    public collapsibleState: number;
+    constructor(label?: any, collapsibleState: number = 0) {
+      this.label = label;
+      this.collapsibleState = collapsibleState;
+    }
+  }
+
+  class MarkdownString {
+    value = '';
+    isTrusted = false;
+    supportHtml = false;
+    appendMarkdown(md: string): void {
+      this.value += md;
+    }
+  }
+
+  class ThemeIcon {
+    constructor(public id: string, public color?: any) {}
+  }
+
+  class ThemeColor {
+    constructor(public id: string) {}
+  }
+
   return {
     __configValues: configValues,
     l10n: { t },
     env: { language: 'en', openExternal: async () => undefined },
+    TreeItem,
+    MarkdownString,
+    ThemeIcon,
+    ThemeColor,
     workspace: {
       workspaceFolders: [] as any[],
       getConfiguration: () => ({
@@ -81,9 +111,6 @@ function createVscodeStub() {
     EventEmitter,
     StatusBarAlignment: { Left: 1 },
     TreeItemCollapsibleState: { None: 0, Collapsed: 1, Expanded: 2 },
-    ThemeIcon: class { constructor(public id: string, public color?: any) {} },
-    ThemeColor: class { constructor(public id: string) {} },
-    MarkdownString: class { constructor(public value = '') {} },
     RelativePattern: class {},
     Uri: { file: (fsPath: string) => ({ fsPath }) },
   } as any;
@@ -96,19 +123,19 @@ describe('Control tooltips', () => {
   const resolve = (key: string): string => nls[key] ?? '';
 
   it('clear search tooltip includes shortcut hint', () => {
-    const text = resolve('command.beads.clearSearch');
+    const text = resolve('command.beady.clearSearch');
     assert.match(text, /clear search/i);
     assert.match(text, /esc/i);
   });
 
   it('toggle sort tooltip describes cycling', () => {
-    const text = resolve('command.beads.toggleSortMode');
+    const text = resolve('command.beady.toggleSortMode');
     assert.match(text, /cycle/i);
     assert.match(text, /sort/i);
   });
 
   it('visualize dependencies tooltip mentions graph', () => {
-    const text = resolve('command.beads.visualizeDependencies');
+    const text = resolve('command.beady.visualizeDependencies');
     assert.match(text, /(visualize|graph)/i);
   });
 });
@@ -156,7 +183,7 @@ describe('Status bar tooltips', () => {
 
     assert.ok(statusItem.tooltip?.includes('3'));
     assert.ok(statusItem.tooltip?.includes('20'));
-    assert.strictEqual(statusItem.command, 'beadsExplorer.focus');
+    assert.strictEqual(statusItem.command, 'beadyExplorer.focus');
   });
 
   it('shows feedback tooltip when no stale tasks', () => {
@@ -175,6 +202,6 @@ describe('Status bar tooltips', () => {
     (provider as any).updateStatusBar(0, 10);
 
     assert.ok(statusItem.tooltip?.toLowerCase().includes('feedback'));
-    assert.strictEqual(statusItem.command, 'beads.sendFeedback');
+    assert.strictEqual(statusItem.command, 'beady.sendFeedback');
   });
 });

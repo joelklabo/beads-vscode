@@ -155,7 +155,7 @@ describe('Inline edit commands', () => {
     treeView = { selection: [new (extension as any).BeadTreeItem({ id: 'X', title: 'X' })] } as any;
 
     await inlineEditTitle(provider, treeView);
-    assert.ok(vscodeStub._info.some((msg: string) => msg.toLowerCase().includes('enable the "beads.inline')));
+    assert.ok(vscodeStub._info.some((msg: string) => msg.toLowerCase().includes('enable the "beady.inline')));
   });
 
   it('restores focus after inline title edit', async () => {

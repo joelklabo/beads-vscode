@@ -186,7 +186,7 @@ describe('Feedback surfaces & enablement', () => {
 
     assert.strictEqual(statusItem.visible, true);
     assert.ok(statusItem.text.includes('Send Feedback'));
-    assert.strictEqual(statusItem.command, 'beads.sendFeedback');
+    assert.strictEqual(statusItem.command, 'beady.sendFeedback');
 
     provider.dispose();
   });
@@ -208,7 +208,7 @@ describe('Feedback surfaces & enablement', () => {
 
     assert.strictEqual(statusItem.visible, true);
     assert.ok(statusItem.text.includes('2 stale'));
-    assert.strictEqual(statusItem.command, 'beadsExplorer.focus');
+    assert.strictEqual(statusItem.command, 'beadyExplorer.focus');
 
     provider.dispose();
   });

@@ -16,9 +16,9 @@ suite('Extension Test Suite', () => {
 
   test('Commands should be registered', async () => {
     const commands = await vscode.commands.getCommands(true);
-    assert.ok(commands.includes('beads.refresh'));
-    assert.ok(commands.includes('beads.openBead'));
-    assert.ok(commands.includes('beads.createBead'));
-    assert.ok(commands.includes('beads.editExternalReference'));
+    assert.ok(commands.includes('beady.refresh'));
+    assert.ok(commands.includes('beady.openBead'));
+    assert.ok(commands.includes('beady.createBead'));
+    assert.ok(commands.includes('beady.editExternalReference'));
   });
 });

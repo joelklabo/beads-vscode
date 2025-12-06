@@ -22,13 +22,13 @@ bd CLI → .beads/*.db (or issues.jsonl fallback)
 - **Activation only in `extension.ts`**: activation/deactivation wire up providers and commands; domain logic lives in `extension.main` + core packages.
 - **CLI safety**: all invocations go through `BdCliClient` which injects `--no-daemon`, validates args, applies retry/timeout/offline thresholds, and sanitizes stderr (paths/tokens). Mutations run the worktree guard when enabled.
 - **Multi-root aware**: each workspace folder resolves its own `commandPath`, `projectRoot`, and data file. Watchers are scoped per root to avoid cross-talk.
-- **Read path**: BeadsStore calls `bd export` (max buffer set for graphs) and normalizes results. On CLI failure it falls back to `beads.dataFile` (JSON/JSONL) and still sorts naturally.
+- **Read path**: BeadsStore calls `bd export` (max buffer set for graphs) and normalizes results. On CLI failure it falls back to `beady.dataFile` (JSON/JSONL) and still sorts naturally.
 - **Write path**: command helpers (`runBdCommand`, bulk/inline edits, dependency add/remove) call BdCliClient and then refresh the store. Errors are surfaced via VS Code notifications with sanitized messages.
 - **Workspace trust**: mutation commands check workspace trust/worktree guard before invoking bd.
 
 ## Configuration surface
 
-`beads.commandPath`, `beads.projectRoot`, `beads.dataFile` influence CLI resolution; CLI policy comes from `beads.cli.*` and `beads.offlineDetection.thresholdMs`. Extension code should never bypass these settings.
+`beady.commandPath`, `beady.projectRoot`, `beady.dataFile` influence CLI resolution; CLI policy comes from `beady.cli.*` and `beady.offlineDetection.thresholdMs`. Extension code should never bypass these settings.
 
 ## Error handling
 

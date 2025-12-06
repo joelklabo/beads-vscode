@@ -4,7 +4,7 @@ import { syncFavoritesState } from '../utils/favorites';
 import { BeadItemData } from '@beads/core';
 
 function createContext(seed: string[] = []) {
-  const store = new Map<string, any>([['beads.favorites.local', seed]]);
+  const store = new Map<string, any>([['beady.favorites.local', seed]]);
   return {
     workspaceState: {
       get: (key: string, fallback?: any) => store.has(key) ? store.get(key) : fallback,
@@ -55,7 +55,7 @@ describe('favorites persistence and sync', () => {
     });
 
     assert.deepStrictEqual(Array.from(synced).sort(), ['A-1']);
-    assert.deepStrictEqual(context._store.get('beads.favorites.local'), ['A-1']);
+    assert.deepStrictEqual(context._store.get('beady.favorites.local'), ['A-1']);
   });
 
   it('preserves local favorites when label storage is disabled', async () => {
@@ -72,7 +72,7 @@ describe('favorites persistence and sync', () => {
     });
 
     assert.deepStrictEqual(Array.from(synced), ['LOCAL-1']);
-    assert.deepStrictEqual(context._store.get('beads.favorites.local'), ['LOCAL-1']);
+    assert.deepStrictEqual(context._store.get('beady.favorites.local'), ['LOCAL-1']);
   });
 
   it('drops stale local favorites when labels no longer contain them', async () => {
@@ -89,6 +89,6 @@ describe('favorites persistence and sync', () => {
     });
 
     assert.deepStrictEqual(Array.from(synced), ['KEEP']);
-    assert.deepStrictEqual(context._store.get('beads.favorites.local'), ['KEEP']);
+    assert.deepStrictEqual(context._store.get('beady.favorites.local'), ['KEEP']);
   });
 });
