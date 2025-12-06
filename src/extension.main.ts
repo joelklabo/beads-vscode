@@ -5684,7 +5684,37 @@ export function activate(context: vscode.ExtensionContext): void {
   const watchManager = new WatcherManager(createVsCodeWatchAdapter());
   context.subscriptions.push({ dispose: () => watchManager.dispose() });
 
-  const provider = new BeadsTreeDataProvider(context, watchManager);
+  let providerRef: BeadsTreeDataProvider | undefined;
+  let activationError: unknown;
+
+  const showActivationError = (commandId?: string, error?: unknown): void => {
+    const prefix = commandId ? t('Beads command {0} failed', commandId) : t('Beads activation failed');
+    const sanitized = formatSafeError(prefix, error ?? activationError ?? t('Unknown error'), [], currentWorktreeId(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? ''));
+    void vscode.window.showErrorMessage(sanitized);
+  };
+
+  const registerSortCommand = <Args extends any[]>(commandId: string, handler: (p: BeadsTreeDataProvider, ...args: Args) => unknown): void => {
+    const disposable = vscode.commands.registerCommand(commandId, async (...args: Args) => {
+      if (!providerRef) {
+        showActivationError(commandId);
+        return;
+      }
+      try {
+        return await handler(providerRef, ...args);
+      } catch (error) {
+        console.error(`[beads] ${commandId} failed`, error);
+        showActivationError(commandId, error);
+      }
+    });
+    context.subscriptions.push(disposable);
+  };
+
+  try {
+    providerRef = new BeadsTreeDataProvider(context, watchManager);
+    if (!providerRef) {
+      throw new Error('Beads tree provider failed to initialize');
+    }
+    const provider = providerRef;
   const treeView = vscode.window.createTreeView('beadsExplorer', {
     treeDataProvider: provider,
     dragAndDropController: provider,
@@ -5812,8 +5842,6 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('beads.clearSortOrder', () => provider.clearSortOrder()),
     vscode.commands.registerCommand('beads.applyQuickFilterPreset', () => provider.applyQuickFilterPreset()),
     vscode.commands.registerCommand('beads.clearQuickFilters', () => provider.clearQuickFilter()),
-    vscode.commands.registerCommand('beads.pickSortMode', () => provider.pickSortMode()),
-    vscode.commands.registerCommand('beads.toggleSortMode', () => provider.toggleSortMode()),
     vscode.commands.registerCommand('beads.openBead', (item: BeadItemData) => openBead(item, provider)),
     vscode.commands.registerCommand('beads.createBead', () => createBead()),
     vscode.commands.registerCommand('beads.selectWorkspace', () => selectWorkspace(provider)),
@@ -6081,6 +6109,14 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(configurationWatcher, workspaceWatcher);
 
   void provider.refresh();
+  } catch (error) {
+    activationError = error;
+    console.error('[beads] activation failed', error);
+    showActivationError(undefined, error);
+  }
+
+  registerSortCommand('beads.pickSortMode', (p) => p.pickSortMode());
+  registerSortCommand('beads.toggleSortMode', (p) => p.toggleSortMode());
 }
 
 export function deactivate(): void {
