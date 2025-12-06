@@ -499,6 +499,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   setTreeView(treeView: vscode.TreeView<TreeItemType>): void {
     this.treeView = treeView;
     this.updateQuickFilterUi();
+    this.updateSortDescription();
   }
 
   setStatusBarItem(statusBarItem: vscode.StatusBarItem): void {
@@ -1738,19 +1739,33 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     }
     this.saveSortMode();
     this.onDidChangeTreeDataEmitter.fire();
-    const modeDisplay =
-      this.sortMode === 'id'
-        ? t('ID (natural)')
-        : this.sortMode === 'status'
-          ? t('Status')
-          : this.sortMode === 'epic'
-            ? t('Epic')
-            : t('Assignee');
-    void vscode.window.showInformationMessage(t('Sort mode: {0}', modeDisplay));
+    const modeDisplay = this.getSortModeLabel();
+    this.updateSortDescription();
+    void vscode.window.showInformationMessage(t('Sort mode set to {0}.', modeDisplay));
   }
 
   getSortMode(): 'id' | 'status' | 'epic' | 'assignee' {
     return this.sortMode;
+  }
+
+  private getSortModeLabel(): string {
+    switch (this.sortMode) {
+      case 'status':
+        return t('Status (grouped)');
+      case 'epic':
+        return t('Epic (grouped)');
+      case 'assignee':
+        return t('Assignee (names listed, Unassigned last)');
+      default:
+        return t('ID (natural)');
+    }
+  }
+
+  private updateSortDescription(): void {
+    if (!this.treeView) {
+      return;
+    }
+    this.treeView.description = t('Sort: {0}', this.getSortModeLabel());
   }
 
   private applySortOrder(items: BeadItemData[]): BeadItemData[] {
