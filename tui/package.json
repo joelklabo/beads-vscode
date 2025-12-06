@@ -8,7 +8,9 @@
   "scripts": {
     "build": "tsc -b",
     "test": "tsx src/__tests__/nav.runner.tsx && tsx src/__tests__/eventsStore.test.ts && tsx src/__tests__/graph.test.ts && tsx src/__tests__/start.test.ts",
-    "start": "tsx src/run.tsx"
+    "start": "tsx src/run.tsx",
+    "test:visual": "tsx src/test-harness/compare.ts",
+    "test:visual:update": "tsx src/test-harness/compare.ts --update"
   },
   "dependencies": {
     "ink": "^4.4.1",
