@@ -30,6 +30,17 @@ export function getAssigneeInfo(bead: BeadItemData): { name: string; display: st
   return { name, display: truncated, dot };
 }
 
+export class SummaryHeaderItem extends vscode.TreeItem {
+  constructor(label: string, description?: string, tooltip?: string) {
+    super(label, vscode.TreeItemCollapsibleState.None);
+    this.contextValue = 'summaryHeader';
+    this.description = description;
+    this.tooltip = tooltip ?? description ?? label;
+    this.iconPath = new vscode.ThemeIcon('info');
+    this.accessibilityInformation = { label: `${label}: ${description ?? ''}`.trim() };
+  }
+}
+
 export class StatusSectionItem extends vscode.TreeItem {
   constructor(public readonly status: string, public readonly beads: BeadItemData[], isCollapsed: boolean = false) {
     const statusDisplay = status.split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
@@ -279,4 +290,4 @@ function truncate(value: string, maxLength: number): string {
   return value.length > maxLength ? `${value.slice(0, maxLength - 1)}…` : value;
 }
 
-export type BeadsTreeItem = StatusSectionItem | WarningSectionItem | EpicStatusSectionItem | AssigneeSectionItem | EpicTreeItem | UngroupedSectionItem | BeadTreeItem | BeadDetailItem;
+export type BeadsTreeItem = SummaryHeaderItem | StatusSectionItem | WarningSectionItem | EpicStatusSectionItem | AssigneeSectionItem | EpicTreeItem | UngroupedSectionItem | BeadTreeItem | BeadDetailItem;

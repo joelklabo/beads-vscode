@@ -58,8 +58,9 @@ suite('Expandable rows', () => {
     ];
 
     let roots = await provider.getChildren();
-    assert.strictEqual(roots.length, 1);
-    const bead = roots[0] as any;
+    const header = roots.find((node: any) => node.contextValue === 'summaryHeader');
+    assert.ok(header, 'should render summary header');
+    const bead = roots.find((node: any) => node instanceof BeadTreeItem) as any;
     assert.ok(bead instanceof BeadTreeItem);
     assert.strictEqual(bead.collapsibleState, vscodeStub.TreeItemCollapsibleState.Collapsed);
 
@@ -69,7 +70,7 @@ suite('Expandable rows', () => {
     assert.deepStrictEqual(stored, ['task-1']);
 
     roots = await provider.getChildren();
-    const expanded = roots[0] as any;
+    const expanded = roots.find((node: any) => node instanceof BeadTreeItem) as any;
     assert.strictEqual(expanded.collapsibleState, vscodeStub.TreeItemCollapsibleState.Expanded);
 
     const detailItems = await provider.getChildren(expanded);
