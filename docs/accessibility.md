@@ -22,6 +22,13 @@ This document summarizes the accessibility affordances for dependency visualizat
 - Dependency tree rows include aria-expanded and show a left border when expanded; focus rings and CanvasText outlines remain visible in forced-colors.
 - Tree items announce assignee and status through accessibility labels so status/assignee cues are not color-only.
 
+## Sort picker and assignee grouping
+- Sort picker command opens a Quick Pick with a clear title/placeholder that includes the current mode; options have concise descriptions (ID, Status, Epic, Assignee) and are fully keyboard navigable.
+- Active sort mode is reflected in the explorer description/context so screen readers announce it; avoid color-only cues in the toolbar.
+- Assignee sections announce assignee name and item count (e.g., "Assignee Ada — 3 items"); the Unassigned bucket is labeled explicitly.
+- Section icons use VS Code theme colors plus text; focus outlines remain visible in high-contrast/forced-colors modes.
+- Assignee labels used for UI, aria-labels, and collapse state are sanitized; aria-label keeps the full sanitized name even when the visible label is truncated.
+
 
 ## Known limitations
 - Tree items are always expanded; Left/Right navigation only moves focus (no collapse state yet).
