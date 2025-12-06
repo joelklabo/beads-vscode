@@ -13,7 +13,7 @@ function hashString(value: string): number {
   return hash;
 }
 
-function getAssigneeInfo(bead: BeadItemData): { name: string; display: string; dot: string } {
+export function getAssigneeInfo(bead: BeadItemData): { name: string; display: string; dot: string } {
   const fallback = t('Unassigned');
   const raw = (bead.assignee ?? '').trim();
   const safe = sanitizeInlineText(raw);
@@ -122,6 +122,21 @@ export class UngroupedSectionItem extends vscode.TreeItem {
     this.description = `${children.length} item${children.length !== 1 ? 's' : ''}`;
     this.iconPath = new vscode.ThemeIcon('inbox', new vscode.ThemeColor('charts.blue'));
     this.tooltip = `Items without a parent epic: ${children.length}`;
+  }
+}
+
+export class AssigneeSectionItem extends vscode.TreeItem {
+  constructor(
+    public readonly assignee: string,
+    public readonly beads: BeadItemData[],
+    public readonly dot: string,
+    isCollapsed: boolean = false,
+    public readonly key: string
+  ) {
+    super(`${dot} ${assignee}`, isCollapsed ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.Expanded);
+    this.contextValue = 'assigneeSection';
+    this.description = `${beads.length}`;
+    this.tooltip = `${assignee}: ${beads.length} item${beads.length !== 1 ? 's' : ''}`;
   }
 }
 
@@ -264,4 +279,4 @@ function truncate(value: string, maxLength: number): string {
   return value.length > maxLength ? `${value.slice(0, maxLength - 1)}…` : value;
 }
 
-export type BeadsTreeItem = StatusSectionItem | WarningSectionItem | EpicTreeItem | UngroupedSectionItem | BeadTreeItem | BeadDetailItem;
+export type BeadsTreeItem = StatusSectionItem | WarningSectionItem | EpicStatusSectionItem | AssigneeSectionItem | EpicTreeItem | UngroupedSectionItem | BeadTreeItem | BeadDetailItem;

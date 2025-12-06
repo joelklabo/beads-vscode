@@ -57,6 +57,7 @@ import { ActivityFeedTreeDataProvider, ActivityEventItem } from './activityFeedP
 import { EventType } from './activityFeed';
 import { validateLittleGlenMessage, AllowedLittleGlenCommand } from './littleGlen/validation';
 import {
+  AssigneeSectionItem,
   BeadTreeItem,
   BeadDetailItem,
   EpicTreeItem,
@@ -64,6 +65,7 @@ import {
   UngroupedSectionItem,
   WarningSectionItem,
   EpicStatusSectionItem,
+  getAssigneeInfo,
 } from './providers/beads/items';
 import {
   BeadsDocument,
@@ -233,7 +235,7 @@ async function runBdCommand(args: string[], projectRoot: string, options: BdComm
   await client.run(args);
 }
 
-type TreeItemType = StatusSectionItem | WarningSectionItem | EpicStatusSectionItem | EpicTreeItem | UngroupedSectionItem | BeadTreeItem | BeadDetailItem;
+type TreeItemType = StatusSectionItem | WarningSectionItem | EpicStatusSectionItem | AssigneeSectionItem | EpicTreeItem | UngroupedSectionItem | BeadTreeItem | BeadDetailItem;
 
 type StatusLabelMap = {
   open: string;
@@ -449,6 +451,8 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   private collapsedSections: Set<string> = new Set(DEFAULT_COLLAPSED_SECTION_KEYS);
   // Collapsed state for epics (id -> collapsed)
   private collapsedEpics: Map<string, boolean> = new Map();
+  // Collapsed state for assignee sections
+  private collapsedAssignees: Map<string, boolean> = new Map();
   // Expanded state for bead rows (id -> expanded)
   private expandedRows: Set<string> = new Set();
 
@@ -464,6 +468,8 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     this.loadSortMode();
     // Load persisted collapsed sections
     this.loadCollapsedSections();
+    // Load persisted assignee collapse state
+    this.loadCollapsedAssignees();
     // Load persisted expanded rows
     this.loadExpandedRows();
     // Load quick filter preset
@@ -589,6 +595,10 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     if (element instanceof EpicStatusSectionItem) {
       return element.epics;
     }
+
+    if (element instanceof AssigneeSectionItem) {
+      return element.beads.map((item) => this.createTreeItem(item));
+    }
     
     if (element instanceof EpicTreeItem) {
       return element.children.map((item) => this.createTreeItem(item));
@@ -615,6 +625,10 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     
     if (this.sortMode === 'epic') {
       return this.createEpicTree(filteredItems);
+    }
+
+    if (this.sortMode === 'assignee') {
+      return this.createAssigneeSections(filteredItems);
     }
     
     const sortedItems = this.applySortOrder(filteredItems);
@@ -771,6 +785,49 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     }
     
     return sections;
+  }
+
+  private createAssigneeSections(items: BeadItemData[]): AssigneeSectionItem[] {
+    const fallback = t('Unassigned');
+    const UNASSIGNED_KEY = '__unassigned__';
+    const groups = new Map<string, { beads: BeadItemData[]; display: string; dot: string }>();
+
+    items.forEach((item) => {
+      const rawName = deriveAssigneeName(item, fallback);
+      const safeName = sanitizeInlineText(rawName).trim();
+      const key = safeName.length > 0 ? safeName.toLowerCase() : UNASSIGNED_KEY;
+      const display = safeName.length > 0 ? safeName : fallback;
+      const info = getAssigneeInfo(item);
+
+      const existing = groups.get(key);
+      if (existing) {
+        existing.beads.push(item);
+      } else {
+        groups.set(key, { beads: [item], display: info.name || display, dot: info.dot });
+      }
+    });
+
+    const sortedKeys = Array.from(groups.keys()).sort((a, b) => {
+      if (a === b) {
+        return 0;
+      }
+      if (a === UNASSIGNED_KEY) {
+        return 1;
+      }
+      if (b === UNASSIGNED_KEY) {
+        return -1;
+      }
+      return a.localeCompare(b, undefined, { sensitivity: 'base' });
+    });
+
+    return sortedKeys.map((key) => {
+      const entry = groups.get(key)!;
+      entry.beads.sort(naturalSort);
+      const collapsed = this.collapsedAssignees.get(key) === true;
+      const label = entry.display || fallback;
+      const dot = entry.dot || '⚪';
+      return new AssigneeSectionItem(label, entry.beads, dot, collapsed, key);
+    });
   }
 
   async refresh(): Promise<void> {
@@ -1506,6 +1563,22 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     void this.context.workspaceState.update('beady.collapsedEpics', epicState);
   }
 
+  private loadCollapsedAssignees(): void {
+    const saved = this.context.workspaceState.get<Record<string, boolean>>('beady.collapsedAssignees');
+    const entries = saved ? Object.entries(saved) : [];
+    this.collapsedAssignees = new Map(entries);
+  }
+
+  private saveCollapsedAssignees(): void {
+    const state: Record<string, boolean> = {};
+    this.collapsedAssignees.forEach((collapsed, key) => {
+      if (collapsed) {
+        state[key] = true;
+      }
+    });
+    void this.context.workspaceState.update('beady.collapsedAssignees', state);
+  }
+
   private loadExpandedRows(): void {
     const saved = this.context.workspaceState.get<string[]>('beady.expandedRows');
     this.expandedRows = new Set(saved ?? []);
@@ -1715,6 +1788,14 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
       return;
     }
 
+    if (element instanceof AssigneeSectionItem) {
+      this.collapsedAssignees.set(element.key, isCollapsed);
+      this.saveCollapsedAssignees();
+      element.collapsibleState = isCollapsed ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.Expanded;
+      this.onDidChangeTreeDataEmitter.fire(element);
+      return;
+    }
+
     const key = this.getCollapseKey(element);
     if (!key) {
       return;
@@ -1748,7 +1829,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
       case 'epic':
         return t('Epic (grouped)');
       case 'assignee':
-        return t('Assignee (names listed, Unassigned last)');
+        return t('Assignee (grouped by owner, Unassigned last)');
       default:
         return t('ID (natural)');
     }

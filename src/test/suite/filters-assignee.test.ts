@@ -94,8 +94,11 @@ suite('Filter & assignee flows', () => {
 
     const roots = await provider.getChildren();
     const sections = roots.filter((node: any) => node.contextValue === 'assigneeSection');
-    const labels = sections.map((s: any) => s.label);
+    const labels = sections.map((s: any) => s.assignee);
     assert.deepStrictEqual(labels, ['Alice', 'Bob', 'Unassigned']);
+    sections.forEach((section: any) => {
+      assert.ok(typeof section.dot === 'string' && section.dot.length > 0);
+    });
 
     const aliceChildren = await provider.getChildren(sections[0]);
     assert.deepStrictEqual(aliceChildren.map((n: any) => n.bead.id), ['task-a']);
@@ -127,7 +130,7 @@ suite('Filter & assignee flows', () => {
     (provider2 as any).sortMode = 'assignee';
     (provider2 as any).items = (provider as any).items;
     const roots2 = await provider2.getChildren();
-    const adaSection = roots2.find((n: any) => n.contextValue === 'assigneeSection' && n.label === 'Ada');
+    const adaSection = roots2.find((n: any) => n.contextValue === 'assigneeSection' && n.assignee === 'Ada');
     assert.strictEqual(adaSection.collapsibleState, createVscodeStub().TreeItemCollapsibleState.Collapsed);
   });
 });
