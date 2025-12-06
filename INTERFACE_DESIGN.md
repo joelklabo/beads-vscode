@@ -46,3 +46,10 @@ bd CLI → .beads/*.db (or issues.jsonl fallback)
 - Tree providers consume `BeadsStore` output (`BeadItemData[]`) and rely on core helpers (natural sort, stale detection, graph helpers, status/priority formatting).
 - UI/tooltips must use the shared sanitizers (`@beads/core` security helpers); see `docs/tooltips/hover-rules.md`.
 - When adding new commands, register them via `packages/platform-vscode` and route all bd calls through the shared helpers above.
+
+## Sorting & grouping UX
+
+- Sort selection lives behind `beads.toggleSortMode` but surfaces as a quick pick (ID, Status, Epic, Assignee) instead of blind cycling. The active mode is persisted in `workspaceState` and mirrored in the tree description/context for screen readers (see `docs/accessibility.md`).
+- Manual drag ordering applies only in ID mode; grouped modes (status/epic/assignee) ignore manual order and render collapsible sections with counts.
+- Assignee grouping always includes an **Unassigned** bucket pinned last; section labels combine assignee name + item count to avoid color-only cues.
+- Section collapse state is persisted; grouping modes must keep collapse keys stable across refreshes.

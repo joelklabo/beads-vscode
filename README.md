@@ -42,7 +42,7 @@ The Ink-based TUI also rides on the shared layers: it instantiates `BeadsStore` 
 - **Dedicated Activity Bar**: Beads has its own dedicated view in the VS Code activity bar for easy access.
 - **Tree View**: Explorer view that lists all beads for the current workspace with status-based icons.
 - **Issue Type Icons**: Each issue type displays with a distinctive icon - epics (📦), tasks (☑️), bugs (🐛), features (💡), spikes (🧪), and chores (🔧) - making it easy to identify different work types at a glance.
-- **Epic Grouping**: Group tasks by their parent epic using the "Toggle Sort Mode" command. Epics appear as expandable sections containing their child tasks, with ungrouped items shown in a separate section. Toggle between ID sort, status sort, and epic grouping modes.
+- **Sort Picker**: Choose between ID, Status, Epic, or Assignee modes from a quick pick (command palette or toolbar). Epic and assignee modes show expandable sections (with **Unassigned** explicitly labeled) while ID mode keeps manual drag ordering intact.
 - **Live Data Sync**: Automatically watches the Beads database for changes and refreshes the view in real-time.
 - **Stale Task Warning**: Automatically detects and highlights in-progress tasks that have been stale for too long. A warning section at the top of the tree view shows tasks that exceed the configurable threshold, helping identify potentially stuck work or forgotten tasks. Closed items are never shown in this bucket.
 - **Search**: Search across beads by ID, title, description, labels, status, assignee, and more.
@@ -93,7 +93,7 @@ The extension integrates with the Beads CLI (`bd`) and reads from the Beads data
 | `Beads: Create` | Create a new bead by prompting for a title and invoking `bd create`. |
 | `Beads: Visualize Dependencies` | Open an interactive dependency graph showing relationships between beads. |
 | `Beads: Send Feedback` | Open the configured feedback flow (command palette, Beads toolbar, bead context menu, or status bar when enabled). |
-| `Beads: Toggle Sort Mode` | Cycle through view modes: ID sort → Status grouping → Epic grouping. Epic mode shows tasks grouped under their parent epics. |
+| `Beads: Toggle Sort Mode` | Open the sort picker (ID • Status • Epic • Assignee). Epic/assignee modes render collapsible sections; ID mode preserves manual drag order. |
 | `Beads: Clear Manual Sort Order` | Reset manual drag-and-drop sorting and return to natural ID-based sorting. |
 | `Beads: Delete` | Delete selected bead(s) from the project. |
 
@@ -137,16 +137,17 @@ The extension integrates with the Beads CLI (`bd`) and reads from the Beads data
 
 ### View Modes
 
-The extension supports three view modes that you can cycle through using the "Toggle Sort Mode" command:
+Pick a mode with `Beads: Toggle Sort Mode` (shows a quick pick instead of blind cycling):
 
-1. **ID Sort** (default): Beads are sorted naturally by ID
-2. **Status Grouping**: Beads are grouped into collapsible sections by status (Open, In Progress, Blocked, Closed)
-3. **Epic Grouping**: Beads are grouped under their parent epics. Epics appear as expandable sections with their child tasks nested underneath. Tasks without a parent epic are shown in an "Ungrouped" section.
+1. **ID Sort** (default): Natural ID order; manual drag-and-drop is preserved here.
+2. **Status Grouping**: Collapsible sections for Open / In Progress / Blocked / Closed.
+3. **Epic Grouping**: Items nest under their parent epic; tasks without a parent appear in an "Ungrouped" section.
+4. **Assignee Grouping**: Sections labeled with assignee name and item count; **Unassigned** is always present and pinned last.
 
 ### Filters and badges
 
 - Use the explorer toolbar chip labeled `Filter: <mode>` (Issues, Epics, Favorites, Recent, Blockers, etc.). Click it or run `Beads: Switch Filter Mode…` (Cmd/Ctrl+Shift+P) to open the same quick pick with scope hints; the active label stays visible in high-contrast themes.
-- Every row shows an assignee pill plus a colored status badge even when collapsed. In **assignee sort** (cycle with `Beads: Toggle Sort Mode`), names sort case-insensitively with **Unassigned** pinned to the bottom.
+- Every row shows an assignee pill plus a colored status badge even when collapsed. In **assignee grouping** (choose via `Beads: Toggle Sort Mode`), names sort case-insensitively with **Unassigned** pinned to the bottom; section labels include counts for screen readers (see [docs/accessibility.md](docs/accessibility.md)).
 - Press **Space/Enter** or click the chevron to expand a row for labels, priority, external reference, and updated time without leaving the list. Focus order and `aria-expanded` stay in sync, and user-provided text is HTML-escaped in tooltips/markdown for safety.
 - See [docs/filters-assignee.md](docs/filters-assignee.md) for deeper UX/accessibility notes.
 

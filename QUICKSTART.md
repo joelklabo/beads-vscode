@@ -127,7 +127,7 @@ The tree view shows all your beads with:
 
 **Filter + sort:**
 - The toolbar chip shows `Filter: <mode>` (Issues, Epics, Favorites, Recent, Blockers, etc.). Click it or run `Beads: Switch Filter Mode…` to change scopes; the same quick pick works keyboard-only and keeps the active label visible.
-- Use `Beads: Toggle Sort Mode` to cycle to **assignee sort**; names sort case-insensitively with **Unassigned** pinned last.
+- Use `Beads: Toggle Sort Mode` (opens a quick pick) to choose **ID**, **Status**, **Epic**, or **Assignee** grouping. Assignee sections include counts and keep **Unassigned** pinned last.
 - Rows always show assignee and status pills; press Space/Enter or the chevron to expand a row for labels, priority, updated time, and external refs without leaving the list.
 
 **Keyboard shortcuts:**
