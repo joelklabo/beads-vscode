@@ -9,9 +9,9 @@
     "test:web:skeleton": "npm run build"
   },
   "dependencies": {
-    "@beads/core": "0.0.0",
-    "@beads/ui-headless": "0.0.0",
-    "@beads/ui-web": "0.0.0",
+    "@beads/core": "0.1.0",
+    "@beads/ui-headless": "0.1.0",
+    "@beads/ui-web": "0.1.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
