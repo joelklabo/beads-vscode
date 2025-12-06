@@ -26,6 +26,17 @@
 - TUI: `npm run test:tui` (delegates to the `@beads/tui` workspace script and runs the Ink nav/events/graph suites).
 - Web smoke: `npm run test:web:skeleton` (builds `@beads/web` with `tsc -b`; skips if the web workspace is missing).
 
+## TUI visual snapshots (headless harness)
+- Run from a task worktree (verify with `./scripts/task-worktree.sh verify <task-id>`); heavy deps stay gated behind `TUI_VISUAL_ENABLED=1`.
+- Build artifacts once: `npm run -w @beads/tui build`, then dry-run the harness:  
+  `node tui/out/test-harness/ptyRunner.js --scenario nav-basic --cols 100 --rows 30`  
+  → writes `tmp/tui-harness/nav-basic.ansi` plus `nav-basic.json` metadata (sanitized + worktree-path redacted).
+- Terminal determinism: harness sets `TERM=xterm-256color`, `TZ=UTC`, freezes `Date.now` when `TUI_HARNESS_CLOCK_MS` is provided; override size with `--cols/--rows`.
+- Approve/compare flow (once infra scripts are wired):  
+  `npm run test:tui:visual` (fails on diffs, saves report under `tmp/tui-visual-report/<scenario>/`)  
+  `npm run test:tui:visual -- --update` (refreshes baselines in `tui/__snapshots__/baseline`).
+- Accessibility & safety: HTML reports follow [docs/accessibility.md](docs/accessibility.md); stdout is sanitized before writing artifacts. See the design notes in [docs/design/tui-visual-testing.md](docs/design/tui-visual-testing.md) for troubleshooting fonts, terminal size, or disabling the suite when tooling is unavailable.
+
 ## Stale / Warning bucket checks
 - Unit coverage lives in `src/test/unit/extension.test.ts` (warning excludes closed tasks/epics and handles empty epics). Run `npm run test:unit -- --grep "stale"` for a focused pass.
 - Manual spot-check: set `beads.staleThresholdMinutes` low, mark a task `in_progress`, wait past the threshold, and confirm it shows in Warning; closing the item should drop it from Warning immediately.
