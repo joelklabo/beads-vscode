@@ -2,6 +2,7 @@ import * as path from 'path';
 import * as fs from 'fs/promises';
 import { runTests } from '@vscode/test-electron';
 import { buildTestEnv } from './utils/env';
+import './setup/resolve-extension';
 
 async function main(): Promise<void> {
   let cleanupTargets: string[] = [];

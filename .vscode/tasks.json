@@ -2,6 +2,7 @@
   "version": "2.0.0",
   "tasks": [
     {
+      "label": "npm: watch",
       "type": "npm",
       "script": "watch",
       "problemMatcher": "$tsc-watch",
@@ -15,9 +16,25 @@
       }
     },
     {
+      "label": "npm: compile",
       "type": "npm",
       "script": "compile",
       "problemMatcher": "$tsc",
+      "group": "build"
+    },
+    {
+      "label": "npm: bundle",
+      "type": "npm",
+      "script": "bundle",
+      "group": "build"
+    },
+    {
+      "label": "build:tests",
+      "dependsOn": [
+        "npm: compile",
+        "npm: bundle"
+      ],
+      "dependsOrder": "sequence",
       "group": "build"
     }
   ]
