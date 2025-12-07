@@ -3,7 +3,16 @@ import { BeadItemData, buildPreviewSnippet, formatRelativeTime, getStaleInfo, is
 
 const t = vscode.l10n.t;
 
-const ASSIGNEE_COLOR_EMOJI = ['🔵', '🟢', '🟣', '🟠', '🔴', '🟡', '⚫', '⚪'];
+const ASSIGNEE_COLOR_EMOJI: Array<{ dot: string; name: string }> = [
+  { dot: '🔵', name: t('Blue') },
+  { dot: '🟢', name: t('Green') },
+  { dot: '🟣', name: t('Purple') },
+  { dot: '🟠', name: t('Orange') },
+  { dot: '🔴', name: t('Red') },
+  { dot: '🟡', name: t('Yellow') },
+  { dot: '⚫', name: t('Black') },
+  { dot: '⚪', name: t('Neutral') },
+];
 
 function hashString(value: string): number {
   let hash = 0;
@@ -13,7 +22,7 @@ function hashString(value: string): number {
   return hash;
 }
 
-export function getAssigneeInfo(bead: BeadItemData): { name: string; display: string; dot: string } {
+export function getAssigneeInfo(bead: BeadItemData): { name: string; display: string; dot: string; colorName: string } {
   const fallback = t('Unassigned');
   const raw = (bead.assignee ?? '').trim();
   const safe = sanitizeInlineText(raw);
@@ -21,23 +30,26 @@ export function getAssigneeInfo(bead: BeadItemData): { name: string; display: st
   const truncated = name.length > 18 ? `${name.slice(0, 17)}…` : name;
 
   if (!safe || safe.length === 0) {
-    return { name, display: truncated, dot: '⚪' };
+    return { name, display: truncated, dot: '⚪', colorName: t('Neutral') };
   }
 
   const colorIndex = hashString(name.toLowerCase()) % ASSIGNEE_COLOR_EMOJI.length;
-  const dot = ASSIGNEE_COLOR_EMOJI[colorIndex] ?? '⚪';
+  const paletteEntry = ASSIGNEE_COLOR_EMOJI[colorIndex] ?? ASSIGNEE_COLOR_EMOJI[ASSIGNEE_COLOR_EMOJI.length - 1];
+  const dot = paletteEntry.dot;
+  const colorName = paletteEntry.name;
 
-  return { name, display: truncated, dot };
+  return { name, display: truncated, dot, colorName };
 }
 
 export class SummaryHeaderItem extends vscode.TreeItem {
-  constructor(label: string, description?: string, tooltip?: string) {
+  constructor(label: string, description?: string, tooltip?: string, accessibilityLabel?: string) {
     super(label, vscode.TreeItemCollapsibleState.None);
     this.contextValue = 'summaryHeader';
     this.description = description;
     this.tooltip = tooltip ?? description ?? label;
     this.iconPath = new vscode.ThemeIcon('info');
-    this.accessibilityInformation = { label: `${label}: ${description ?? ''}`.trim() };
+    const ariaLabel = accessibilityLabel || (description ? `${label}: ${description}` : label);
+    this.accessibilityInformation = { label: ariaLabel, role: 'text' };
   }
 }
 
@@ -141,13 +153,19 @@ export class AssigneeSectionItem extends vscode.TreeItem {
     public readonly assignee: string,
     public readonly beads: BeadItemData[],
     public readonly dot: string,
+    public readonly colorName: string,
     isCollapsed: boolean = false,
-    public readonly key: string
+    public readonly key: string,
   ) {
     super(`${dot} ${assignee}`, isCollapsed ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.Expanded);
     this.contextValue = 'assigneeSection';
     this.description = `${beads.length}`;
     this.tooltip = `${assignee}: ${beads.length} item${beads.length !== 1 ? 's' : ''}`;
+    const label = sanitizeInlineText(assignee) || t('Unassigned');
+    const countLabel = t('{0} item{1}', beads.length, beads.length === 1 ? '' : 's');
+    this.accessibilityInformation = {
+      label: t('Assignee {0} — {1}. Color: {2}.', label, countLabel, colorName),
+    };
   }
 }
 
@@ -179,6 +197,7 @@ export class BeadTreeItem extends vscode.TreeItem {
     const assigneeInfo = getAssigneeInfo(bead);
     const safeAssigneeDisplay = sanitizeInlineText(assigneeInfo.display);
     const safeAssigneeName = sanitizeInlineText(assigneeInfo.name);
+    const safeAssigneeColor = sanitizeInlineText(assigneeInfo.colorName);
     const safeId = sanitizeInlineText(bead.id) || bead.id;
 
     const descParts: string[] = [safeId, `${assigneeInfo.dot} ${safeAssigneeDisplay}`, formatStatusLabel(bead.status || 'open')];
@@ -270,6 +289,17 @@ export class BeadTreeItem extends vscode.TreeItem {
     if (safePreview) {
       this.detailItems.push(new BeadDetailItem(t('Summary'), truncate(safePreview, 120)));
     }
+
+    const ariaParts = [
+      sanitizeInlineText(rawLabel) || rawLabel,
+      t('ID {0}', safeId),
+      t('Assignee {0} ({1})', safeAssigneeName, safeAssigneeColor),
+      t('Status {0}', formatStatusLabel(bead.status || 'open')),
+    ];
+    if (isTaskStale && staleInfo?.formattedTime) {
+      ariaParts.push(t('Stale for {0}', staleInfo.formattedTime));
+    }
+    this.accessibilityInformation = { label: ariaParts.filter(Boolean).join(' • ') };
 
     this.command = {
       command: 'beady.openBead',

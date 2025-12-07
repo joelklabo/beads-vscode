@@ -21,6 +21,9 @@ This document summarizes the accessibility affordances for dependency visualizat
 - Badges include a text label plus a geometric glyph (◆) and keep visible focus outlines. In high contrast mode badges pick up a system border.
 - Dependency tree rows include aria-expanded and show a left border when expanded; focus rings and CanvasText outlines remain visible in forced-colors.
 - Tree items announce assignee and status through accessibility labels so status/assignee cues are not color-only.
+- Summary header row uses `role=text` and a single aria-label that contains the counts (open/blocked/in progress/closed plus assignees). Screen readers no longer announce duplicate labels.
+- The “closed items” toggle always reflects its state in the explorer description (Closed visible/Closed hidden) so state is announced without relying on color or the toolbar icon.
+- Assignee dots keep their emoji swatch but aria-label text announces the assignee name, count, and swatch color to avoid color-only meaning. Counts remain visible with sufficient contrast.
 
 ## Sort picker and assignee grouping
 - Sort control surfaces the current mode in the explorer description (e.g., "Sort: Status (grouped)") so screen readers announce it; avoid color-only cues in the toolbar. When a Quick Pick is shown, include the current mode in the title/placeholder.

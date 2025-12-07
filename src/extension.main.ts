@@ -553,9 +553,8 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     const description = t('{0} items · Open {1} · In Progress {2} · Blocked {3} · Closed {4} · Assignees {5} · Unassigned {6}',
       total, counts.open ?? 0, counts.in_progress ?? 0, counts.blocked ?? 0, counts.closed ?? 0, assignees.size, unassigned);
 
-    const header = new SummaryHeaderItem(t('Issues Summary'), description, description);
-    header.accessibilityInformation = { label: description };
-    return header;
+    const accessibilityLabel = t('Issues summary: {0}', description);
+    return new SummaryHeaderItem(t('Issues Summary'), description, description, accessibilityLabel);
   }
 
   private createStatusSections(items: BeadItemData[]): (StatusSectionItem | WarningSectionItem)[] {
@@ -749,7 +748,8 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
       const collapsed = this.collapsedAssignees.get(key) === true;
       const label = entry.display || fallback;
       const dot = entry.dot || '⚪';
-      return new AssigneeSectionItem(label, entry.beads, dot, collapsed, key);
+      const colorName = getAssigneeInfo(entry.beads[0] ?? { assignee: label } as any).colorName;
+      return new AssigneeSectionItem(label, entry.beads, dot, colorName, collapsed, key);
     });
   }
 
@@ -1737,14 +1737,14 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     const quickFiltersEnabled = vscode.workspace.getConfiguration('beady').get<boolean>('quickFilters.enabled', false);
     const parts: string[] = [];
 
+    parts.push(t('Sort: {0}', this.getSortModeLabel()));
+
     if (quickFiltersEnabled) {
       const label = this.getQuickFilterLabel(this.quickFilter);
       parts.push(t('Filter: {0}', label || t('All items')));
     }
 
-    if (!this.showClosed) {
-      parts.push(t('Closed hidden'));
-    }
+    parts.push(this.showClosed ? t('Closed visible') : t('Closed hidden'));
 
     this.treeView.description = parts.length > 0 ? parts.join(' · ') : undefined;
   }
