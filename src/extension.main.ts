@@ -868,7 +868,18 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
 
   private computePanelHash(item: BeadItemData): string {
     const raw = (item.raw as any) || {};
-    const outgoingDeps = Array.isArray(raw.dependencies) ? raw.dependencies : [];
+    const outgoingDeps = Array.isArray(raw.dependencies)
+      ? raw.dependencies.map((dep: any) => ({
+          id: dep?.depends_on_id || dep?.id || dep?.issue_id,
+          type: dep?.dep_type || dep?.type || 'related',
+        }))
+      : [];
+
+    const normalizedOutgoing = outgoingDeps
+      .filter((d: { id?: string }) => d.id)
+      .sort((a: { id: string; type: string }, b: { id: string; type: string }) =>
+        a.id.localeCompare(b.id) || a.type.localeCompare(b.type)
+      );
 
     // Collect incoming deps that target this item.
     const incomingDeps: { from: string; type: string }[] = [];
@@ -890,6 +901,12 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
       });
     });
 
+    const normalizedIncoming = incomingDeps.sort((a, b) => a.from.localeCompare(b.from) || a.type.localeCompare(b.type));
+
+    const normalizedLabels = Array.isArray(raw.labels)
+      ? [...raw.labels].map(String).sort((a, b) => a.localeCompare(b))
+      : raw.labels;
+
     // Only include fields that affect rendering/controls to keep hash stable.
     return JSON.stringify({
       id: item.id,
@@ -903,14 +920,14 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
       inProgressSince: item.inProgressSince,
       externalReferenceId: item.externalReferenceId,
       externalReferenceDescription: item.externalReferenceDescription,
-      outgoingDeps,
-      incomingDeps,
+      outgoingDeps: normalizedOutgoing,
+      incomingDeps: normalizedIncoming,
       description: raw.description,
       design: raw.design,
       acceptance: raw.acceptance_criteria,
       notes: raw.notes,
       priority: raw.priority,
-      labels: raw.labels,
+      labels: normalizedLabels,
     });
   }
 
