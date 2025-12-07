@@ -79,6 +79,7 @@ import { resolveProjectRoot, getWorkspaceOptions, findWorkspaceById, loadSavedWo
 import { computeFeedbackEnablement } from './feedback/enablement';
 import { getBulkActionsConfig } from './utils/config';
 import { registerSendFeedbackCommand } from './commands/sendFeedback';
+import { CommandRegistry, createExportCommands, createQuickFilterCommands } from './commands';
 import { buildDependencyGraphHtml } from './graph/view';
 import { DependencyTreeProvider } from './dependencyTreeProvider';
 import { currentWorktreeId } from './worktree';
@@ -6058,6 +6059,12 @@ export function activate(context: vscode.ExtensionContext): void {
     await openBeadFromFeed(selectedId, provider);
   };
 
+  // Register commands via command registry
+  const commandRegistry = new CommandRegistry();
+  commandRegistry.registerAll(createQuickFilterCommands(provider));
+  commandRegistry.registerAll(createExportCommands(provider, treeView));
+  context.subscriptions.push(...commandRegistry.getDisposables());
+
   context.subscriptions.push(
     treeView,
     dependencyTreeView,
@@ -6071,8 +6078,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('beady.search', () => provider.search()),
     vscode.commands.registerCommand('beady.clearSearch', () => provider.clearSearch()),
     vscode.commands.registerCommand('beady.clearSortOrder', () => provider.clearSortOrder()),
-    vscode.commands.registerCommand('beady.applyQuickFilterPreset', () => provider.applyQuickFilterPreset()),
-    vscode.commands.registerCommand('beady.clearQuickFilters', () => provider.clearQuickFilter()),
+    // Quick filter commands now registered via commandRegistry above
     vscode.commands.registerCommand('beady.toggleClosedVisibility', () => provider.toggleClosedVisibility()),
     vscode.commands.registerCommand('beady.openBead', (item: BeadItemData) => openBead(item, provider)),
     vscode.commands.registerCommand('beady.createBead', () => createBead()),
@@ -6138,8 +6144,7 @@ export function activate(context: vscode.ExtensionContext): void {
       dependencyTreeProvider.refresh();
     }),
     vscode.commands.registerCommand('beady.visualizeDependencies', () => visualizeDependencies(provider)),
-    vscode.commands.registerCommand('beady.exportCsv', () => exportBeadsCsv(provider, treeView)),
-    vscode.commands.registerCommand('beady.exportMarkdown', () => exportBeadsMarkdown(provider, treeView)),
+    // Export commands now registered via commandRegistry above
     vscode.commands.registerCommand('beady.bulkUpdateStatus', () => bulkUpdateStatus(provider, treeView)),
     vscode.commands.registerCommand('beady.bulkAddLabel', () => bulkUpdateLabel(provider, treeView, 'add')),
     vscode.commands.registerCommand('beady.bulkRemoveLabel', () => bulkUpdateLabel(provider, treeView, 'remove')),
