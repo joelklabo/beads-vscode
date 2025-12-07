@@ -246,6 +246,21 @@ describe('Extension tree items', () => {
     assert.ok(description.includes('⚪'));
   });
 
+  it('applies accessible aria labels to bead rows', () => {
+    const bead = new BeadTreeItem({
+      id: 'task-aria',
+      title: 'Readable row',
+      issueType: 'task',
+      status: 'in_progress',
+      assignee: 'Ada Lovelace',
+      inProgressSince: new Date().toISOString(),
+    });
+
+    const aria = String(bead.accessibilityInformation?.label || '');
+    assert.ok(aria.toLowerCase().includes('assignee ada lovelace'));
+    assert.ok(aria.toLowerCase().includes('status in progress'));
+  });
+
   it('sanitizes assignee text in descriptions and tooltips', () => {
     const malicious = '<img src=x onerror=alert(1)>';
     const bead = new BeadTreeItem({
@@ -490,9 +505,47 @@ describe('Extension tree items', () => {
     provider.dispose();
   });
 
+  it('summary header carries a single descriptive aria label', async () => {
+    const context = createContextStub();
+    const provider = new BeadsTreeDataProvider(context as any);
+    (provider as any).items = [
+      { id: 'open-1', title: 'Alpha open', issueType: 'task', status: 'open' },
+      { id: 'closed-1', title: 'Closed', issueType: 'task', status: 'closed' },
+    ];
+
+    const header = (provider as any).buildSummaryHeader((provider as any).items);
+    const aria = String(header.accessibilityInformation?.label || '');
+    assert.strictEqual(header.accessibilityInformation?.role, 'text');
+    assert.ok(aria.toLowerCase().includes('items'));
+    assert.ok(!aria.toLowerCase().includes('issues summary issues summary'));
+
+    provider.dispose();
+  });
+
+  it('assignee sections expose text equivalents for badge colors and counts', async () => {
+    const context = createContextStub();
+    const provider = new BeadsTreeDataProvider(context as any);
+    (provider as any).items = [
+      { id: 'task-1', title: 'Alpha', issueType: 'task', status: 'open', assignee: 'Ada' },
+      { id: 'task-2', title: 'Beta', issueType: 'task', status: 'blocked', assignee: 'Ada' },
+    ];
+    (provider as any).sortMode = 'assignee';
+
+    const roots = await provider.getChildren();
+    const assigneeSection = roots.find((r: any) => r.contextValue === 'assigneeSection');
+    assert.ok(assigneeSection, 'assignee section should render');
+    const aria = String(assigneeSection.accessibilityInformation?.label || '');
+    assert.ok(aria.toLowerCase().includes('assignee'));
+    assert.ok(aria.toLowerCase().includes('items'));
+
+    provider.dispose();
+  });
+
   it('closed visibility toggle combines with quick filters and search', () => {
     const context = createContextStub();
     const provider = new BeadsTreeDataProvider(context as any);
+    const treeView: any = { description: '' };
+    provider.setTreeView(treeView as any);
 
     (provider as any).items = [
       { id: 'open-1', title: 'Alpha open', issueType: 'task', status: 'open' },
@@ -501,6 +554,7 @@ describe('Extension tree items', () => {
     ];
 
     provider.toggleClosedVisibility();
+    assert.ok(String(treeView.description || '').toLowerCase().includes('closed hidden'));
 
     (provider as any).quickFilter = { kind: 'status', value: 'blocked' };
     let filtered = (provider as any).filterItems((provider as any).items);
@@ -510,6 +564,9 @@ describe('Extension tree items', () => {
     (provider as any).searchQuery = 'alpha';
     filtered = (provider as any).filterItems((provider as any).items);
     assert.deepStrictEqual(filtered.map((i: any) => i.id).sort(), ['blocked-1', 'open-1']);
+
+    provider.toggleClosedVisibility();
+    assert.ok(String(treeView.description || '').toLowerCase().includes('closed visible'));
 
     provider.dispose();
   });
