@@ -193,6 +193,8 @@ describe('Extension tree items', () => {
   after(() => {
     const moduleAny = Module as any;
     moduleAny._load = restoreLoad;
+    delete require.cache[require.resolve('../../services/cliService')];
+    delete require.cache[require.resolve('../../extension')];
   });
 
   it('maps issue types to the expected icons', () => {
