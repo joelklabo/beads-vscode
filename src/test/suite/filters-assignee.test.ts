@@ -175,4 +175,34 @@ suite('Filter & assignee flows', () => {
     const adaChildren2 = await provider2.getChildren(adaSection2!);
     assert.deepStrictEqual(adaChildren2.map((n: any) => n.bead.id), ['task-open']);
   });
+
+
+  test('restores closed toggle from workspace state and updates description', async () => {
+    const context = createContextStub();
+    await context.workspaceState.update('beady.showClosed', false);
+
+    const provider = new BeadsTreeDataProvider(context as any);
+    const treeView: any = { description: undefined };
+    provider.setTreeView(treeView);
+
+    (provider as any).items = [
+      { id: 'task-open', title: 'Open item', status: 'open', assignee: 'Ada' },
+      { id: 'task-closed', title: 'Closed item', status: 'closed', assignee: 'Ada' },
+    ];
+
+    const visible = provider.getVisibleBeads();
+    assert.deepStrictEqual(visible.map((i: any) => i.id), ['task-open']);
+    assert.ok((treeView.description ?? '').includes('Closed hidden'));
+
+    const contexts = vscodeStub.commands._calls
+      .filter((c: any) => c.command === 'setContext')
+      .reduce((acc: any, c: any) => {
+        acc[c.args[0]] = c.args[1];
+        return acc;
+      }, {} as Record<string, any>);
+
+    assert.strictEqual(contexts['beady.closedHidden'], true);
+    assert.strictEqual(contexts['beady.showClosed'], false);
+  });
+
 });
