@@ -44,18 +44,6 @@
       ],
       "@beads/core/*": [
         "packages/core/src/*"
-      ],
-      "@beads/ui-headless": [
-        "packages/ui-headless/src"
-      ],
-      "@beads/ui-headless/*": [
-        "packages/ui-headless/src/*"
-      ],
-      "@beads/ui-web": [
-        "packages/ui-web/src"
-      ],
-      "@beads/ui-web/*": [
-        "packages/ui-web/src/*"
       ]
     }
   }

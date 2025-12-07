@@ -52,7 +52,7 @@ graph TD
 - Root install: `npm install`
 - Build: `npm run build:core`, `npm run build:vscode`
 - Bundle: `npm run bundle` (esbuild) outputs `dist/extension.js(+.map)`; `npm run bundle:watch` for incremental dev; `npm run typecheck` runs `tsc --noEmit`. `npm run compile` (tsc -b) remains for test builds that rely on `out/`.
-- Tests: `npm run test:unit` (VS Code adapter), `npm run test:core`, `npm run test:bd-cli`, `npm run test:integration:headless`; `npm run test:all` mirrors CI once web/TUI scripts are removed.
+- Tests: `npm run test:unit` (VS Code adapter), `npm run test:core`, `npm run test:bd-cli`, `npm run test:integration:headless`; `npm run test:all` mirrors the CI test matrix.
 - Temp/test artifacts live under `tmp/`; clean with `npm run test:clean-temp`.
 
 ## Safety & security
