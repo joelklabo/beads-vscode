@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 import * as assert from 'assert';
 import Module = require('module');
+import { validateAssigneeInput } from '../utils/validation';
+import { buildSafeBdArgs } from '@beads/core';
 
 function createVscodeStub() {
   class TreeItem {
@@ -143,5 +145,36 @@ describe('Tooltip sanitization', () => {
     assert.strictEqual(tooltip.isTrusted, false);
     assert.ok(!tooltip.value.includes('<svg'), 'tooltip should escape HTML tags');
     assert.ok(!tooltip.value.includes('javascript:'), 'tooltip should strip javascript:');
+  });
+
+  it('sanitizes assignee content in tree tooltips and labels', () => {
+    const item = new BeadTreeItem({
+      id: 'BEAD-2',
+      title: 'Needs owner',
+      assignee: '<img src=x onerror=alert(1)>',
+      status: 'open'
+    });
+
+    const tooltip = item.tooltip as any;
+    const aria = (item as any).accessibilityInformation?.label ?? '';
+
+    assert.ok(!String(tooltip.value).includes('<img'), 'tooltip should escape assignee markup');
+    assert.ok(!String(item.description).includes('<img'), 'description should not contain assignee markup');
+    assert.ok(!String(aria).includes('<img'), 'accessibility label should be sanitized');
+  });
+
+  it('validates assignee input and safe bd args', () => {
+    const sanitized = validateAssigneeInput('  <b>Ada Lovelace</b>  ');
+    assert.strictEqual(sanitized.valid, true);
+    assert.strictEqual(sanitized.value, 'Ada Lovelace');
+
+    const controlRejected = validateAssigneeInput('bad\u202Ename');
+    assert.strictEqual(controlRejected.valid, false);
+    assert.strictEqual(controlRejected.reason, 'invalid_characters');
+
+    const args = buildSafeBdArgs(['update', 'BD-1', '--assignee', 'Ada']);
+    assert.strictEqual(args[0], '--no-daemon');
+    assert.ok(args.includes('--assignee'));
+    assert.throws(() => buildSafeBdArgs(['update', 'BD-1', 'multi\nline']), /newlines/i);
   });
 });

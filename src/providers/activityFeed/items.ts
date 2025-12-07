@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { buildPreviewSnippet, sanitizeTooltipText, stripBeadIdPrefix } from '../../utils';
+import { buildPreviewSnippet, sanitizeInlineText, sanitizeTooltipText, stripBeadIdPrefix } from '../../utils';
 import { EventData } from '../../activityFeed';
 import { formatRelativeTimeDetailed } from '../../activityFeed';
 
@@ -63,16 +63,19 @@ export class ActivityEventItem extends vscode.TreeItem {
 
   constructor(event: EventData, worktreeId?: string) {
     const cleanTitle = stripBeadIdPrefix(event.issueTitle || event.description || event.issueId, event.issueId);
-    super(cleanTitle || event.description || event.issueId, vscode.TreeItemCollapsibleState.None);
+    const safeLabel = sanitizeInlineText(cleanTitle || event.issueTitle || event.description || event.issueId) || event.issueId;
+    super(safeLabel, vscode.TreeItemCollapsibleState.None);
 
     this.event = event;
     this.contextValue = 'activityEvent';
 
     const summary = buildEventSummary(event);
-    const descParts = [event.issueId];
+    const safeSummary = summary ? sanitizeInlineText(summary) : undefined;
+    const safeIssueId = sanitizeInlineText(event.issueId) || event.issueId;
+    const descParts = [safeIssueId];
 
-    if (summary) {
-      const preview = buildPreviewSnippet(summary, 80);
+    if (safeSummary) {
+      const preview = buildPreviewSnippet(safeSummary, 80);
       if (preview) {
         descParts.push(preview);
       }
@@ -95,7 +98,7 @@ export class ActivityEventItem extends vscode.TreeItem {
     };
 
     this.iconPath = new vscode.ThemeIcon(event.iconName, new vscode.ThemeColor(iconColors[event.colorClass] || 'foreground'));
-    this.tooltip = this.buildTooltip(event, worktreeId, summary);
+    this.tooltip = this.buildTooltip(event, worktreeId, safeSummary);
     this.command = {
       command: 'beady.activityFeed.openEvent',
       title: 'Open Issue',

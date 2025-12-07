@@ -2085,7 +2085,8 @@ function getBeadDetailHtml(
   const updatedAt = raw?.updated_at ? new Date(raw.updated_at).toLocaleString(locale) : '';
   const closedAt = raw?.closed_at ? new Date(raw.closed_at).toLocaleString(locale) : '';
   const dependencies = raw?.dependencies || [];
-  const assignee = deriveAssigneeName(item, strings.assigneeFallback);
+  const assigneeRaw = deriveAssigneeName(item, strings.assigneeFallback);
+  const assignee = sanitizeInlineText(assigneeRaw) || strings.assigneeFallback;
   const labels = raw?.labels || [];
   const dependencyEditingEnabled = vscode.workspace.getConfiguration('beady').get<boolean>('enableDependencyEditing', false);
 
@@ -2719,7 +2720,7 @@ function getBeadDetailHtml(
 
     <div class="section">
         <div class="section-title">${escapeHtml(strings.detailsLabel)}</div>
-        ${assignee ? `<div class="meta-item"><span class="meta-label">${escapeHtml(strings.assigneeLabel)}</span><span class="meta-value">${escapeHtml(sanitizeInlineText(assignee))}</span></div>` : ''}
+        ${assignee ? `<div class="meta-item"><span class="meta-label">${escapeHtml(strings.assigneeLabel)}</span><span class="meta-value">${escapeHtml(assignee)}</span></div>` : ''}
         ${item.externalReferenceId ? `<div class="meta-item"><span class="meta-label">${escapeHtml(strings.externalRefLabel)}</span><span class="meta-value"><a href="${escapeHtml(item.externalReferenceId)}" class="external-link" target="_blank">${escapeHtml(item.externalReferenceDescription || item.externalReferenceId)}</a></span></div>` : ''}
         ${createdAt ? `<div class="meta-item"><span class="meta-label">${escapeHtml(strings.createdLabel)}</span><span class="meta-value">${createdAt}</span></div>` : ''}
         ${updatedAt ? `<div class="meta-item"><span class="meta-label">${escapeHtml(strings.updatedLabel)}</span><span class="meta-value">${updatedAt}</span></div>` : ''}
