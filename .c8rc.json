@@ -2,9 +2,7 @@
   "reporter": ["text", "lcov"],
   "include": [
     "src/**/*.js",
-    "packages/**/src/**/*.js",
-    "tui/src/**/*.ts",
-    "web/src/**/*.ts"
+    "packages/**/src/**/*.js"
   ],
   "exclude": [
     "out/test/**",
