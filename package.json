@@ -209,6 +209,11 @@
         "command": "beady.inlineEditLabels",
         "title": "%command.beady.inlineEditLabels%",
         "icon": "$(tag)"
+      },
+      {
+        "command": "beady.editAssignee",
+        "title": "%command.beady.editAssignee%",
+        "icon": "$(account)"
       }
     ],
     "viewsContainers": {
@@ -636,6 +641,11 @@
           "command": "beady.inlineEditLabels",
           "when": "view == beadyExplorer && viewItem == bead && config.beady.inlineStatusChange.enabled",
           "group": "navigation@4"
+        },
+        {
+          "command": "beady.editAssignee",
+          "when": "view == beadyExplorer && viewItem == bead",
+          "group": "navigation@4"
         }
       ],
       "commandPalette": [
@@ -673,6 +683,9 @@
         {
           "command": "beady.inlineEditLabels",
           "when": "config.beady.inlineStatusChange.enabled"
+        },
+        {
+          "command": "beady.editAssignee"
         },
         {
           "command": "beady.inlineStatusChange",
@@ -845,6 +858,7 @@
     "onCommand:beady.openInProgressPanel",
     "onCommand:beady.inlineEditTitle",
     "onCommand:beady.inlineEditLabels",
+    "onCommand:beady.editAssignee",
     "onCommand:beady.selectWorkspace"
   ]
 }

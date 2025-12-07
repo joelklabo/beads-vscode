@@ -9,6 +9,7 @@ export type LittleGlenCommand =
   | { command: 'openExternalUrl'; url: string }
   | { command: 'updateStatus'; status: string }
   | { command: 'updateTitle'; title: string }
+  | { command: 'editAssignee'; issueId: string }
   | { command: 'addLabel' | 'removeLabel'; label: string }
   | { command: 'addDependency'; issueId?: string; sourceId?: string; targetId?: string }
   | { command: 'removeDependency'; sourceId?: string; targetId?: string; contextId?: string }
@@ -96,6 +97,13 @@ export function validateLittleGlenMessage(
       const normalized = isSafeTitle(title);
       if (normalized) {
         return { command, title: normalized };
+      }
+      return undefined;
+    }
+    case 'editAssignee': {
+      const issueId = (message as any).issueId;
+      if (isValidBeadId(issueId)) {
+        return { command, issueId };
       }
       return undefined;
     }

@@ -1,8 +1,11 @@
 import { validateStatusSelection } from './status';
+import { sanitizeInlineText } from './sanitize';
 
 const TITLE_MAX_LENGTH = 256;
 const LABEL_MAX_LENGTH = 64;
+const ASSIGNEE_MAX_LENGTH = 64;
 const LABEL_REGEX = /^[A-Za-z0-9 .,:@_-]+$/;
+const CONTROL_REGEX = /[\u0000-\u001f\u007f]/;
 
 export interface ValidationResult {
   valid: boolean;
@@ -48,4 +51,25 @@ export function validateStatusInput(status: string | undefined): ValidationResul
     return { valid: false, reason: 'invalid_status' };
   }
   return { valid: true, value: normalized };
+}
+
+export function validateAssigneeInput(input: string | undefined | null): ValidationResult {
+  const raw = input ?? '';
+
+  if (CONTROL_REGEX.test(raw)) {
+    return { valid: false, reason: 'invalid_characters' };
+  }
+
+  const sanitized = sanitizeInlineText(raw);
+
+  // Empty string is allowed to clear the assignee
+  if (sanitized.length === 0) {
+    return { valid: true, value: '' };
+  }
+
+  if (sanitized.length > ASSIGNEE_MAX_LENGTH) {
+    return { valid: false, reason: 'too_long' };
+  }
+
+  return { valid: true, value: sanitized };
 }
