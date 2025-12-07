@@ -5,7 +5,10 @@ const TITLE_MAX_LENGTH = 256;
 const LABEL_MAX_LENGTH = 64;
 const ASSIGNEE_MAX_LENGTH = 64;
 const LABEL_REGEX = /^[A-Za-z0-9 .,:@_-]+$/;
-const CONTROL_REGEX = /[\u0000-\u001f\u007f]/;
+// Allow matching control characters explicitly; safe regex gated by lint disable.
+// eslint-disable-next-line no-control-regex
+const CONTROL_REGEX = /[\u0000-\u001f\u007f-\u009f]/;
+const BIDI_CONTROL_REGEX = /[\u202A-\u202E\u2066-\u2069\u200E\u200F]/;
 
 export interface ValidationResult {
   valid: boolean;
@@ -56,11 +59,11 @@ export function validateStatusInput(status: string | undefined): ValidationResul
 export function validateAssigneeInput(input: string | undefined | null): ValidationResult {
   const raw = input ?? '';
 
-  if (CONTROL_REGEX.test(raw)) {
+  if (CONTROL_REGEX.test(raw) || BIDI_CONTROL_REGEX.test(raw)) {
     return { valid: false, reason: 'invalid_characters' };
   }
 
-  const sanitized = sanitizeInlineText(raw);
+  const sanitized = sanitizeInlineText(raw).trim();
 
   // Empty string is allowed to clear the assignee
   if (sanitized.length === 0) {

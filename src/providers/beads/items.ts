@@ -157,11 +157,12 @@ export class AssigneeSectionItem extends vscode.TreeItem {
     isCollapsed: boolean = false,
     public readonly key: string,
   ) {
-    super(`${dot} ${assignee}`, isCollapsed ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.Expanded);
+    const safeLabel = sanitizeInlineText(assignee) || t('Unassigned');
+    super(`${dot} ${safeLabel}`, isCollapsed ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.Expanded);
     this.contextValue = 'assigneeSection';
     this.description = `${beads.length}`;
-    this.tooltip = `${assignee}: ${beads.length} item${beads.length !== 1 ? 's' : ''}`;
-    const label = sanitizeInlineText(assignee) || t('Unassigned');
+    this.tooltip = `${safeLabel}: ${beads.length} item${beads.length !== 1 ? 's' : ''}`;
+    const label = safeLabel;
     const countLabel = t('{0} item{1}', beads.length, beads.length === 1 ? '' : 's');
     this.accessibilityInformation = {
       label: t('Assignee {0} — {1}. Color: {2}.', label, countLabel, colorName),
@@ -195,8 +196,8 @@ export class BeadTreeItem extends vscode.TreeItem {
     const isTaskStale = isStale(bead, thresholdHours);
 
     const assigneeInfo = getAssigneeInfo(bead);
-    const safeAssigneeDisplay = sanitizeInlineText(assigneeInfo.display);
-    const safeAssigneeName = sanitizeInlineText(assigneeInfo.name);
+    const safeAssigneeDisplay = sanitizeInlineText(assigneeInfo.display) || t('Unassigned');
+    const safeAssigneeName = sanitizeInlineText(assigneeInfo.name) || t('Unassigned');
     const safeAssigneeColor = sanitizeInlineText(assigneeInfo.colorName);
     const safeId = sanitizeInlineText(bead.id) || bead.id;
 
@@ -245,7 +246,7 @@ export class BeadTreeItem extends vscode.TreeItem {
 
     tooltip.appendMarkdown(`**${safeTitle}**\n\n`);
     tooltip.appendMarkdown(`🆔 ${safeIdTooltip}\n\n`);
-    tooltip.appendMarkdown(`👤 ${sanitizeTooltipText(assigneeInfo.name)}\n\n`);
+    tooltip.appendMarkdown(`👤 ${sanitizeTooltipText(assigneeInfo.name || t('Unassigned'))}\n\n`);
 
     if (safeDescription) {
       tooltip.appendMarkdown(`${safeDescription}\n\n`);
