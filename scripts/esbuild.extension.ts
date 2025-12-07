@@ -5,8 +5,11 @@ const watch = process.argv.includes('--watch');
 const minify = process.env.BUNDLE_MINIFY === '1';
 
 const options = {
-  entryPoints: ['src/extension.ts'],
-  outfile: 'dist/extension.js',
+  entryPoints: {
+    'extension': 'src/extension.ts',
+    'views/issues': 'src/views/issues/index.tsx'
+  },
+  outdir: 'dist',
   bundle: true,
   platform: 'node',
   format: 'cjs',
