@@ -31,10 +31,6 @@ This document summarizes the accessibility affordances for dependency visualizat
 - Section icons use VS Code theme colors plus text; focus outlines remain visible in high-contrast/forced-colors modes.
 - Assignee labels used for UI, aria-labels, and collapse state are sanitized; aria-label keeps the full sanitized name even when the visible label is truncated.
  
-## TUI visual reports
-- Visual test reports include alt text for every snapshot/diff image, tabbable sections, and visible focus outlines. Headings and preformatted blocks are keyboard reachable (Tab/Shift+Tab) and screen-reader friendly.
-- Raw frame logs and report text are sanitized with the shared redaction helper to strip tokens, emails, absolute paths, and worktree ids before saving artifacts.
-- The visual harness refuses to run outside a task worktree unless `TUI_VISUAL_ALLOW_NON_WORKTREE=1` is set. Keep bd calls gated with `BEADS_NO_DAEMON=1` if they are ever enabled in the harness.
 
 ## Known limitations
 - Tree items are always expanded; Left/Right navigation only moves focus (no collapse state yet).

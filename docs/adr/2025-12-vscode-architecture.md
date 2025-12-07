@@ -84,6 +84,6 @@ graph TD
 - Clear seams for future contributors; commands/views cannot bypass trust/guard/CLI policy.
 
 ## Open questions
-- Should we keep a small compatibility shim for former headless consumers (e.g., a thin adapter in `@beads/core`)? Current plan is removal; reintroduce only if needed.
-- How to stage removal of root scripts without breaking existing CI while tasks land? Proposal: gate web/TUI scripts behind no-op placeholders until beads-da9/0xw finish.
+- ~~Should we keep a small compatibility shim for former headless consumers (e.g., a thin adapter in `@beads/core`)?~~ Resolved: removed; reintroduce only if needed.
+- ~~How to stage removal of root scripts without breaking existing CI while tasks land?~~ Resolved: web/TUI scripts removed.
 - Do we need a feature flag to disable the dependency graph webview for air-gapped environments? If yes, add to package.json contributes in the security hardening task.
