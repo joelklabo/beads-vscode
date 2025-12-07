@@ -5,7 +5,7 @@
 - `npm run check:vsix-size` — packages a VSIX to a temp file and fails if it exceeds the ADR budget (override with `VSIX_MAX_BYTES`).
 - `npm run test:all` — lint + VS Code unit + core unit + TUI + web smoke + bd-cli sanity.
 - `npm run ci:verify` — lint + localization + compile + unit + headless integration (mirrors the CI Test workflow).
-- `npm run ci:coverage` — runs the unit suite under c8 and writes text + LCOV reports to `coverage/` (coverage includes `src/**`, `packages/**/src/**`, `tui/src/**`, `web/src/**`; excludes `out/test/**`).
+- `npm run ci:coverage` — runs the unit suite under c8 and writes text + LCOV reports to `coverage/` (coverage includes `src/**`, `packages/**/src/**`; excludes `out/test/**`).
 - `npm run test:clean-temp` — purge stale temp dirs from prior headless/integration runs.
 
 ## Unit tests
