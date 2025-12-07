@@ -6,7 +6,9 @@
     "outDir": "../../out",
     "declaration": true,
     "declarationMap": true,
-    "tsBuildInfoFile": "../../tmp/platform-vscode.tsbuildinfo"
+    "tsBuildInfoFile": "../../tmp/platform-vscode.tsbuildinfo",
+    "jsx": "react",
+    "lib": ["es2020", "dom"]
   },
   "include": ["../../src/**/*.ts", "../../src/**/*.tsx"],
   "exclude": [
