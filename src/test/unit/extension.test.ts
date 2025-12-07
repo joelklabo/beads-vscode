@@ -157,6 +157,15 @@ describe('Extension tree items', () => {
   let EpicTreeItem: any;
   let BeadsTreeDataProvider: any;
   let openBeadFromFeed: any;
+  let deriveAssigneeName: any;
+  const runBdCalls: any[] = [];
+  const cliStub = {
+    runBdCommand: async (...args: any[]) => {
+      runBdCalls.push(args);
+    },
+    resolveBeadId: (input: any) => input?.id,
+    formatBdError: (prefix: string) => prefix,
+  };
 
   before(() => {
     const moduleAny = Module as any;
@@ -165,6 +174,9 @@ describe('Extension tree items', () => {
     moduleAny._load = (request: string, parent: any, isMain: boolean) => {
       if (request === 'vscode') {
         return vscodeStub;
+      }
+      if (request.includes('services/cliService')) {
+        return cliStub;
       }
       return restoreLoad(request, parent, isMain);
     };
@@ -175,6 +187,7 @@ describe('Extension tree items', () => {
     EpicTreeItem = extension.EpicTreeItem;
     BeadsTreeDataProvider = extension.BeadsTreeDataProvider;
     openBeadFromFeed = extension.openBeadFromFeed;
+    deriveAssigneeName = extension.deriveAssigneeName;
   });
 
   after(() => {
@@ -529,6 +542,41 @@ describe('Extension tree items', () => {
     assert.ok(panel, 'detail panel should be registered');
     const html = String(panel.webview.html || '');
     assert.ok(html.includes('In Progress'), 'dependency status label should be rendered');
+    provider.dispose();
+  });
+
+  it('derives assignee names from multiple shapes with fallback', () => {
+    const direct = deriveAssigneeName({ assignee: '  Ada ' } as any, 'Unassigned');
+    assert.strictEqual(direct, 'Ada');
+
+    const nested = deriveAssigneeName({ raw: { assignee_name: 'Bob Builder' } } as any, 'Unassigned');
+    assert.strictEqual(nested, 'Bob Builder');
+
+    const fallback = deriveAssigneeName({ raw: {} } as any, 'Unassigned');
+    assert.strictEqual(fallback, 'Unassigned');
+  });
+
+  it('updates assignee via CLI with sanitized value', async () => {
+    runBdCalls.length = 0;
+    const context = createContextStub();
+    const provider = new BeadsTreeDataProvider(context as any);
+    const bead = { id: 'task-1', title: 'Example', assignee: 'Old' };
+
+    const originalFolders = vscodeStub.workspace.workspaceFolders;
+    const originalGetConfig = vscodeStub.workspace.getConfiguration;
+    vscodeStub.workspace.workspaceFolders = [{ uri: { fsPath: '/tmp/project' } }];
+    vscodeStub.workspace.getConfiguration = () => ({ get: (key: string, fallback: any) => (key === 'projectRoot' ? '/tmp/project' : fallback) });
+
+    await provider.updateAssignee(bead as any, '  <b>Grace Hopper</b>  ');
+
+    assert.strictEqual(runBdCalls.length, 1, 'CLI should be invoked once');
+    const [args, projectRoot] = runBdCalls[0];
+    assert.deepStrictEqual(args, ['update', 'task-1', '--assignee', 'Grace Hopper']);
+    assert.strictEqual(projectRoot, '/tmp/project');
+
+    // Restore stub state
+    vscodeStub.workspace.workspaceFolders = originalFolders;
+    vscodeStub.workspace.getConfiguration = originalGetConfig;
     provider.dispose();
   });
 

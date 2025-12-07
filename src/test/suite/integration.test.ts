@@ -9,6 +9,7 @@ import { BeadItemData, normalizeBead } from '@beads/core';
 import { getStaleInfo, isStale } from '../../utils/stale';
 import { BeadsTreeDataProvider, EpicTreeItem, UngroupedSectionItem, BeadTreeItem, openBeadFromFeed } from '../../extension';
 import { EpicStatusSectionItem } from '../../providers/beads/items';
+import { findBdCommand } from '../../providers/beads/store';
 
 const execFileAsync = promisify(execFile);
 
@@ -23,7 +24,7 @@ suite('BD CLI Integration Test Suite', function() {
     this.timeout(30000);
 
     // Find bd command
-    bdCommand = await findBdCommand();
+    bdCommand = await findBdCommand('bd');
     console.log(`Using bd command: ${bdCommand}`);
 
     // Create temporary test workspace
@@ -98,6 +99,30 @@ suite('BD CLI Integration Test Suite', function() {
     const updatedIssue = issues.find((i: any) => i.id === issueId);
     assert.ok(updatedIssue);
     assert.strictEqual(updatedIssue.status, 'in_progress');
+  });
+
+  test('bd update should set and clear assignee', async () => {
+    const { stdout: createOutput } = await execFileAsync(
+      bdCommand,
+      ['create', 'Assignee test issue'],
+      { cwd: testWorkspace }
+    );
+    const issueIdMatch = createOutput.match(/Created issue: ([\w-]+)/);
+    const issueId = issueIdMatch![1];
+
+    await execFileAsync(bdCommand, ['update', issueId, '--assignee', 'Integration User'], { cwd: testWorkspace });
+    let { stdout: listOutput } = await execFileAsync(bdCommand, ['list', '--json'], { cwd: testWorkspace });
+    let issues = JSON.parse(listOutput);
+    let updatedIssue = issues.find((i: any) => i.id === issueId);
+    assert.ok(updatedIssue);
+    assert.strictEqual(updatedIssue.assignee, 'Integration User');
+
+    await execFileAsync(bdCommand, ['update', issueId, '--assignee', ''], { cwd: testWorkspace });
+    ({ stdout: listOutput } = await execFileAsync(bdCommand, ['list', '--json'], { cwd: testWorkspace }));
+    issues = JSON.parse(listOutput);
+    updatedIssue = issues.find((i: any) => i.id === issueId);
+    assert.ok(updatedIssue);
+    assert.ok(!updatedIssue.assignee, 'assignee should clear when empty');
   });
 
   test('bd label add should add a label to issue', async () => {
@@ -238,35 +263,6 @@ suite('BD CLI Integration Test Suite', function() {
   });
 });
 
-async function findBdCommand(): Promise<string> {
-  // Try 'bd' in PATH first
-  try {
-    await execFileAsync('bd', ['version']);
-    return 'bd';
-  } catch {
-    // Fall through to try common locations
-  }
-
-  // Try common installation locations
-  const commonPaths = [
-    '/opt/homebrew/bin/bd',
-    '/usr/local/bin/bd',
-    path.join(os.homedir(), '.local/bin/bd'),
-    path.join(os.homedir(), 'go/bin/bd'),
-  ];
-
-  for (const p of commonPaths) {
-    try {
-      await fs.access(p);
-      return p;
-    } catch {
-      continue;
-    }
-  }
-
-  throw new Error('bd command not found. Please install beads CLI');
-}
-
 class TestMemento implements vscode.Memento {
   private store = new Map<string, any>();
 
@@ -347,7 +343,7 @@ suite('Stale Task Detection Integration Tests', function() {
 
   suiteSetup(async function() {
     this.timeout(30000);
-    bdCommand = await findBdCommand();
+    bdCommand = await findBdCommand('bd');
     testWorkspace = path.join(os.tmpdir(), `beady-stale-test-${Date.now()}`);
     await fs.mkdir(testWorkspace, { recursive: true });
     await execFileAsync(bdCommand, ['init', '--quiet'], { cwd: testWorkspace });

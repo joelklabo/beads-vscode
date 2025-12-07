@@ -14,6 +14,7 @@ import { DEFAULT_STALE_THRESHOLD_HOURS, getStaleInfo, isStale } from '../../util
 import { escapeHtml, formatError, formatRelativeTime, linkifyText } from '../../utils/format';
 import { sanitizeInlineText } from '../../utils/sanitize';
 import { formatStatusLabel } from '@beads/core';
+import { validateAssigneeInput } from '../../utils/validation';
 
 describe('Utility Functions', () => {
 
@@ -46,6 +47,31 @@ describe('Utility Functions', () => {
       const entry = { priority: 123 };
       const result = pickValue(entry, ['priority']);
       assert.strictEqual(result, '123');
+    });
+  });
+
+  describe('validateAssigneeInput', () => {
+    it('sanitizes html and trims whitespace', () => {
+      const result = validateAssigneeInput('  <b>Eve</b>  ');
+      assert.deepStrictEqual(result, { valid: true, value: 'Eve' });
+    });
+
+    it('allows empty string to clear assignee', () => {
+      const result = validateAssigneeInput('   ');
+      assert.ok(result.valid);
+      assert.strictEqual(result.value, '');
+    });
+
+    it('rejects control characters', () => {
+      const result = validateAssigneeInput('Ada\tLovelace');
+      assert.strictEqual(result.valid, false);
+      assert.strictEqual(result.reason, 'invalid_characters');
+    });
+
+    it('rejects values over the max length', () => {
+      const result = validateAssigneeInput('a'.repeat(70));
+      assert.strictEqual(result.valid, false);
+      assert.strictEqual(result.reason, 'too_long');
     });
   });
 

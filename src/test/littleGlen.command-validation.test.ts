@@ -35,6 +35,17 @@ describe('Little Glen command validation', () => {
     assert.strictEqual(titleResult, undefined);
   });
 
+  it('accepts editAssignee with valid id', () => {
+    const msg = validateLittleGlenMessage({ command: 'editAssignee', issueId: 'TASK-9' }, ['editAssignee']);
+    assert.ok(msg);
+    assert.strictEqual(msg!.command, 'editAssignee');
+  });
+
+  it('rejects editAssignee with invalid id', () => {
+    const msg = validateLittleGlenMessage({ command: 'editAssignee', issueId: 'bad id' }, ['editAssignee']);
+    assert.strictEqual(msg, undefined);
+  });
+
   it('accepts removeDependency with valid ids', () => {
     const msg = validateLittleGlenMessage({ command: 'removeDependency', sourceId: 'A-1', targetId: 'B-2' }, ['removeDependency']);
     assert.ok(msg);

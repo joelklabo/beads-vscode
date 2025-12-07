@@ -37,6 +37,7 @@ import {
   validateTitleInput,
   validateLabelInput,
   validateStatusInput,
+  validateAssigneeInput,
   collectDependencyEdges,
   mapBeadsToGraphNodes,
   GraphEdgeData,
@@ -88,15 +89,20 @@ import * as path from 'path';
 const t = vscode.l10n.t;
 const PROJECT_ROOT_ERROR = t('Unable to resolve project root. Set "beady.projectRoot" or open a workspace folder.');
 const INVALID_ID_MESSAGE = t('Issue ids must contain only letters, numbers, ._- and be under 64 characters.');
+const ASSIGNEE_MAX_LENGTH = 64;
 
-function validationMessage(kind: 'title' | 'label' | 'status', reason?: string): string {
+function validationMessage(kind: 'title' | 'label' | 'status' | 'assignee', reason?: string): string {
   switch (reason) {
     case 'empty':
       return kind === 'title' ? t('Title cannot be empty.') : t('Label cannot be empty.');
     case 'too_long':
-      return kind === 'title'
-        ? t('Title must be 1-{0} characters without new lines.', 256)
-        : t('Label must be 1-{0} characters.', 64);
+      if (kind === 'title') {
+        return t('Title must be 1-{0} characters without new lines.', 256);
+      }
+      if (kind === 'label') {
+        return t('Label must be 1-{0} characters.', 64);
+      }
+      return t('Assignee must be 0-{0} characters.', ASSIGNEE_MAX_LENGTH);
     case 'invalid_characters':
       return t('The {0} contains unsupported characters.', kind);
     case 'invalid_status':
@@ -135,6 +141,7 @@ interface BeadDetailStrings {
   dependencyEmptyLabel: string;
   missingDependencyLabel: string;
   editLabel: string;
+  editAssigneeLabel: string;
   deleteLabel: string;
   doneLabel: string;
   descriptionLabel: string;
@@ -205,6 +212,7 @@ const buildBeadDetailStrings = (statusLabels: StatusLabelMap): BeadDetailStrings
   dependencyEmptyLabel: t('No dependencies yet'),
   missingDependencyLabel: t('Missing issue'),
   editLabel: t('Edit'),
+  editAssigneeLabel: t('Edit Assignee'),
   deleteLabel: t('Delete'),
   doneLabel: t('Done'),
   descriptionLabel: t('Description'),
@@ -1245,6 +1253,46 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     } catch (error) {
       const message = formatSafeError(t('Failed to update title'), error, [projectRoot]);
       console.error('Failed to update title', message);
+      void vscode.window.showErrorMessage(message);
+    }
+  }
+
+  async updateAssignee(item: BeadItemData, assigneeInput: string): Promise<void> {
+    const validation = validateAssigneeInput(assigneeInput);
+    if (!validation.valid) {
+      void vscode.window.showWarningMessage(validationMessage('assignee', validation.reason));
+      return;
+    }
+
+    const safeAssignee = validation.value ?? '';
+    const currentAssignee = sanitizeInlineText(deriveAssigneeName(item, ''));
+    if (safeAssignee === currentAssignee) {
+      return;
+    }
+
+    const itemId = resolveBeadId(item);
+    if (!itemId) {
+      void vscode.window.showWarningMessage(INVALID_ID_MESSAGE);
+      return;
+    }
+
+    const config = vscode.workspace.getConfiguration('beady');
+    const projectRoot = resolveProjectRoot(config);
+
+    if (!projectRoot) {
+      void vscode.window.showErrorMessage(PROJECT_ROOT_ERROR);
+      return;
+    }
+
+    try {
+      await runBdCommand(['update', itemId, '--assignee', safeAssignee], projectRoot);
+      await this.refresh();
+      void vscode.window.showInformationMessage(
+        safeAssignee ? t('Updated assignee to: {0}', safeAssignee) : t('Cleared assignee')
+      );
+    } catch (error) {
+      const message = formatSafeError(t('Failed to update assignee'), error, [projectRoot]);
+      console.error('Failed to update assignee', message);
       void vscode.window.showErrorMessage(message);
     }
   }
@@ -2620,6 +2668,7 @@ function getBeadDetailHtml(
         <div class="header-top">
             <div class="issue-id">${item.id}</div>
             <div style="display:flex; gap:8px;">
+                <button class="edit-button" id="assigneeButton">${escapeHtml(strings.editAssigneeLabel)}</button>
                 <button class="delete-button" id="deleteButton">${escapeHtml(strings.deleteLabel)}</button>
                 <button class="edit-button" id="editButton">${escapeHtml(strings.editLabel)}</button>
             </div>
@@ -2727,6 +2776,7 @@ function getBeadDetailHtml(
         let isEditMode = false;
 
         const editButton = document.getElementById('editButton');
+        const assigneeButton = document.getElementById('assigneeButton');
         const statusBadge = document.getElementById('statusBadge');
         const statusDropdown = document.getElementById('statusDropdown');
         const issueTitle = document.getElementById('issueTitle');
@@ -3012,6 +3062,15 @@ function getBeadDetailHtml(
                 }
             }
         });
+
+        if (assigneeButton) {
+            assigneeButton.addEventListener('click', () => {
+                vscode.postMessage({
+                    command: 'editAssignee',
+                    issueId: '${item.id}'
+                });
+            });
+        }
 
         // Handle dependency removal clicks
         document.addEventListener('click', (e) => {
@@ -3966,6 +4025,7 @@ async function openBead(item: BeadItemData, provider: BeadsTreeDataProvider): Pr
   const allowedCommands: AllowedLittleGlenCommand[] = [
     'updateStatus',
     'updateTitle',
+    'editAssignee',
     'addLabel',
     'removeLabel',
     'addDependency',
@@ -3989,6 +4049,9 @@ async function openBead(item: BeadItemData, provider: BeadsTreeDataProvider): Pr
         return;
       case 'updateTitle':
         await provider.updateTitle(item, validated.title);
+        return;
+      case 'editAssignee':
+        await editAssignee(provider, undefined, item);
         return;
       case 'addLabel':
         await provider.addLabel(item, validated.label);
@@ -5680,9 +5743,9 @@ async function inlineEditLabels(provider: BeadsTreeDataProvider, treeView: vscod
       prompt: t('Enter a label to add'),
       ignoreFocusOut: true,
     });
-    if (!label || label.trim() === '') {
-      return;
-    }
+  if (!label || label.trim() === '') {
+    return;
+  }
     await provider.addLabel(bead, label.trim());
     await restoreFocus(treeView, provider, bead.id);
     return;
@@ -5800,6 +5863,50 @@ async function inlineStatusQuickChange(
     void vscode.window.showErrorMessage(
       t('Failed to update {0} item(s): {1}', summary.failures.length, failureList)
     );
+  }
+}
+
+async function editAssignee(
+  provider: BeadsTreeDataProvider,
+  treeView?: vscode.TreeView<TreeItemType>,
+  bead?: BeadItemData
+): Promise<void> {
+  const selected = bead ? [bead] : treeView ? collectSelectedBeads(provider, treeView) : [];
+
+  if (!selected || selected.length !== 1) {
+    void vscode.window.showWarningMessage(t('Select exactly one bead to edit the assignee.'));
+    return;
+  }
+
+  const target = selected[0];
+  const currentAssignee = sanitizeInlineText(deriveAssigneeName(target, ''));
+  const placeholder = t('Name or handle (blank to clear)');
+
+  const input = await vscode.window.showInputBox({
+    prompt: t('Set or clear the assignee'),
+    placeHolder: placeholder,
+    value: currentAssignee,
+    ignoreFocusOut: true,
+    validateInput: (value) => {
+      const result = validateAssigneeInput(value);
+      return result.valid ? undefined : validationMessage('assignee', result.reason);
+    },
+  });
+
+  if (input === undefined) {
+    return;
+  }
+
+  const validation = validateAssigneeInput(input);
+  if (!validation.valid) {
+    void vscode.window.showWarningMessage(validationMessage('assignee', validation.reason));
+    return;
+  }
+
+  await provider.updateAssignee(target, validation.value ?? '');
+
+  if (treeView) {
+    await restoreFocus(treeView, provider, target.id);
   }
 }
 
@@ -6039,6 +6146,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('beady.inlineStatusChange', () => inlineStatusQuickChange(provider, treeView, activityFeedView)),
     vscode.commands.registerCommand('beady.inlineEditTitle', () => inlineEditTitle(provider, treeView)),
     vscode.commands.registerCommand('beady.inlineEditLabels', () => inlineEditLabels(provider, treeView)),
+    vscode.commands.registerCommand('beady.editAssignee', (item?: BeadItemData) => editAssignee(provider, treeView, item)),
     
     // Activity Feed commands
     vscode.commands.registerCommand('beady.refreshActivityFeed', () => activityFeedProvider.refresh('manual')),
@@ -6262,6 +6370,7 @@ export {
   inlineStatusQuickChange,
   inlineEditTitle,
   inlineEditLabels,
+  deriveAssigneeName,
   bulkUpdateStatus,
   bulkUpdateLabel,
 };

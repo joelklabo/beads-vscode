@@ -62,6 +62,7 @@
   "command.beady.openInProgressPanel": "Beady: Open In-Progress Spotlight",
   "command.beady.inlineEditTitle": "Beady: Rename (Inline)",
   "command.beady.inlineEditLabels": "Beady: Edit Labels (Inline)",
+  "command.beady.editAssignee": "Beady: Edit Assignee",
   "aria.statusBadge": "Status badge: {0}. Activate to change.",
   "aria.statusDropdown": "Status options list",
   "aria.filterPicker": "Filter mode picker for issues and epics",
