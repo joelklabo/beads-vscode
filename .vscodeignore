@@ -1,4 +1,5 @@
 # Keep VSIX lean: ship only the bundled runtime in dist/ plus metadata files.
+# Required files: package.json, README.md, LICENSE.txt, CHANGELOG.md, dist/extension.js, dist/extension.meta.json, beady-visual.png
 
 # Workspace + tooling scaffolding
 .vscode/**
@@ -6,6 +7,7 @@
 .git/**
 .beads/**
 .claude/**
+.github/**
 tmp/**
 
 # Source and build outputs not needed at runtime
@@ -29,3 +31,20 @@ node_modules/**
 tsconfig.json
 tsconfig.*.json
 package-lock.json
+
+# Test/dev config files
+.c8rc.json
+.mocharc.js
+.heartbeat.pid
+.gitignore
+
+# Dev documentation (keep README.md only)
+AGENTS.md
+CONTRIBUTING.md
+INTERFACE_DESIGN.md
+QUICKSTART.md
+TESTING.md
+notes.md
+
+# Only include required nls file
+# package.nls.json is needed for localization

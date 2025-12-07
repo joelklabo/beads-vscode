@@ -5,19 +5,7 @@
       "path": "./packages/core"
     },
     {
-      "path": "./packages/ui-headless"
-    },
-    {
       "path": "./packages/platform-vscode"
-    },
-    {
-      "path": "./web"
-    },
-    {
-      "path": "./tui"
-    },
-    {
-      "path": "./packages/ui-web"
     }
   ]
 }
