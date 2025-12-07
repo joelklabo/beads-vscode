@@ -84,4 +84,28 @@ suite('Expandable rows', () => {
     const cleared = context.workspaceState.get('beady.expandedRows');
     assert.deepStrictEqual(cleared, []);
   });
+
+  test('summary header updates counts when closed items hidden', async () => {
+    const context = createContextStub();
+    const provider = new BeadsTreeDataProvider(context as any);
+
+    (provider as any).items = [
+      { id: 'open-1', title: 'Open issue', status: 'open', assignee: 'Ada' },
+      { id: 'progress-1', title: 'Working', status: 'in_progress', assignee: 'Bob' },
+      { id: 'closed-1', title: 'Done', status: 'closed', assignee: '' },
+    ] as BeadItemData[];
+
+    let roots = await provider.getChildren();
+    let header = roots.find((node: any) => node.contextValue === 'summaryHeader') as any;
+    assert.ok(header, 'summary header should render');
+    assert.ok(String(header.description).includes('3 items'));
+    assert.ok(String(header.description).includes('Closed 1'));
+
+    provider.toggleClosedVisibility();
+
+    roots = await provider.getChildren();
+    header = roots.find((node: any) => node.contextValue === 'summaryHeader') as any;
+    assert.ok(String(header.description).includes('2 items'));
+    assert.ok(String(header.description).includes('Closed 0'));
+  });
 });

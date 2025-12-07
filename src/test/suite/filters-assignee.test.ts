@@ -8,20 +8,32 @@ suite('Filter & assignee flows', () => {
   let vscodeStub: any;
   let BeadsTreeDataProvider: any;
   let BeadTreeItem: any;
+  let cliCalls: any[];
 
   setup(() => {
     const moduleAny = Module as any;
     restoreLoad = moduleAny._load;
-    vscodeStub = createVscodeStub();
+    cliCalls = [];
+    vscodeStub = createVscodeStub({ config: { projectRoot: '/tmp/beads-assignee' } });
 
     moduleAny._load = (request: string, parent: any, isMain: boolean) => {
       if (request === 'vscode') {
         return vscodeStub;
       }
+      if (request.endsWith('services/cliService')) {
+        return {
+          runBdCommand: async (args: string[]) => {
+            cliCalls.push(args);
+          },
+          resolveBeadId: (input: any) => input?.id ?? input,
+          findBdCommand: async () => 'bd',
+          formatBdError: (prefix: string) => prefix,
+        };
+      }
       return restoreLoad(request, parent, isMain);
     };
 
-    ['../../extension', '../../providers/beads/items', '../../utils'].forEach((id) => {
+    ['../../extension', '../../providers/beads/items', '../../utils', '../../services/cliService'].forEach((id) => {
       try {
         delete require.cache[require.resolve(id)];
       } catch {
@@ -203,6 +215,22 @@ suite('Filter & assignee flows', () => {
 
     assert.strictEqual(contexts['beady.closedHidden'], true);
     assert.strictEqual(contexts['beady.showClosed'], false);
+  });
+
+
+  test('assignee edit round-trips through CLI and refreshes', async () => {
+    const context = createContextStub();
+    const provider = new BeadsTreeDataProvider(context as any);
+
+    let refreshed = false;
+    provider.refresh = async () => { refreshed = true; };
+
+    const bead = { id: 'task-cli', title: 'Needs owner', status: 'open', assignee: '' } as BeadItemData;
+
+    await provider.updateAssignee(bead, '  <b>Beth</b>  ');
+
+    assert.deepStrictEqual(cliCalls[0], ['update', 'task-cli', '--assignee', 'Beth']);
+    assert.strictEqual(refreshed, true);
   });
 
 });

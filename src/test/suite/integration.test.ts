@@ -654,4 +654,13 @@ suite('Epic tree integration', () => {
     panel?.dispose();
   });
 
+  test('openBeadFromFeed returns false when issue is missing', async () => {
+    const context = createTestContext(workspaceRoot);
+    const provider = new BeadsTreeDataProvider(context);
+    (provider as any).items = sampleItems;
+
+    const opened = await openBeadFromFeed('missing-issue', provider);
+    assert.strictEqual(opened, false, 'should return false when bead is not loaded');
+  });
+
 });
