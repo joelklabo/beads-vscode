@@ -30,8 +30,8 @@ See `docs/architecture.md` and `docs/adr/2025-12-vscode-architecture.md` for det
 
 ### Workspace layout & commands
 - Bundle entrypoint: `npm run bundle` (outputs `dist/extension.js` used by VS Code); `npm run watch` runs bundle:watch + typecheck for F5.
-- Build helpers: `npm run build:core`, `npm run build:vscode`, `npm run build:tui`, `npm run build:web` (skips if the web workspace is absent)
-- Tests: `npm run test:unit` (VS Code), `npm run test:bundle` (bundle smoke), `npm run test:core`, `npm run test:tui`, `npm run test:web:skeleton`
+- Build helpers: `npm run build:core`, `npm run build:vscode`
+- Tests: `npm run test:unit` (VS Code), `npm run test:bundle` (bundle smoke), `npm run test:core`
 - Size gate: `npm run check:vsix-size` (packages a VSIX and fails if the bundled VSIX exceeds the ADR budget)
 - Full sweep: `npm run test:all` or `npm run ci:verify` (mirrors the CI **Test** workflow)
 - All bd calls enforce `--no-daemon`; do not write directly to `.beads` DB files—go through the CLI/shared store
@@ -80,7 +80,7 @@ The extension integrates with the Beads CLI (`bd`) and reads from the Beads data
 - Headless/channel scripts: `npm run test:integration:stable`, `npm run test:integration:insiders`, `npm run test:integration:headless` (Linux wraps `xvfb-run -a`).
 - Env: set `VSCODE_TEST_CHANNEL` and optional `VSCODE_TEST_INSTANCE_ID` to isolate parallel runs; temp dirs live under `tmp/` in the repo and are auto-cleaned after runs.
 - Cleanup: remove stale temp dirs with `npm run test:clean-temp`.
-- Details: see [docs/testing-headless.md](docs/testing-headless.md). TUI visual snapshot workflow (pseudo-PTY harness, baselines, reports) lives in [TESTING.md](TESTING.md#tui-visual-snapshots-headless-harness) with design notes in [docs/design/tui-visual-testing.md](docs/design/tui-visual-testing.md).
+- Details: see [docs/testing-headless.md](docs/testing-headless.md) and [TESTING.md](TESTING.md).
 
 ## Commands
 
