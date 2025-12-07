@@ -305,6 +305,7 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   private storeSubscription?: () => void;
   private primaryConfigForFavorites: vscode.WorkspaceConfiguration | undefined;
   private openPanels: Map<string, vscode.WebviewPanel> = new Map();
+  private panelHashes: Map<string, string> = new Map();
   private searchQuery: string = '';
   private refreshInProgress: boolean = false;
   private quickFilter: QuickFilterPreset | undefined;
@@ -831,8 +832,15 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
   registerPanel(beadId: string, panel: vscode.WebviewPanel): void {
     this.openPanels.set(beadId, panel);
 
+    // Cache current hash so we only refresh when the underlying data changes.
+    const item = this.items.find((i) => i.id === beadId);
+    if (item) {
+      this.panelHashes.set(beadId, this.computePanelHash(item));
+    }
+
     panel.onDidDispose(() => {
       this.openPanels.delete(beadId);
+      this.panelHashes.delete(beadId);
     });
   }
 
@@ -842,10 +850,84 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
     const locale = vscode.env.language || 'en';
     this.openPanels.forEach((panel, beadId) => {
       const updatedItem = this.items.find((i: BeadItemData) => i.id === beadId);
-      if (updatedItem) {
-        const nonce = createNonce();
-        panel.webview.html = getBeadDetailHtml(updatedItem, this.items, panel.webview, nonce, beadStrings, locale);
+      if (!updatedItem) {
+        return;
       }
+
+      const newHash = this.computePanelHash(updatedItem);
+      const lastHash = this.panelHashes.get(beadId);
+      if (newHash === lastHash) {
+        return; // Skip expensive rerender when nothing changed.
+      }
+
+      const nonce = createNonce();
+      panel.webview.html = getBeadDetailHtml(updatedItem, this.items, panel.webview, nonce, beadStrings, locale);
+      this.panelHashes.set(beadId, newHash);
+    });
+  }
+
+  private computePanelHash(item: BeadItemData): string {
+    const raw = (item.raw as any) || {};
+    const outgoingDeps = Array.isArray(raw.dependencies)
+      ? raw.dependencies.map((dep: any) => ({
+          id: dep?.depends_on_id || dep?.id || dep?.issue_id,
+          type: dep?.dep_type || dep?.type || 'related',
+        }))
+      : [];
+
+    const normalizedOutgoing = outgoingDeps
+      .filter((d: { id?: string }) => d.id)
+      .sort((a: { id: string; type: string }, b: { id: string; type: string }) =>
+        a.id.localeCompare(b.id) || a.type.localeCompare(b.type)
+      );
+
+    // Collect incoming deps that target this item.
+    const incomingDeps: { from: string; type: string }[] = [];
+    this.items.forEach((other) => {
+      if (other.id === item.id) {
+        return;
+      }
+
+      const otherDeps = (other.raw as any)?.dependencies;
+      if (!Array.isArray(otherDeps)) {
+        return;
+      }
+
+      otherDeps.forEach((dep: any) => {
+        const targetId = dep?.depends_on_id || dep?.id || dep?.issue_id;
+        if (targetId === item.id) {
+          incomingDeps.push({ from: other.id, type: dep?.dep_type || dep?.type || 'related' });
+        }
+      });
+    });
+
+    const normalizedIncoming = incomingDeps.sort((a, b) => a.from.localeCompare(b.from) || a.type.localeCompare(b.type));
+
+    const normalizedLabels = Array.isArray(raw.labels)
+      ? [...raw.labels].map(String).sort((a, b) => a.localeCompare(b))
+      : raw.labels;
+
+    // Only include fields that affect rendering/controls to keep hash stable.
+    return JSON.stringify({
+      id: item.id,
+      title: item.title,
+      status: item.status,
+      assignee: item.assignee,
+      updatedAt: item.updatedAt,
+      issueType: item.issueType,
+      parentId: item.parentId,
+      childCount: item.childCount,
+      inProgressSince: item.inProgressSince,
+      externalReferenceId: item.externalReferenceId,
+      externalReferenceDescription: item.externalReferenceDescription,
+      outgoingDeps: normalizedOutgoing,
+      incomingDeps: normalizedIncoming,
+      description: raw.description,
+      design: raw.design,
+      acceptance: raw.acceptance_criteria,
+      notes: raw.notes,
+      priority: raw.priority,
+      labels: normalizedLabels,
     });
   }
 
