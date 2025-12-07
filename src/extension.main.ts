@@ -39,7 +39,6 @@ import {
   validateStatusInput,
   validateAssigneeInput,
   collectDependencyEdges,
-  mapBeadsToGraphNodes,
   GraphEdgeData,
   buildDependencyTrees,
   QuickFilterPreset,
@@ -80,7 +79,7 @@ import { computeFeedbackEnablement } from './feedback/enablement';
 import { getBulkActionsConfig } from './utils/config';
 import { registerSendFeedbackCommand } from './commands/sendFeedback';
 import { CommandRegistry, createExportCommands, createQuickFilterCommands } from './commands';
-import { buildDependencyGraphHtml } from './graph/view';
+import { createDependencyGraphView } from './views';
 import { DependencyTreeProvider } from './dependencyTreeProvider';
 import { currentWorktreeId } from './worktree';
 import { warnIfDependencyEditingUnsupported } from './services/runtimeEnvironment';
@@ -241,20 +240,6 @@ const buildBeadDetailStrings = (statusLabels: StatusLabelMap): BeadDetailStrings
   statusBadgeAriaLabel: t('Status: {0}. Activate to change.'),
   statusDropdownLabel: t('Status options'),
   statusOptionAriaLabel: t('Set status to {0}'),
-});
-
-const buildDependencyTreeStrings = (statusLabels: StatusLabelMap): DependencyTreeStrings => ({
-  title: t('Beads Dependency Tree'),
-  resetView: t('Reset View'),
-  autoLayout: t('Auto Layout'),
-  removeDependencyLabel: t('Remove Dependency'),
-  legendClosed: statusLabels.closed,
-  legendInProgress: statusLabels.in_progress,
-  legendOpen: statusLabels.open,
-  legendBlocked: statusLabels.blocked,
-  emptyTitle: t('No beads found'),
-  emptyDescription: t('The visualizer received 0 nodes. Check the Output panel for debug logs.'),
-  renderErrorTitle: t('Render Error'),
 });
 
 const buildActivityFeedStrings = (): ActivityFeedStrings => ({
@@ -4304,66 +4289,19 @@ async function removeDependencyCommand(provider: BeadsTreeDataProvider, edge?: D
 }
 
 async function visualizeDependencies(provider: BeadsTreeDataProvider): Promise<void> {
-  const statusLabels = getStatusLabels();
-  const dependencyStrings = buildDependencyTreeStrings(statusLabels);
-  const locale = vscode.env.language || 'en';
-  const dependencyEditingEnabled = vscode.workspace.getConfiguration('beady').get<boolean>('enableDependencyEditing', false);
-
-  const panel = vscode.window.createWebviewPanel(
-    'beadDependencyTree',
-    dependencyStrings.title,
-    vscode.ViewColumn.One,
-    {
-      enableScripts: true,
-      retainContextWhenHidden: true,
-    }
-  );
-
-  const items = provider['items'] as BeadItemData[];
-  const nodes = mapBeadsToGraphNodes(items);
-  const edges = collectDependencyEdges(items);
-
-  panel.webview.html = buildDependencyGraphHtml(nodes, edges, dependencyStrings, locale, dependencyEditingEnabled);
-
-  // Handle messages from the webview
-  panel.webview.onDidReceiveMessage(async (message) => {
-    const allowed: AllowedLittleGlenCommand[] = ['openBead', 'addDependency', 'removeDependency'];
-    const validated = validateLittleGlenMessage(message, allowed);
-    if (!validated) {
-      console.warn('[Little Glen] Ignoring invalid visualizeDependencies message');
-      return;
-    }
-    if (validated.command === 'openBead') {
-      const item = items.find((i: BeadItemData) => i.id === validated.beadId);
-      if (item) {
-        await openBead(item, provider);
-      } else {
-        void vscode.window.showWarningMessage(t('Issue {0} not found', validated.beadId));
-      }
-    } else if (validated.command === 'addDependency') {
-      await addDependencyCommand(provider, undefined, { sourceId: validated.sourceId, targetId: validated.targetId });
-      const refreshed = provider['items'] as BeadItemData[];
-      panel.webview.html = buildDependencyGraphHtml(
-        mapBeadsToGraphNodes(refreshed),
-        collectDependencyEdges(refreshed),
-        dependencyStrings,
-        locale,
-        dependencyEditingEnabled
+  createDependencyGraphView({
+    getItems: () => provider['items'] as BeadItemData[],
+    openBead: async (bead) => openBead(bead, provider),
+    addDependency: async (sourceId, targetId) => {
+      await addDependencyCommand(provider, undefined, { sourceId, targetId });
+    },
+    removeDependency: async (sourceId, targetId, contextId) => {
+      await removeDependencyCommand(
+        provider,
+        sourceId && targetId ? { sourceId, targetId } : undefined,
+        { contextId }
       );
-    } else if (validated.command === 'removeDependency') {
-      await removeDependencyCommand(provider, validated.sourceId && validated.targetId ? {
-        sourceId: validated.sourceId,
-        targetId: validated.targetId,
-      } : undefined, { contextId: validated.contextId });
-      const refreshed = provider['items'] as BeadItemData[];
-      panel.webview.html = buildDependencyGraphHtml(
-        mapBeadsToGraphNodes(refreshed),
-        collectDependencyEdges(refreshed),
-        dependencyStrings,
-        locale,
-        dependencyEditingEnabled
-      );
-    }
+    },
   });
 }
 
