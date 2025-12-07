@@ -18,7 +18,61 @@
     "composite": true,
     "declaration": true,
     "declarationMap": true,
-    "tsBuildInfoFile": "../tmp/tui.tsbuildinfo"
+    "tsBuildInfoFile": "../tmp/tui.tsbuildinfo",
+    "paths": {
+      "@commands/*": [
+        "src/commands/*"
+      ],
+      "@providers/*": [
+        "src/providers/*"
+      ],
+      "@services/*": [
+        "src/services/*"
+      ],
+      "@utils": [
+        "src/utils"
+      ],
+      "@utils/*": [
+        "src/utils/*"
+      ],
+      "@worktree": [
+        "src/worktree"
+      ],
+      "@worktree/*": [
+        "src/worktree/*"
+      ],
+      "@ai/*": [
+        "src/ai/*"
+      ],
+      "@models/*": [
+        "src/models/*"
+      ],
+      "@beads/core": [
+        "packages/core/src"
+      ],
+      "@beads/core/*": [
+        "packages/core/src/*"
+      ],
+      "@beads/ui-headless": [
+        "packages/ui-headless/src"
+      ],
+      "@beads/ui-headless/*": [
+        "packages/ui-headless/src/*"
+      ],
+      "@beads/ui-web": [
+        "packages/ui-web/src"
+      ],
+      "@beads/ui-web/*": [
+        "packages/ui-web/src/*"
+      ],
+      "@beads/tui/*": [
+        "tui/src/*"
+      ],
+      "@beads/tui/test-harness/*": [
+        "tui/src/test-harness/*"
+      ]
+    },
+    "baseUrl": ".."
   },
   "include": [
     "./src/**/*"
