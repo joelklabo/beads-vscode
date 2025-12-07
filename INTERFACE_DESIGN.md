@@ -53,3 +53,42 @@ bd CLI --no-daemon → .beads/*.db (or issues.jsonl fallback)
 - Webviews (graph) must generate HTML with CSP + nonce and validate messages against an allowlist.
 - UI/tooltips must use shared sanitizers (`@beads/core` security helpers); see `docs/tooltips/hover-rules.md`.
 - New commands are registered in `src/commands/*` modules; all bd calls flow through `cliService` and lifecycle rather than direct `BdCliClient` usage.
+
+## Issues View UX
+
+The Issues explorer provides a unified interface for managing beads with the following controls:
+
+### View Modes (Sort Picker)
+
+Access via the "Choose Sort Mode" command (`beady.toggleSortMode`) or explorer toolbar:
+
+1. **ID Sort** (default): Natural sorting by bead ID
+2. **Status Grouping**: Collapsible sections by status (Open, In Progress, Blocked, Closed)
+3. **Epic Grouping**: Tasks grouped under parent epics with an Ungrouped section
+4. **Assignee Grouping**: Grouped by assignee with Unassigned pinned at bottom
+
+The sort picker opens a quick pick menu instead of cycling through modes.
+
+### Hide/Show Closed Toggle
+
+- Toolbar button toggles visibility of closed issues
+- State persists across VS Code sessions via workspace state
+- Integrates with search and quick filters (closed items hidden when toggle is off)
+
+### Assignee Edit
+
+- Context menu action "Edit Assignee" on issue rows
+- Also available in the issue detail panel
+- Input validated against allowed characters; sanitized before CLI call
+
+### Quick Filters
+
+Toolbar chip `Filter: <mode>` provides quick filtering:
+- Issues, Epics, Favorites, Recent, Blockers
+- Switch via command palette or toolbar click
+
+### Keyboard Navigation
+
+- **Space/Enter**: Expand/collapse rows
+- **Cmd+Backspace / Delete**: Delete selected beads
+- Focus order and `aria-expanded` stay in sync for accessibility
