@@ -41,7 +41,7 @@ See `docs/architecture.md` and `docs/adr/2025-12-vscode-architecture.md` for det
 - **Dedicated Activity Bar**: Beads has its own dedicated view in the VS Code activity bar for easy access.
 - **Tree View**: Explorer view that lists all beads for the current workspace with status-based icons.
 - **Issue Type Icons**: Each issue type displays with a distinctive icon - epics (📦), tasks (☑️), bugs (🐛), features (💡), spikes (🧪), and chores (🔧) - making it easy to identify different work types at a glance.
-- **Epic Grouping**: Group tasks by their parent epic using the "Toggle Sort Mode" command. Epics appear as expandable sections containing their child tasks, with ungrouped items shown in a separate section. Toggle between ID sort, status sort, and epic grouping modes.
+- **Epic Grouping**: Group tasks by their parent epic using the sort picker. Epics appear as expandable sections containing their child tasks, with ungrouped items shown in a separate section. Choose between ID sort, status grouping, epic grouping, and assignee grouping modes.
 - **Live Data Sync**: Automatically watches the Beads database for changes and refreshes the view in real-time.
 - **Stale Task Warning**: Automatically detects and highlights in-progress tasks that have been stale for too long. A warning section at the top of the tree view shows tasks that exceed the configurable threshold, helping identify potentially stuck work or forgotten tasks. Closed items are never shown in this bucket.
 - **Search**: Search across beads by ID, title, description, labels, status, assignee, and more.
@@ -53,6 +53,8 @@ See `docs/architecture.md` and `docs/adr/2025-12-vscode-architecture.md` for det
   - Labels with quick add/remove functionality
   - External reference tracking
   - Dependency information
+- **Hide/Show Closed Toggle**: Toggle visibility of closed issues with a toolbar button. State persists across sessions and works with search and quick filters.
+- **Assignee Edit**: Edit assignees from the Issues list context menu or detail panel. Input is validated and sanitized.
 - **Inline Editing**: Edit bead status and labels directly from the detail view.
 - **Quick Label Management**:
   - Add/remove custom labels
@@ -92,7 +94,7 @@ The extension integrates with the Beads CLI (`bd`) and reads from the Beads data
 | `Beady: Create` | Create a new bead by prompting for a title and invoking `bd create`. |
 | `Beady: Visualize Dependencies` | Open an interactive dependency graph showing relationships between beads. |
 | `Beady: Send Feedback` | Open the configured feedback flow (command palette, Beads toolbar, bead context menu, or status bar when enabled). |
-| `Beady: Toggle Sort Mode` | Cycle through view modes: ID sort → Status grouping → Epic grouping. Epic mode shows tasks grouped under their parent epics. |
+| `Beady: Choose Sort Mode` | Choose between view modes: ID sort, Status grouping, Epic grouping, and Assignee grouping. |
 | `Beady: Clear Manual Sort Order` | Reset manual drag-and-drop sorting and return to natural ID-based sorting. |
 | `Beady: Delete` | Delete selected bead(s) from the project. |
 
@@ -136,16 +138,17 @@ The extension integrates with the Beads CLI (`bd`) and reads from the Beads data
 
 ### View Modes
 
-The extension supports three view modes that you can cycle through using the "Toggle Sort Mode" command:
+The extension supports four view modes accessible via the sort picker:
 
 1. **ID Sort** (default): Beads are sorted naturally by ID
 2. **Status Grouping**: Beads are grouped into collapsible sections by status (Open, In Progress, Blocked, Closed)
-3. **Epic Grouping**: Beads are grouped under their parent epics. Epics appear as expandable sections with their child tasks nested underneath. Tasks without a parent epic are shown in an "Ungrouped" section.
+3. **Epic Grouping**: Beads are grouped under their parent epics.
+4. **Assignee Grouping**: Beads are grouped by assignee with Unassigned at bottom.
 
 ### Filters and badges
 
 - Use the explorer toolbar chip labeled `Filter: <mode>` (Issues, Epics, Favorites, Recent, Blockers, etc.). Click it or run `Beady: Switch Filter Mode…` (Cmd/Ctrl+Shift+P) to open the same quick pick with scope hints; the active label stays visible in high-contrast themes.
-- Every row shows an assignee pill plus a colored status badge even when collapsed. In **assignee sort** (cycle with `Beady: Toggle Sort Mode`), names sort case-insensitively with **Unassigned** pinned to the bottom.
+- Every row shows an assignee pill plus a colored status badge even when collapsed. In **assignee grouping** (use the sort picker), names sort case-insensitively with **Unassigned** pinned to the bottom.
 - Press **Space/Enter** or click the chevron to expand a row for labels, priority, external reference, and updated time without leaving the list. Focus order and `aria-expanded` stay in sync, and user-provided text is HTML-escaped in tooltips/markdown for safety.
 - See [docs/filters-assignee.md](docs/filters-assignee.md) for deeper UX/accessibility notes.
 
