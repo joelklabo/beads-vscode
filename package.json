@@ -564,6 +564,23 @@
           "group": "navigation@3"
         }
       ],
+      "webview/context": [
+        {
+          "command": "beady.openBead",
+          "when": "webviewId == beady.issuesView && webviewSection == bead",
+          "group": "navigation@1"
+        },
+        {
+          "command": "beady.inlineStatusChange",
+          "when": "webviewId == beady.issuesView && webviewSection == bead",
+          "group": "modification@1"
+        },
+        {
+          "command": "beady.editAssignee",
+          "when": "webviewId == beady.issuesView && webviewSection == bead",
+          "group": "modification@2"
+        }
+      ],
       "view/item/context": [
         {
           "command": "beady.editExternalReference",
