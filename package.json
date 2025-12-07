@@ -230,6 +230,11 @@
           "name": "Issues"
         },
         {
+          "type": "webview",
+          "id": "beady.issuesView",
+          "name": "Issues (Webview)"
+        },
+        {
           "id": "activityFeed",
           "name": "Activity Feed"
         },

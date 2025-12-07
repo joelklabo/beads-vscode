@@ -81,6 +81,7 @@ import { registerSendFeedbackCommand } from './commands/sendFeedback';
 import { CommandRegistry, createExportCommands, createQuickFilterCommands } from './commands';
 import { createDependencyGraphView } from './views';
 import { DependencyTreeProvider } from './dependencyTreeProvider';
+import { BeadsWebviewProvider } from './providers/beads/webview';
 import { currentWorktreeId } from './worktree';
 import { warnIfDependencyEditingUnsupported } from './services/runtimeEnvironment';
 import { BdCommandOptions, formatBdError, resolveBeadId, runBdCommand } from './services/cliService';
@@ -5890,6 +5891,11 @@ export function activate(context: vscode.ExtensionContext): void {
     dragAndDropController: provider,
     canSelectMany: true,
   });
+
+  const webviewProvider = new BeadsWebviewProvider(context.extensionUri);
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider(BeadsWebviewProvider.viewType, webviewProvider)
+  );
 
   // Set tree view reference for badge updates
   provider.setTreeView(treeView);
