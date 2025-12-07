@@ -1,4 +1,11 @@
 import * as vscode from 'vscode';
+import { BeadItemData, toViewModel } from '../../utils/beads';
+import { WebviewMessage, WebviewCommand } from '../../views/issues/types';
+
+export interface BeadsDataSource {
+  onDidChangeTreeData: vscode.Event<any>;
+  getVisibleBeads(): BeadItemData[];
+}
 
 export class BeadsWebviewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = 'beady.issuesView';
@@ -7,6 +14,7 @@ export class BeadsWebviewProvider implements vscode.WebviewViewProvider {
 
   constructor(
     private readonly _extensionUri: vscode.Uri,
+    private readonly _dataSource: BeadsDataSource
   ) { }
 
   public resolveWebviewView(
@@ -25,24 +33,76 @@ export class BeadsWebviewProvider implements vscode.WebviewViewProvider {
     };
 
     webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
+
+    // Listen for data changes
+    this._dataSource.onDidChangeTreeData(() => {
+      this._updateWebview();
+    });
+
+    // Handle messages from webview
+    webviewView.webview.onDidReceiveMessage(async (message: WebviewCommand) => {
+      switch (message.command) {
+        case 'open': {
+          // We need to find the full item to pass to the command, or the command needs to handle ID
+          // beady.openBead expects BeadItemData.
+          // Let's find it from the data source.
+          const item = this._dataSource.getVisibleBeads().find(b => b.id === message.id);
+          if (item) {
+            vscode.commands.executeCommand('beady.openBead', item);
+          }
+          break;
+        }
+      }
+    });
+
+    // Initial update
+    this._updateWebview();
   }
 
-  private _getHtmlForWebview(_webview: vscode.Webview) {
-    // Placeholder for now
+  private _updateWebview() {
+    if (!this._view) { return; }
+    const beads = this._dataSource.getVisibleBeads();
+    const viewModels = beads.map(toViewModel);
+    
+    this._view.webview.postMessage({
+      type: 'update',
+      beads: viewModels
+    } as WebviewMessage);
+  }
+
+  private _getHtmlForWebview(webview: vscode.Webview) {
+    // Get the local path to main script run in the webview, then convert it to a uri we can use in the webview.
+    // We assume the build process will output the react app to `out/views/issues/index.js` or similar.
+    // For now, we'll just use a placeholder script or assume it's there.
+    // Since the React task is separate, I will just put a placeholder script tag.
+    
+    const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'dist', 'views', 'issues.js'));
+    const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'dist', 'views', 'issues.css'));
+
+    const nonce = getNonce();
+
     return `<!DOCTYPE html>
     <html lang="en">
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';">
+      <link href="${styleUri}" rel="stylesheet">
       <title>Beads Issues</title>
-      <style>
-        body { font-family: var(--vscode-font-family); padding: 10px; }
-      </style>
     </head>
     <body>
-      <h2>Beads Issues</h2>
-      <p>Loading...</p>
+      <div id="root"></div>
+      <script nonce="${nonce}" src="${scriptUri}"></script>
     </body>
     </html>`;
   }
+}
+
+function getNonce() {
+  let text = '';
+  const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  for (let i = 0; i < 32; i++) {
+    text += possible.charAt(Math.floor(Math.random() * possible.length));
+  }
+  return text;
 }

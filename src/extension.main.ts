@@ -5892,7 +5892,7 @@ export function activate(context: vscode.ExtensionContext): void {
     canSelectMany: true,
   });
 
-  const webviewProvider = new BeadsWebviewProvider(context.extensionUri);
+  const webviewProvider = new BeadsWebviewProvider(context.extensionUri, provider);
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(BeadsWebviewProvider.viewType, webviewProvider)
   );
