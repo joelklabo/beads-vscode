@@ -5713,7 +5713,8 @@ async function inlineEditLabels(provider: BeadsTreeDataProvider, treeView: vscod
 async function inlineStatusQuickChange(
   provider: BeadsTreeDataProvider,
   treeView: vscode.TreeView<TreeItemType>,
-  activityFeedView?: vscode.TreeView<vscode.TreeItem>
+  activityFeedView?: vscode.TreeView<vscode.TreeItem>,
+  targetItem?: BeadItemData
 ): Promise<void> {
   const config = vscode.workspace.getConfiguration('beady');
   const featureEnabled = config.get<boolean>('inlineStatusChange.enabled', false);
@@ -5725,7 +5726,7 @@ async function inlineStatusQuickChange(
     return;
   }
 
-  const beads = collectSelectedBeads(provider, treeView, activityFeedView);
+  const beads = targetItem ? [targetItem] : collectSelectedBeads(provider, treeView, activityFeedView);
   if (!beads || beads.length === 0) {
     void vscode.window.showWarningMessage(t('No beads selected. Select one or more items to change status.'));
     return;
@@ -5849,6 +5850,17 @@ async function editAssignee(
   if (treeView) {
     await restoreFocus(treeView, provider, target.id);
   }
+}
+
+function resolveCommandItem(item: any, provider: BeadsTreeDataProvider): BeadItemData | undefined {
+  if (!item) { return undefined; }
+  // If it has 'raw' property, it's likely BeadItemData
+  if ('raw' in item) { return item as BeadItemData; }
+  // If it has 'webviewSection' and 'id', it's from webview context
+  if (item.webviewSection === 'bead' && item.id) {
+    return (provider as any).items.find((i: any) => i.id === item.id);
+  }
+  return undefined;
 }
 
 export function activate(context: vscode.ExtensionContext): void {
@@ -6024,7 +6036,12 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('beady.clearSortOrder', () => provider.clearSortOrder()),
     // Quick filter commands now registered via commandRegistry above
     vscode.commands.registerCommand('beady.toggleClosedVisibility', () => provider.toggleClosedVisibility()),
-    vscode.commands.registerCommand('beady.openBead', (item: BeadItemData) => openBead(item, provider)),
+    vscode.commands.registerCommand('beady.openBead', (item: any) => {
+      const resolved = resolveCommandItem(item, provider);
+      if (resolved) {
+        return openBead(resolved, provider);
+      }
+    }),
     vscode.commands.registerCommand('beady.createBead', () => createBead()),
     vscode.commands.registerCommand('beady.selectWorkspace', () => selectWorkspace(provider)),
     vscode.commands.registerCommand('beady.addDependency', (item?: BeadItemData) => addDependencyCommand(provider, item)),
@@ -6093,10 +6110,19 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('beady.bulkAddLabel', () => bulkUpdateLabel(provider, treeView, 'add')),
     vscode.commands.registerCommand('beady.bulkRemoveLabel', () => bulkUpdateLabel(provider, treeView, 'remove')),
     vscode.commands.registerCommand('beady.toggleFavorite', () => toggleFavorites(provider, treeView, context)),
-    vscode.commands.registerCommand('beady.inlineStatusChange', () => inlineStatusQuickChange(provider, treeView, activityFeedView)),
+    vscode.commands.registerCommand('beady.inlineStatusChange', (item: any) => {
+      const resolved = resolveCommandItem(item, provider);
+      if (resolved) {
+        return inlineStatusQuickChange(provider, treeView, activityFeedView, resolved);
+      }
+      return inlineStatusQuickChange(provider, treeView, activityFeedView);
+    }),
     vscode.commands.registerCommand('beady.inlineEditTitle', () => inlineEditTitle(provider, treeView)),
     vscode.commands.registerCommand('beady.inlineEditLabels', () => inlineEditLabels(provider, treeView)),
-    vscode.commands.registerCommand('beady.editAssignee', (item?: BeadItemData) => editAssignee(provider, treeView, item)),
+    vscode.commands.registerCommand('beady.editAssignee', (item: any) => {
+      const resolved = resolveCommandItem(item, provider);
+      return editAssignee(provider, treeView, resolved);
+    }),
     
     // Activity Feed commands
     vscode.commands.registerCommand('beady.refreshActivityFeed', () => activityFeedProvider.refresh('manual')),

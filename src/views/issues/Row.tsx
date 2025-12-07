@@ -7,8 +7,18 @@ interface RowProps {
 }
 
 export const Row: React.FC<RowProps> = ({ bead, onClick }) => {
+  const contextData = JSON.stringify({
+    webviewSection: 'bead',
+    id: bead.id,
+    preventDefaultContextMenuItems: true
+  });
+
   return (
-    <div className="bead-row" onClick={() => onClick(bead.id)}>
+    <div 
+      className="bead-row" 
+      onClick={() => onClick(bead.id)}
+      data-vscode-context={contextData}
+    >
       <div className="bead-icon" style={{ color: bead.icon?.color }}>
         <span className={`codicon codicon-${bead.icon?.id || 'circle-outline'}`} />
       </div>
