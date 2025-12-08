@@ -226,13 +226,13 @@
     "views": {
       "beady": [
         {
-          "id": "beadyExplorer",
+          "type": "webview",
+          "id": "beady.issuesView",
           "name": "Issues"
         },
         {
-          "type": "webview",
-          "id": "beady.issuesView",
-          "name": "Issues (Webview)"
+          "id": "beadyExplorer",
+          "name": "Issues (Legacy)"
         },
         {
           "id": "activityFeed",
