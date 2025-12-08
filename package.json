@@ -29,7 +29,7 @@
     "task-management"
   ],
   "engines": {
-    "vscode": "^1.85.0"
+    "vscode": "^1.90.0"
   },
   "categories": [
     "Other"
@@ -245,6 +245,20 @@
         }
       ]
     },
+    "chatParticipants": [
+      {
+        "id": "beady.task-creator",
+        "name": "task-creator",
+        "description": "Turn a feature request into a complete bd epic + task tree",
+        "isSticky": true
+      },
+      {
+        "id": "beady.task-worker",
+        "name": "task-worker",
+        "description": "Continuously work through ALL bd issues until none remain",
+        "isSticky": true
+      }
+    ],
     "configuration": {
       "type": "object",
       "title": "Beady",
@@ -864,6 +878,8 @@
     "onCommand:beady.inlineEditTitle",
     "onCommand:beady.inlineEditLabels",
     "onCommand:beady.editAssignee",
-    "onCommand:beady.selectWorkspace"
+    "onCommand:beady.selectWorkspace",
+    "onChatParticipant:beady.task-creator",
+    "onChatParticipant:beady.task-worker"
   ]
 }

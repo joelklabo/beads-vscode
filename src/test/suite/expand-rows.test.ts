@@ -84,4 +84,43 @@ suite('Expandable rows', () => {
     const cleared = context.workspaceState.get('beady.expandedRows');
     assert.deepStrictEqual(cleared, []);
   });
+
+  test('selection expansion reveals rows and persists state', async () => {
+    const context = createContextStub();
+    const provider = new BeadsTreeDataProvider(context as any);
+
+    (provider as any).items = [
+      {
+        id: 'task-1',
+        title: 'Auto-expand row',
+        status: 'open',
+        assignee: 'Dana',
+        tags: ['frontend'],
+        updatedAt: new Date().toISOString(),
+      } as BeadItemData,
+    ];
+
+    const roots = await provider.getChildren();
+    const bead = roots.find((node: any) => node instanceof BeadTreeItem) as any;
+    assert.ok(bead, 'bead tree item should exist');
+
+    const revealCalls: Array<{ element: any; options: any }> = [];
+    (provider as any).treeView = {
+      reveal: async (element: any, options: any) => {
+        revealCalls.push({ element, options });
+      },
+      badge: undefined,
+    } as any;
+
+    provider.expandRow(bead);
+
+    const stored = context.workspaceState.get('beady.expandedRows');
+    assert.deepStrictEqual(stored, ['task-1']);
+    assert.strictEqual(revealCalls.length, 1);
+    assert.strictEqual(revealCalls[0]?.options?.expand, true);
+
+    const refreshed = await provider.getChildren();
+    const expanded = refreshed.find((node: any) => node instanceof BeadTreeItem) as any;
+    assert.strictEqual(expanded.collapsibleState, vscodeStub.TreeItemCollapsibleState.Expanded);
+  });
 });

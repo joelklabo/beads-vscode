@@ -86,6 +86,7 @@ import { currentWorktreeId } from './worktree';
 import { warnIfDependencyEditingUnsupported } from './services/runtimeEnvironment';
 import { BdCommandOptions, formatBdError, resolveBeadId, runBdCommand } from './services/cliService';
 import * as path from 'path';
+import { registerChatParticipants } from './chatAgents';
 
 const t = vscode.l10n.t;
 const PROJECT_ROOT_ERROR = t('Unable to resolve project root. Set "beady.projectRoot" or open a workspace folder.');
@@ -1621,6 +1622,24 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
 
   private saveExpandedRows(): void {
     void this.context.workspaceState.update('beady.expandedRows', Array.from(this.expandedRows));
+  }
+
+  expandRow(element: TreeItemType | undefined): void {
+    if (!this.treeView || !element || !(element instanceof BeadTreeItem)) {
+      return;
+    }
+
+    const beadId = element.bead?.id;
+    if (!beadId) {
+      return;
+    }
+
+    if (!this.expandedRows.has(beadId)) {
+      this.expandedRows.add(beadId);
+      this.saveExpandedRows();
+    }
+
+    void this.treeView.reveal(element, { expand: true, focus: false, select: false });
   }
 
   private loadQuickFilter(): void {
@@ -5917,6 +5936,9 @@ export function activate(context: vscode.ExtensionContext): void {
     treeDataProvider: dependencyTreeProvider,
     showCollapseAll: true,
   });
+  const rowExpandOnSelect = treeView.onDidChangeSelection((event) => {
+    event.selection.forEach((item) => provider.expandRow(item));
+  });
   const dependencySelection = treeView.onDidChangeSelection((event) => {
     const bead = event.selection.find((item): item is BeadTreeItem => item instanceof BeadTreeItem);
     if (bead?.bead) {
@@ -6021,9 +6043,13 @@ export function activate(context: vscode.ExtensionContext): void {
   commandRegistry.registerAll(createExportCommands(provider, treeView));
   context.subscriptions.push(...commandRegistry.getDisposables());
 
+  // Register Chat Participants
+  registerChatParticipants(context);
+
   context.subscriptions.push(
     treeView,
     dependencyTreeView,
+    rowExpandOnSelect,
     dependencySelection,
     dependencySync,
     expandListener,
