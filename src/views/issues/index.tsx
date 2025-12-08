@@ -5,19 +5,25 @@ import { BeadViewModel, WebviewMessage, WebviewCommand } from './types';
 import './style.css';
 
 // VS Code API
-declare const acquireVsCodeApi: () => {
-  postMessage: (message: WebviewCommand) => void;
-  getState: () => any;
-  setState: (state: any) => void;
-};
+declare global {
+  interface Window {
+    vscode: {
+      postMessage: (message: WebviewCommand) => void;
+      getState: () => any;
+      setState: (state: any) => void;
+    };
+  }
+}
 
-const vscode = acquireVsCodeApi();
+const vscode = window.vscode;
 
 const App: React.FC = () => {
   const [beads, setBeads] = useState<BeadViewModel[]>([]);
 
   useEffect(() => {
+    console.log('Beads Issues View mounted');
     const handler = (event: MessageEvent<WebviewMessage>) => {
+      console.log('Received message:', event.data);
       const message = event.data;
       if (message.type === 'update') {
         setBeads(message.beads);
@@ -25,6 +31,8 @@ const App: React.FC = () => {
     };
 
     window.addEventListener('message', handler);
+    // Signal ready
+    vscode.postMessage({ command: 'ready' } as any);
     return () => window.removeEventListener('message', handler);
   }, []);
 
