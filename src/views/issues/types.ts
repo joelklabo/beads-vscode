@@ -27,4 +27,6 @@ export type WebviewCommand =
   | { command: 'open'; id: string }
   | { command: 'updateStatus'; id: string; status: string }
   | { command: 'edit'; id: string }
-  | { command: 'contextMenu'; id: string; x: number; y: number };
+  | { command: 'contextMenu'; id: string; x: number; y: number }
+  | { command: 'log'; text: string }
+  | { command: 'ready' };
