@@ -94,19 +94,26 @@ export class BeadsWebviewProvider implements vscode.WebviewViewProvider {
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}' ${webview.cspSource}; font-src ${webview.cspSource};">
+      <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval'; script-src * 'unsafe-inline' 'unsafe-eval'; style-src * 'unsafe-inline';">
       <link href="${styleUri}" rel="stylesheet">
       <title>Beads Issues</title>
     </head>
     <body>
-      <div id="root">Loading...</div>
+      <div id="root">Loading... (CSP Relaxed)</div>
       <script nonce="${nonce}">
-        window.vscode = acquireVsCodeApi();
-        window.addEventListener('error', event => {
-            window.vscode.postMessage({ command: 'log', text: event.message });
-        });
+        console.log('Inline script starting');
+        try {
+          window.vscode = acquireVsCodeApi();
+          console.log('VS Code API acquired');
+          window.addEventListener('error', event => {
+              console.error('Global error:', event.message);
+              window.vscode.postMessage({ command: 'log', text: 'ERROR: ' + event.message });
+          });
+        } catch (e) {
+          console.error('Failed to acquire VS Code API:', e);
+        }
       </script>
-      <script nonce="${nonce}" src="${scriptUri}"></script>
+      <script nonce="${nonce}" src="${scriptUri}" onload="console.log('Bundle loaded')" onerror="console.error('Bundle failed to load')"></script>
     </body>
     </html>`;
   }
