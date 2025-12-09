@@ -37,3 +37,6 @@ export {
 
 // Re-export the sendFeedback command (legacy module)
 export { sendFeedback } from './sendFeedback';
+
+// Additional command handlers
+export { selectWorkspace } from './handlers';
