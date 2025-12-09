@@ -542,7 +542,7 @@ export function getBeadDetailHtml(
         });
 
         document.getElementById('assignee-edit').addEventListener('click', () => {
-            vscode.postMessage({ command: 'editAssignee', id: '${item.id}' });
+            vscode.postMessage({ command: 'editAssignee', issueId: '${item.id}' });
         });
 
         addLabelButton.addEventListener('click', () => {
