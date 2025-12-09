@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { BeadItemData, buildDependencyTrees, sanitizeInlineText, escapeHtml, deriveAssigneeName, linkifyText } from '../../utils';
 import { BeadDetailStrings } from './types';
 import { getStatusLabel, renderBranchSection } from './utils';
+import { buildSharedStyles, getIssueTypeToken, getPriorityToken, getStatusToken } from '../shared/theme';
 
 const t = vscode.l10n.t;
 
@@ -26,19 +27,16 @@ export function getBeadDetailHtml(
   const assignee = sanitizeInlineText(assigneeRaw) || strings.assigneeFallback;
   const labels = raw?.labels || [];
   const dependencyEditingEnabled = vscode.workspace.getConfiguration('beady').get<boolean>('enableDependencyEditing', false);
+  const issueTypeToken = getIssueTypeToken(issueType);
+  const statusToken = getStatusToken(item.status);
+  const priorityToken = getPriorityToken(priority);
+  const assigneeColor = colorFromName(assigneeRaw || strings.assigneeFallback);
 
   // Build dependency trees for visualization
   const treeData = allItems && allItems.length > 0 ? buildDependencyTrees(allItems, item.id) : { upstream: [], downstream: [] };
   const hasUpstream = treeData.upstream.length > 0;
   const hasDownstream = treeData.downstream.length > 0;
   const hasAnyDeps = hasUpstream || hasDownstream;
-
-  const statusColor = {
-    'open': '#3794ff',
-    'in_progress': '#f9c513',
-    'blocked': '#f14c4c',
-    'closed': '#73c991'
-  }[item.status || 'open'] || '#666';
 
   const statusDisplay = getStatusLabel(item.status, strings) || strings.statusLabels.open;
 
@@ -60,6 +58,7 @@ export function getBeadDetailHtml(
     <title>${item.id}</title>
     <meta http-equiv="Content-Security-Policy" content="${csp}">
     <style nonce="${nonce}">
+        ${buildSharedStyles()}
         :root {
             --spacing-unit: 16px;
             --font-size-title: 24px;
@@ -109,6 +108,14 @@ export function getBeadDetailHtml(
             align-items: center;
             gap: 12px;
         }
+        .hero-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+        }
+        .hero-chips .bead-chip { cursor: pointer; }
+        .bead-chip .caret { margin-left: 4px; font-size: 10px; opacity: 0.8; }
         .id-badge {
             font-family: var(--vscode-editor-font-family);
             font-size: 12px;
@@ -303,6 +310,7 @@ export function getBeadDetailHtml(
             z-index: 1000;
             min-width: 150px;
         }
+        .status-dropdown { min-width: 160px; }
         .status-dropdown.show {
             display: block;
         }
@@ -345,26 +353,60 @@ export function getBeadDetailHtml(
             <div class="header-top">
                 <div class="header-left">
                     <div class="id-badge" title="Copy ID" onclick="copyToClipboard('${item.id}')">${item.id}</div>
-                    <div class="status-wrapper">
-                        <div class="status-badge" id="statusBadge" style="color: ${statusColor}; border: 1px solid ${statusColor}44; background-color: ${statusColor}11; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; cursor: pointer;" data-status="${item.status || 'open'}">
-                            ${statusDisplay} ▾
+                    <div class="hero-chips">
+                        <div class="status-wrapper">
+                            <div class="bead-chip status status-${statusToken.id} ${statusToken.pulsing ? 'pulsing' : ''}" id="statusBadge" data-status="${item.status || 'open'}">
+                                <span class="codicon codicon-${statusToken.icon}"></span>
+                                <span>${statusDisplay}</span>
+                                <span class="codicon codicon-chevron-down caret"></span>
+                            </div>
+                            <div class="status-dropdown" id="statusDropdown">
+                                <div class="status-option" data-status="open">${strings.statusLabels.open}</div>
+                                <div class="status-option" data-status="in_progress">${strings.statusLabels.in_progress}</div>
+                                <div class="status-option" data-status="blocked">${strings.statusLabels.blocked}</div>
+                                <div class="status-option" data-status="closed">${strings.statusLabels.closed}</div>
+                            </div>
                         </div>
-                        <div class="status-dropdown" id="statusDropdown">
-                            <div class="status-option" data-status="open">${strings.statusLabels.open}</div>
-                            <div class="status-option" data-status="in_progress">${strings.statusLabels.in_progress}</div>
-                            <div class="status-option" data-status="blocked">${strings.statusLabels.blocked}</div>
-                            <div class="status-option" data-status="closed">${strings.statusLabels.closed}</div>
+                        <div class="status-wrapper">
+                            <div class="bead-chip type type-${issueTypeToken.id}" id="typeBadge" data-type="${issueType}">
+                                <span class="codicon codicon-${issueTypeToken.icon}"></span>
+                                <span>${issueTypeToken.label}</span>
+                                <span class="codicon codicon-chevron-down caret"></span>
+                            </div>
+                            <div class="status-dropdown" id="typeDropdown">
+                                <div class="type-option" data-type="task">${getIssueTypeToken('task').label}</div>
+                                <div class="type-option" data-type="bug">${getIssueTypeToken('bug').label}</div>
+                                <div class="type-option" data-type="feature">${getIssueTypeToken('feature').label}</div>
+                                <div class="type-option" data-type="epic">${getIssueTypeToken('epic').label}</div>
+                                <div class="type-option" data-type="chore">${getIssueTypeToken('chore').label}</div>
+                            </div>
                         </div>
-                    </div>
-                    <div class="status-wrapper">
-                        <div class="status-badge" id="typeBadge" style="background-color: var(--vscode-badge-background); padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; cursor: pointer;" data-type="${issueType}">
-                            ${issueType.toUpperCase()} ▾
+                        <div class="status-wrapper">
+                            <div class="bead-chip priority priority-${priorityToken.id}" id="priorityBadge" data-priority="${priority}">
+                                <span class="codicon codicon-${priorityToken.icon}"></span>
+                                <span>${priorityToken.label}</span>
+                                <span class="codicon codicon-chevron-down caret"></span>
+                            </div>
+                            <div class="status-dropdown" id="priorityDropdown">
+                                <div class="priority-option" data-priority="0">P0 (Highest)</div>
+                                <div class="priority-option" data-priority="1">P1 (High)</div>
+                                <div class="priority-option" data-priority="2">P2 (Medium)</div>
+                                <div class="priority-option" data-priority="3">P3 (Low)</div>
+                                <div class="priority-option" data-priority="4">P4 (Lowest)</div>
+                            </div>
                         </div>
-                        <div class="status-dropdown" id="typeDropdown">
-                            <div class="type-option" data-type="task">TASK</div>
-                            <div class="type-option" data-type="bug">BUG</div>
-                            <div class="type-option" data-type="feature">FEATURE</div>
-                            <div class="type-option" data-type="epic">EPIC</div>
+                        <div
+                          class="bead-chip assignee"
+                          id="assignee-edit"
+                          title="${escapeHtml(assignee)}"
+                          style="
+                            color: ${assigneeColor};
+                            background: color-mix(in srgb, ${assigneeColor} 18%, transparent);
+                            border-color: color-mix(in srgb, ${assigneeColor} 35%, transparent);
+                          "
+                        >
+                          <span class="assignee-initials">${escapeHtml((assignee || strings.assigneeFallback).slice(0,2).toUpperCase())}</span>
+                          <span class="assignee-name">${escapeHtml(assignee)}</span>
                         </div>
                     </div>
                 </div>
@@ -379,25 +421,6 @@ export function getBeadDetailHtml(
             </div>
             <h1 class="title" id="issueTitle" contenteditable="true">${escapeHtml(item.title)}</h1>
             <div class="meta-grid">
-                <div class="meta-item">
-                    <span class="meta-label">${strings.assigneeLabel}</span>
-                    <span class="meta-value" id="assignee-edit" style="cursor: pointer; border-bottom: 1px dashed var(--vscode-descriptionForeground);">${escapeHtml(assignee)}</span>
-                </div>
-                <div class="meta-item">
-                    <span class="meta-label">Priority:</span>
-                    <div class="status-wrapper" style="display: inline-block;">
-                        <span class="meta-value" id="priorityBadge" style="cursor: pointer; border-bottom: 1px dashed var(--vscode-descriptionForeground);" data-priority="${priority}">
-                            P${priority} ▾
-                        </span>
-                        <div class="status-dropdown" id="priorityDropdown">
-                            <div class="priority-option" data-priority="0">P0 (Highest)</div>
-                            <div class="priority-option" data-priority="1">P1 (High)</div>
-                            <div class="priority-option" data-priority="2">P2 (Medium)</div>
-                            <div class="priority-option" data-priority="3">P3 (Low)</div>
-                            <div class="priority-option" data-priority="4">P4 (Lowest)</div>
-                        </div>
-                    </div>
-                </div>
                 <div class="meta-item">
                     <span class="meta-label">${strings.createdLabel}</span>
                     <span class="meta-value">${createdAt}</span>
@@ -634,7 +657,16 @@ export function getBeadDetailHtml(
                 priorityDropdown.classList.remove('show');
             }
         });
-    </script>
+  </script>
 </body>
 </html>`;
+}
+
+function colorFromName(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+  }
+  const hue = hash % 360;
+  return `hsl(${hue}, 65%, 60%)`;
 }
