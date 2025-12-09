@@ -13,6 +13,7 @@ export interface BeadViewModel {
   updatedAt: string; // ISO or relative
   isStale: boolean;
   worktree?: string;
+  epicId?: string;
   icon?: {
     id: string;
     color?: string;
