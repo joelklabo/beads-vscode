@@ -2083,6 +2083,10 @@ async function openBead(item: BeadItemData, provider: BeadsTreeDataProvider): Pr
   const allowedCommands: AllowedLittleGlenCommand[] = [
     'updateStatus',
     'updateTitle',
+    'updateDescription',
+    'updateDesign',
+    'updateAcceptanceCriteria',
+    'updateNotes',
     'editAssignee',
     'addLabel',
     'removeLabel',
@@ -2107,6 +2111,18 @@ async function openBead(item: BeadItemData, provider: BeadsTreeDataProvider): Pr
         return;
       case 'updateTitle':
         await provider.updateTitle(item, validated.title);
+        return;
+      case 'updateDescription':
+        await provider.updateDescription(item, validated.value);
+        return;
+      case 'updateDesign':
+        await provider.updateDesign(item, validated.value);
+        return;
+      case 'updateAcceptanceCriteria':
+        await provider.updateAcceptanceCriteria(item, validated.value);
+        return;
+      case 'updateNotes':
+        await provider.updateNotes(item, validated.value);
         return;
       case 'editAssignee':
         await editAssignee(provider, undefined, item);
