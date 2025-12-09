@@ -833,6 +833,7 @@
     "test:unit:run": "mocha ./out/test/unit/**/*.test.js ./out/test/deps.add.test.js ./out/test/sanitization.test.js ./out/test/littleGlen.command-validation.test.js ./out/test/log-redaction.test.js ./out/test/activityFeed.timestamps.test.js ./out/test/title-format.test.js ./out/test/activityFeed.title-format.test.js ./out/test/multi-root.cli.test.js ./out/test/tooltips.security.test.js ./out/test/export.markdown.test.js ./out/test/export.csv.test.js ./out/test/bulk.status.test.js ./out/test/bulk.results.test.js ./out/test/bulk.labels.test.js ./out/test/favorites.persistence.test.js ./out/test/favorites.validation.test.js ./out/test/favorites.toggle.test.js ./out/test/inline.status.test.js ./out/test/inline.validation.test.js --exit",
     "test:bd-cli": "npm run compile && mocha ./out/test/bd-cli.test.js",
     "test:integration": "npm run compile && npm run bundle && node ./out/test/runTest.js",
+    "test:ui": "npm run compile && extest setup-and-run out/test/ui/*.test.js",
     "test:stress": "./scripts/stress-test.sh",
     "test:all": "npm run lint && npm run test:unit && npm run test:core && npm run test:bd-cli",
     "guard": "./scripts/worktree-guard.sh",
@@ -883,7 +884,8 @@
     "ts-node": "^10.9.2",
     "tsc-alias": "^1.8.10",
     "tsx": "^4.7.0",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "vscode-extension-tester": "^8.19.0"
   },
   "dependencies": {
     "@octokit/rest": "^22.0.1",
