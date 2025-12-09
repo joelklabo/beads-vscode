@@ -7,7 +7,7 @@ export type PanelMessageHandler = {
   openExternalUrl?: (url: string) => Promise<void> | void;
   updateStatus?: (status: string) => Promise<void> | void;
   updateTitle?: (title: string) => Promise<void> | void;
-  addLabel?: (label: string) => Promise<void> | void;
+  addLabel?: (label: string | undefined) => Promise<void> | void;
   removeLabel?: (label: string) => Promise<void> | void;
 };
 

@@ -13,7 +13,8 @@ export type LittleGlenCommand =
   | { command: 'updateType'; type: string }
   | { command: 'updatePriority'; priority: number }
   | { command: 'editAssignee'; issueId: string }
-  | { command: 'addLabel' | 'removeLabel'; label: string }
+  | { command: 'addLabel'; label?: string }
+  | { command: 'removeLabel'; label: string }
   | { command: 'addDependency'; issueId?: string; sourceId?: string; targetId?: string }
   | { command: 'removeDependency'; sourceId?: string; targetId?: string; contextId?: string }
   | { command: 'deleteBead'; beadId?: string };
@@ -135,7 +136,18 @@ export function validateLittleGlenMessage(
       }
       return undefined;
     }
-    case 'addLabel':
+    case 'addLabel': {
+      const label = message.label;
+      if (label === undefined) {
+        // Allow addLabel without a label - handler will prompt for input
+        return { command };
+      }
+      const normalized = isSafeLabel(label);
+      if (normalized) {
+        return { command, label: normalized };
+      }
+      return undefined;
+    }
     case 'removeLabel': {
       const label = message.label;
       const normalized = isSafeLabel(label);

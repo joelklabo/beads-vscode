@@ -485,7 +485,7 @@ export function getBeadDetailHtml(
         }
 
         function removeLabel(label) {
-            vscode.postMessage({ command: 'removeLabel', label, issueId: '${item.id}' });
+            vscode.postMessage({ command: 'removeLabel', label });
         }
 
         const deleteButton = document.getElementById('deleteButton');
@@ -546,7 +546,7 @@ export function getBeadDetailHtml(
         });
 
         addLabelButton.addEventListener('click', () => {
-            vscode.postMessage({ command: 'addLabel', issueId: '${item.id}' });
+            vscode.postMessage({ command: 'addLabel' });
         });
 
         if (document.getElementById('addUpstreamButton')) {
@@ -585,7 +585,7 @@ export function getBeadDetailHtml(
         document.querySelectorAll('.status-option').forEach(opt => {
             opt.addEventListener('click', () => {
                 const newStatus = opt.getAttribute('data-status');
-                vscode.postMessage({ command: 'updateStatus', status: newStatus, issueId: '${item.id}' });
+                vscode.postMessage({ command: 'updateStatus', status: newStatus });
                 statusDropdown.classList.remove('show');
             });
         });
@@ -601,7 +601,7 @@ export function getBeadDetailHtml(
         document.querySelectorAll('.type-option').forEach(opt => {
             opt.addEventListener('click', () => {
                 const newType = opt.getAttribute('data-type');
-                vscode.postMessage({ command: 'updateType', type: newType, issueId: '${item.id}' });
+                vscode.postMessage({ command: 'updateType', type: newType });
                 typeDropdown.classList.remove('show');
             });
         });
@@ -617,7 +617,7 @@ export function getBeadDetailHtml(
         document.querySelectorAll('.priority-option').forEach(opt => {
             opt.addEventListener('click', () => {
                 const newPriority = opt.getAttribute('data-priority');
-                vscode.postMessage({ command: 'updatePriority', priority: parseInt(newPriority, 10), issueId: '${item.id}' });
+                vscode.postMessage({ command: 'updatePriority', priority: parseInt(newPriority, 10) });
                 priorityDropdown.classList.remove('show');
             });
         });
