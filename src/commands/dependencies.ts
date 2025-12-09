@@ -199,10 +199,18 @@ export async function removeDependencyCommand(
  * visualizeDependencies remain in extension.main due to their complex
  * integration with the dependency tree provider and webview panels.
  */
+export interface DependencyTreeContext {
+  provider: DependencyEditProvider;
+  dependencyTreeProvider: { getRootId(): string | undefined; setRoot(id: string): void; refresh(): void; };
+  pickBeadQuick: (items: BeadItemData[] | undefined, placeholder: string, excludeId?: string) => Promise<BeadItemData | undefined>;
+  visualizeDependencies: (provider: DependencyEditProvider) => Promise<void>;
+}
+
 export function createDependencyCommands(
-  provider: DependencyEditProvider
+  provider: DependencyEditProvider,
+  treeContext?: DependencyTreeContext
 ): CommandDefinition[] {
-  return [
+  const base: CommandDefinition[] = [
     {
       id: 'beady.addDependency',
       handler: (...args: unknown[]) =>
@@ -218,4 +226,88 @@ export function createDependencyCommands(
       description: 'Remove a dependency between beads',
     },
   ];
+
+  if (!treeContext) {
+    return base;
+  }
+
+  const { dependencyTreeProvider, pickBeadQuick, visualizeDependencies: visualize } = treeContext;
+
+  return base.concat([
+    {
+      id: 'beady.dependencyTree.pickRoot',
+      handler: async () => {
+        const root = await pickBeadQuick(provider.items, t('Select issue for dependency tree'));
+        if (root) {
+          dependencyTreeProvider.setRoot(root.id);
+        }
+      },
+      description: 'Pick dependency tree root',
+    },
+    {
+      id: 'beady.dependencyTree.addUpstream',
+      handler: async () => {
+        const editingEnabled = vscode.workspace.getConfiguration('beady').get<boolean>('enableDependencyEditing', false);
+        if (!editingEnabled) {
+          void vscode.window.showWarningMessage(t('Enable dependency editing in settings to add dependencies.'));
+          return;
+        }
+        const rootId = dependencyTreeProvider.getRootId();
+        const items = provider.items;
+        const root = items?.find((i) => i.id === rootId);
+        if (!root) {
+          void vscode.window.showWarningMessage(t('Select an issue to edit dependencies.'));
+          return;
+        }
+        const target = await pickBeadQuick(items, t('Select an upstream dependency'), root.id);
+        if (!target) { return; }
+        await addDependencyCommand(provider, root, { sourceId: root.id, targetId: target.id });
+        dependencyTreeProvider.refresh();
+      },
+      description: 'Add upstream dependency from tree view',
+    },
+    {
+      id: 'beady.dependencyTree.addDownstream',
+      handler: async () => {
+        const editingEnabled = vscode.workspace.getConfiguration('beady').get<boolean>('enableDependencyEditing', false);
+        if (!editingEnabled) {
+          void vscode.window.showWarningMessage(t('Enable dependency editing in settings to add dependencies.'));
+          return;
+        }
+        const rootId = dependencyTreeProvider.getRootId();
+        const items = provider.items;
+        const root = items?.find((i) => i.id === rootId);
+        if (!root) {
+          void vscode.window.showWarningMessage(t('Select an issue to edit dependencies.'));
+          return;
+        }
+        const dependent = await pickBeadQuick(items, t('Select an issue that should depend on {0}', root.id), root.id);
+        if (!dependent) { return; }
+        await addDependencyCommand(provider, dependent, { sourceId: dependent.id, targetId: root.id });
+        dependencyTreeProvider.refresh();
+      },
+      description: 'Add downstream dependency from tree view',
+    },
+    {
+      id: 'beady.dependencyTree.remove',
+      handler: async (node?: any) => {
+        const editingEnabled = vscode.workspace.getConfiguration('beady').get<boolean>('enableDependencyEditing', false);
+        if (!editingEnabled) {
+          void vscode.window.showWarningMessage(t('Enable dependency editing in settings to remove dependencies.'));
+          return;
+        }
+        if (!node || !node.sourceId || !node.targetId) {
+          return;
+        }
+        await removeDependencyCommand(provider, { sourceId: node.sourceId, targetId: node.targetId }, { contextId: dependencyTreeProvider.getRootId() });
+        dependencyTreeProvider.refresh();
+      },
+      description: 'Remove dependency from tree view',
+    },
+    {
+      id: 'beady.visualizeDependencies',
+      handler: () => visualize(provider),
+      description: 'Open dependency graph',
+    },
+  ]);
 }

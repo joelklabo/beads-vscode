@@ -21,7 +21,13 @@ export { CommandRegistry, CommandDefinition, CommandHandler, defineCommand } fro
 
 // Command factory modules
 export { createCoreBeadsCommands, createBead, CoreBeadsProvider, RunBdCommandFn } from './beads';
-export { createDependencyCommands, addDependencyCommand, removeDependencyCommand, DependencyEditProvider } from './dependencies';
+export {
+  createDependencyCommands,
+  addDependencyCommand,
+  removeDependencyCommand,
+  DependencyEditProvider,
+  DependencyTreeContext,
+} from './dependencies';
 export { createExportCommands, exportBeadsCsv, exportBeadsMarkdown, BeadsProvider, BeadTreeItemLike } from './exports';
 export { createBulkCommands, bulkUpdateStatus, bulkUpdateLabel, RefreshableProvider } from './bulk';
 export { createFavoritesCommands, toggleFavorites } from './favorites';

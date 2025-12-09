@@ -8,7 +8,7 @@ import { EventType } from './activityFeed';
 import { BeadItemData } from './utils';
 import { CommandRegistry, createQuickFilterCommands, createExportCommands } from './commands';
 import { registerChatParticipants } from './chatAgents';
-import { addDependencyCommand, removeDependencyCommand } from './commands/dependencies';
+import { addDependencyCommand, removeDependencyCommand, createDependencyCommands } from './commands/dependencies';
 import { createBead } from './commands/beads';
 import { selectWorkspace, bulkUpdateStatus, bulkUpdateLabel, toggleFavorites, inlineEditTitle, inlineEditLabels, inlineStatusQuickChange, editAssignee } from './commands';
 import { registerSendFeedbackCommand } from './commands/sendFeedback';
