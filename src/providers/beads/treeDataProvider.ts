@@ -1206,6 +1206,69 @@ export class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemTy
     }
   }
 
+  async updateType(item: BeadItemData, type: string): Promise<void> {
+    const validTypes = ['task', 'bug', 'feature', 'epic'];
+    if (!validTypes.includes(type)) {
+      void vscode.window.showWarningMessage(t('Invalid type. Must be one of: task, bug, feature, epic'));
+      return;
+    }
+
+    const itemId = resolveBeadId(item);
+    if (!itemId) {
+      void vscode.window.showWarningMessage(INVALID_ID_MESSAGE);
+      return;
+    }
+
+    const config = vscode.workspace.getConfiguration('beady');
+    const projectRoot = resolveProjectRoot(config);
+
+    if (!projectRoot) {
+      void vscode.window.showErrorMessage(PROJECT_ROOT_ERROR);
+      return;
+    }
+
+    try {
+      await runBdCommand(['update', itemId, '--type', type], projectRoot);
+      await this.refresh();
+      void vscode.window.showInformationMessage(t('Updated type to: {0}', type));
+    } catch (error) {
+      const message = formatSafeError(t('Failed to update type'), error, [projectRoot]);
+      console.error('Failed to update type', message);
+      void vscode.window.showErrorMessage(message);
+    }
+  }
+
+  async updatePriority(item: BeadItemData, priority: number): Promise<void> {
+    if (priority < 0 || priority > 4) {
+      void vscode.window.showWarningMessage(t('Invalid priority. Must be 0-4'));
+      return;
+    }
+
+    const itemId = resolveBeadId(item);
+    if (!itemId) {
+      void vscode.window.showWarningMessage(INVALID_ID_MESSAGE);
+      return;
+    }
+
+    const config = vscode.workspace.getConfiguration('beady');
+    const projectRoot = resolveProjectRoot(config);
+
+    if (!projectRoot) {
+      void vscode.window.showErrorMessage(PROJECT_ROOT_ERROR);
+      return;
+    }
+
+    try {
+      await runBdCommand(['update', itemId, '--priority', priority.toString()], projectRoot);
+      await this.refresh();
+      void vscode.window.showInformationMessage(t('Updated priority to: P{0}', priority));
+    } catch (error) {
+      const message = formatSafeError(t('Failed to update priority'), error, [projectRoot]);
+      console.error('Failed to update priority', message);
+      void vscode.window.showErrorMessage(message);
+    }
+  }
+
   async addLabel(item: BeadItemData, label: string): Promise<void> {
     const validation = validateLabelInput(label);
     if (!validation.valid) {

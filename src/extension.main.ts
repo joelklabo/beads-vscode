@@ -1841,6 +1841,8 @@ async function openBead(item: BeadItemData, provider: BeadsTreeDataProvider): Pr
     'updateDesign',
     'updateAcceptanceCriteria',
     'updateNotes',
+    'updateType',
+    'updatePriority',
     'editAssignee',
     'addLabel',
     'removeLabel',
@@ -1877,6 +1879,12 @@ async function openBead(item: BeadItemData, provider: BeadsTreeDataProvider): Pr
         return;
       case 'updateNotes':
         await provider.updateNotes(item, validated.value);
+        return;
+      case 'updateType':
+        await provider.updateType(item, validated.type);
+        return;
+      case 'updatePriority':
+        await provider.updatePriority(item, validated.priority);
         return;
       case 'editAssignee':
         await editAssignee(provider, undefined, item);
