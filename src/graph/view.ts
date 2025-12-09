@@ -1,4 +1,5 @@
 import { escapeHtml } from '../utils';
+import { buildSharedStyles } from '../views/shared/theme';
 import { DependencyTreeStrings, GraphEdgeData, GraphNodeData } from '../utils/graph';
 
 function stringify(data: unknown): string {
@@ -22,6 +23,7 @@ export function buildDependencyGraphHtml(
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${escapeHtml(strings.title)}</title>
     <style>
+        ${buildSharedStyles()}
         body {
             font-family: var(--vscode-font-family);
             font-size: var(--vscode-font-size);
@@ -99,6 +101,9 @@ export function buildDependencyGraphHtml(
         .node-id { font-weight: 600; font-size: 13px; margin-bottom: 4px; }
         .node-title { font-size: 11px; color: var(--vscode-descriptionForeground); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
         .node.status-blocked .node-title { color: #f14c4c; opacity: 0.9; }
+
+        .node-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+        .node .bead-chip { background: #1e1e1e; padding: 2px 8px; }
 
         .status-indicator { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
         .status-indicator.closed { background-color: #73c991; }
@@ -182,6 +187,14 @@ export function buildDependencyGraphHtml(
         const nodePositions = new Map();
         const incomingCounts = new Map();
         const outgoingCounts = new Map();
+
+        const typeIconMap = {
+            epic: 'codicon-milestone',
+            feature: 'codicon-sparkle',
+            bug: 'codicon-bug',
+            task: 'codicon-check',
+            chore: 'codicon-tools'
+        };
 
         edges.forEach((edge) => {
             outgoingCounts.set(edge.sourceId, (outgoingCounts.get(edge.sourceId) || 0) + 1);
@@ -396,6 +409,19 @@ export function buildDependencyGraphHtml(
             div.appendChild(idRow);
             div.appendChild(titleRow);
             div.appendChild(statusLabel);
+
+            const chipsRow = document.createElement('div');
+            chipsRow.className = 'node-chips';
+            const statusChip = document.createElement('div');
+            statusChip.className = 'bead-chip status status-' + (node.status || 'open') + (node.status === 'in_progress' ? ' pulsing' : '');
+            statusChip.innerHTML = '<span class="codicon codicon-circle-filled"></span>' + (node.status || 'open');
+            const typeKey = node.issueType || 'task';
+            const typeChip = document.createElement('div');
+            typeChip.className = 'bead-chip type type-' + typeKey;
+            typeChip.innerHTML = '<span class="codicon ' + (typeIconMap[typeKey] || 'codicon-check') + '"></span>' + typeKey;
+            chipsRow.appendChild(statusChip);
+            chipsRow.appendChild(typeChip);
+            div.appendChild(chipsRow);
 
             div.addEventListener('mousedown', (e) => {
                 if (e.button !== 0) return;
