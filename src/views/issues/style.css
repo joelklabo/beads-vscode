@@ -260,3 +260,53 @@ body {
   color: var(--vscode-descriptionForeground);
   font-style: italic;
 }
+
+/* Section Styles */
+.section {
+  display: flex;
+  flex-direction: column;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  padding: 4px 8px;
+  background-color: var(--vscode-sideBarSectionHeader-background);
+  color: var(--vscode-sideBarSectionHeader-foreground);
+  font-weight: bold;
+  cursor: pointer;
+  user-select: none;
+  border-top: 1px solid var(--vscode-panel-border);
+}
+
+.section-header:hover {
+  background-color: var(--vscode-list-hoverBackground);
+}
+
+.section-title {
+  flex: 1;
+  margin-left: 4px;
+  text-transform: uppercase;
+  font-size: 0.85em;
+}
+
+.section-count {
+  background-color: var(--vscode-badge-background);
+  color: var(--vscode-badge-foreground);
+  padding: 0 6px;
+  border-radius: 10px;
+  font-size: 0.8em;
+  min-width: 16px;
+  text-align: center;
+}
+
+.section-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.in-progress-section .section-header {
+  /* Optional: Highlight in-progress section */
+  /* background-color: var(--vscode-list-activeSelectionBackground); */
+  /* color: var(--vscode-list-activeSelectionForeground); */
+}

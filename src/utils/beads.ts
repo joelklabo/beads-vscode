@@ -33,7 +33,7 @@ export function toViewModel(item: BeadItemData): BeadViewModel {
     updatedAt: item.updatedAt || new Date().toISOString(),
     isStale: false, // TODO: Pass in stale threshold logic
     worktree: raw?.worktree,
-    epicId,
+    epicId: item.parentId,
     icon: {
       id: getIconForType(item.issueType),
       color: getColorForType(item.issueType)

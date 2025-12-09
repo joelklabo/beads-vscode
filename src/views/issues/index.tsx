@@ -17,10 +17,34 @@ declare global {
 
 const vscode = window.vscode;
 
+const Section: React.FC<{ 
+  title: string; 
+  count: number; 
+  children: React.ReactNode; 
+  defaultCollapsed?: boolean;
+  className?: string;
+  icon?: string;
+}> = ({ title, count, children, defaultCollapsed = false, className = '', icon }) => {
+  const [collapsed, setCollapsed] = useState(defaultCollapsed);
+  
+  return (
+    <div className={`section ${className}`}>
+      <div className="section-header" onClick={() => setCollapsed(!collapsed)}>
+        <span className={`codicon codicon-chevron-${collapsed ? 'right' : 'down'}`} />
+        {icon && <span className={`codicon codicon-${icon}`} style={{ marginRight: 4 }} />}
+        <span className="section-title">{title}</span>
+        <span className="section-count">{count}</span>
+      </div>
+      {!collapsed && <div className="section-content">{children}</div>}
+    </div>
+  );
+};
+
 const App: React.FC = () => {
   const [beads, setBeads] = useState<BeadViewModel[]>([]);
   const [sortMode, setSortMode] = useState<string>('id');
   const [compact, setCompact] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     console.log('Beads Issues View mounted');
@@ -32,6 +56,7 @@ const App: React.FC = () => {
         if (message.sortMode) {
           setSortMode(message.sortMode);
         }
+        setLoading(false);
       }
     };
 
@@ -49,23 +74,29 @@ const App: React.FC = () => {
     vscode.postMessage({ command: 'pickSort' } as any);
   };
 
-  const renderSection = (title: string, items: BeadViewModel[], icon: string, className: string = '') => {
+  const renderSection = (title: string, items: BeadViewModel[], icon: string, className: string = '', defaultCollapsed = false) => {
     if (items.length === 0) return null;
     return (
-      <div className={`section-group ${className}`}>
-        <div className="section-header">
-          <span className={`codicon codicon-${icon}`} />
-          <span>{title}</span>
-          <span className="section-count">{items.length}</span>
-        </div>
+      <Section 
+        key={title} 
+        title={title} 
+        count={items.length} 
+        icon={icon} 
+        className={className}
+        defaultCollapsed={defaultCollapsed}
+      >
         {items.map(bead => (
           <Row key={bead.id} bead={bead} onClick={handleOpen} compact={compact} />
         ))}
-      </div>
+      </Section>
     );
   };
 
   const renderGroups = () => {
+    if (loading) {
+      return <div className="loading">Loading...</div>;
+    }
+
     if (beads.length === 0) {
       return (
         <div style={{ padding: 20, textAlign: 'center', color: 'var(--vscode-descriptionForeground)' }}>
@@ -89,10 +120,10 @@ const App: React.FC = () => {
 
       return (
         <>
-          {renderSection('In Progress', groups.in_progress, 'play', 'in-progress-group')}
+          {renderSection('In Progress', groups.in_progress, 'play', 'in-progress-section')}
           {renderSection('Open', groups.open, 'circle-outline')}
           {renderSection('Blocked', groups.blocked, 'stop')}
-          {renderSection('Closed', groups.closed, 'pass')}
+          {renderSection('Closed', groups.closed, 'pass', '', true)}
         </>
       );
     } else if (sortMode === 'assignee') {
@@ -132,7 +163,7 @@ const App: React.FC = () => {
 
       return (
         <>
-          {renderSection('In Progress', inProgress, 'play', 'in-progress-group')}
+          {renderSection('In Progress', inProgress, 'play', 'in-progress-section')}
           {renderSection('Backlog', other, 'issues')}
         </>
       );
