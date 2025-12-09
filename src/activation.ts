@@ -9,9 +9,7 @@ import * as vscode from 'vscode';
 import { BeadsTreeDataProvider } from './providers/beads/treeDataProvider';
 import { BeadTreeItem } from './providers/beads/items';
 import { WatcherManager } from './providers/beads/store';
-import { getWorkspaceOptions, resolveProjectRoot } from './utils/workspace';
-import { getBulkActionsConfig } from './utils/config';
-import { computeFeedbackEnablement } from './feedback/enablement';
+import { resolveProjectRoot } from './utils/workspace';
 import { DependencyTreeProvider } from './dependencyTreeProvider';
 import { ActivityFeedTreeDataProvider, ActivityEventItem } from './activityFeedProvider';
 import { EventType } from './activityFeed';
@@ -19,19 +17,18 @@ import { BeadsWebviewProvider } from './providers/beads/webview';
 import { BeadItemData } from './utils';
 import { CommandRegistry, createQuickFilterCommands, createExportCommands } from './commands';
 import { registerChatParticipants } from './chatAgents';
-import { warnIfDependencyEditingUnsupported } from './services/runtimeEnvironment';
 import { addDependencyCommand, removeDependencyCommand } from './commands/dependencies';
 import { createBead } from './commands/beads';
 import { selectWorkspace, bulkUpdateStatus, bulkUpdateLabel, toggleFavorites, inlineEditTitle, inlineEditLabels, inlineStatusQuickChange, editAssignee } from './commands';
 import { registerSendFeedbackCommand } from './commands/sendFeedback';
 import { runBdCommand } from './services/cliService';
+import { contextStateManager, registerContextWatchers } from './activation/contextState';
 import type {
   ActivityFeedRegistryResult,
   BeadPicker,
   CommandRegistrar,
   CommandResolver,
   ConfigurationWatcher,
-  ContextStateManager,
   PanelOpeners,
   ViewRegistryResult,
 } from './activation/contracts';
@@ -98,12 +95,12 @@ export function setupProviders(
   context.subscriptions.push(statusBarItem);
 
   // Apply initial context
-  applyWorkspaceContext(provider);
-  applyBulkActionsContext();
-  applyQuickFiltersContext(provider);
-  applySortPickerContext(provider);
-  applyFavoritesContext();
-  applyFeedbackContext(provider);
+  contextStateManager.applyWorkspaceContext(provider);
+  contextStateManager.applyBulkActionsContext();
+  contextStateManager.applyQuickFiltersContext(provider);
+  contextStateManager.applySortPickerContext(provider);
+  contextStateManager.applyFavoritesContext();
+  contextStateManager.applyFeedbackContext(provider);
 
   // Register provider disposal
   context.subscriptions.push(
@@ -434,97 +431,5 @@ export const registerCommands: CommandRegistrar = (
  * Set up configuration and workspace watchers.
  */
 export const setupConfigurationWatchers: ConfigurationWatcher = (context, provider) => {
-  // If dependency editing is enabled, warn early when the bd CLI is too old
-  const workspaces = vscode.workspace.workspaceFolders ?? [];
-  workspaces.forEach((workspaceFolder) => {
-    void warnIfDependencyEditingUnsupported(workspaceFolder);
-  });
-
-  const configurationWatcher = vscode.workspace.onDidChangeConfiguration((event) => {
-    if (event.affectsConfiguration('beady.enableDependencyEditing')) {
-      const folders = vscode.workspace.workspaceFolders ?? [];
-      folders.forEach((workspaceFolder) => {
-        void warnIfDependencyEditingUnsupported(workspaceFolder);
-      });
-    }
-
-    if (event.affectsConfiguration('beady.bulkActions')) {
-      applyBulkActionsContext();
-    }
-
-    if (event.affectsConfiguration('beady.favorites')) {
-      applyFavoritesContext();
-      void provider.refresh();
-    }
-
-    if (event.affectsConfiguration('beady.quickFilters')) {
-      applyQuickFiltersContext(provider);
-    }
-
-    if (event.affectsConfiguration('beady.sortPicker')) {
-      applySortPickerContext(provider);
-    }
-
-    if (event.affectsConfiguration('beady.feedback') || event.affectsConfiguration('beady.projectRoot')) {
-      applyFeedbackContext(provider);
-    }
-  });
-
-  const workspaceWatcher = vscode.workspace.onDidChangeWorkspaceFolders(() => {
-    applyFeedbackContext(provider);
-    applyBulkActionsContext();
-    applyQuickFiltersContext(provider);
-    applyWorkspaceContext(provider);
-    provider.handleWorkspaceFoldersChanged();
-  });
-
-  context.subscriptions.push(configurationWatcher, workspaceWatcher);
+  return registerContextWatchers(context, provider);
 };
-
-export const contextStateManager: ContextStateManager = {
-  applyWorkspaceContext,
-  applyBulkActionsContext,
-  applyQuickFiltersContext,
-  applySortPickerContext,
-  applyFavoritesContext,
-  applyFeedbackContext,
-};
-
-// Context application helpers
-
-function applyWorkspaceContext(provider: BeadsTreeDataProvider): void {
-  const count = vscode.workspace.workspaceFolders?.length ?? 0;
-  const options = getWorkspaceOptions(vscode.workspace.workspaceFolders);
-  const active = options.find((opt) => opt.id === provider.getActiveWorkspaceId()) ?? options[0];
-  void vscode.commands.executeCommand('setContext', 'beady.multiRootAvailable', count > 1);
-  void vscode.commands.executeCommand('setContext', 'beady.activeWorkspaceLabel', active?.label ?? '');
-}
-
-function applyBulkActionsContext(): void {
-  const bulkConfig = getBulkActionsConfig();
-  void vscode.commands.executeCommand('setContext', 'beady.bulkActionsEnabled', bulkConfig.enabled);
-  void vscode.commands.executeCommand('setContext', 'beady.bulkActionsMaxSelection', bulkConfig.maxSelection);
-}
-
-function applyQuickFiltersContext(provider: BeadsTreeDataProvider): void {
-  const quickFiltersEnabled = vscode.workspace.getConfiguration('beady').get<boolean>('quickFilters.enabled', false);
-  void vscode.commands.executeCommand('setContext', 'beady.quickFiltersEnabled', quickFiltersEnabled);
-  provider.syncQuickFilterContext();
-}
-
-function applySortPickerContext(provider: BeadsTreeDataProvider): void {
-  const enabled = vscode.workspace.getConfiguration('beady').get<boolean>('sortPicker.enabled', true);
-  provider.setSortPickerEnabled(enabled);
-  void vscode.commands.executeCommand('setContext', 'beady.sortPickerEnabled', enabled);
-}
-
-function applyFavoritesContext(): void {
-  const favoritesEnabled = vscode.workspace.getConfiguration('beady').get<boolean>('favorites.enabled', false);
-  void vscode.commands.executeCommand('setContext', 'beady.favoritesEnabled', favoritesEnabled);
-}
-
-function applyFeedbackContext(provider: BeadsTreeDataProvider): void {
-  const enablement = computeFeedbackEnablement();
-  provider.setFeedbackEnabled(enablement.enabled);
-  void vscode.commands.executeCommand('setContext', 'beady.feedbackEnabled', enablement.enabled);
-}
