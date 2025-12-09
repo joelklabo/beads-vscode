@@ -144,25 +144,41 @@ body {
 
 .bead-id {
   font-family: var(--vscode-editor-font-family);
-  opacity: 0.8;
+  opacity: 0.9;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .bead-separator {
   opacity: 0.4;
 }
 
-.bead-priority, .bead-status, .bead-assignee {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
 .bead-meta-text {
   line-height: 1;
 }
 
-.bead-status .codicon {
-  font-size: 8px; /* Smaller dot */
+.bead-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 11px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.bead-chip.status { text-transform: capitalize; }
+.bead-chip.assignee .assignee-initials { font-weight: 700; letter-spacing: 0.2px; }
+
+.bead-chip.pulsing { animation: beadPulse 1.8s ease-out infinite; }
+
+@keyframes beadPulse {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--vscode-charts-yellow) 40%, transparent); }
+  60% { box-shadow: 0 0 0 10px color-mix(in srgb, var(--vscode-charts-yellow) 0%, transparent); }
+  100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--vscode-charts-yellow) 0%, transparent); }
 }
 
 /* Tertiary Line: Labels */
@@ -207,10 +223,25 @@ body {
   background-color: var(--vscode-sideBarSectionHeader-background);
   border-bottom: 1px solid var(--vscode-panel-border);
   border-top: 1px solid var(--vscode-panel-border);
+  cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease;
 }
 
 .section-header:first-child {
   border-top: none;
+}
+
+.section.collapsed .section-header {
+  background-color: color-mix(in srgb, var(--vscode-sideBarSectionHeader-background) 80%, transparent);
+}
+
+.collapse-icon {
+  color: var(--vscode-icon-foreground);
+}
+
+.section-header:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: 2px;
 }
 
 .section-count {

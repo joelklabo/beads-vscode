@@ -9,6 +9,7 @@ export interface BeadViewModel {
     color: string; // hex or theme color
     initials?: string;
   };
+  issueType?: string;
   labels: string[];
   updatedAt: string; // ISO or relative
   isStale: boolean;

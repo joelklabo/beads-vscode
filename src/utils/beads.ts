@@ -15,7 +15,8 @@ export {
 export function toViewModel(item: BeadItemData): BeadViewModel {
   const raw = item.raw as any;
   const assignee = pickAssignee(item);
-  
+  const assigneeColor = assignee ? colorFromName(assignee) : 'var(--vscode-charts-blue)';
+
   return {
     id: item.id,
     title: item.title,
@@ -24,7 +25,7 @@ export function toViewModel(item: BeadItemData): BeadViewModel {
     priority: typeof raw?.priority === 'number' ? raw.priority : 2,
     assignee: assignee ? {
       name: assignee,
-      color: 'var(--vscode-charts-blue)', // Placeholder, ideally derived from name
+      color: assigneeColor,
       initials: assignee.slice(0, 2).toUpperCase()
     } : undefined,
     labels: Array.isArray(raw?.labels) ? raw.labels : [],
@@ -35,7 +36,8 @@ export function toViewModel(item: BeadItemData): BeadViewModel {
     icon: {
       id: getIconForType(item.issueType),
       color: getColorForType(item.issueType)
-    }
+    },
+    issueType: item.issueType
   };
 }
 
@@ -59,6 +61,15 @@ function getColorForType(type?: string): string | undefined {
     case 'chore': return 'var(--vscode-charts-yellow)';
     default: return undefined;
   }
+}
+
+function colorFromName(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+  }
+  const hue = hash % 360;
+  return `hsl(${hue}, 65%, 60%)`;
 }
 
 export function deriveAssigneeName(bead: BeadItemData, fallback: string): string {

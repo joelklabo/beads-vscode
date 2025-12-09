@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Row } from './Row';
 import { BeadViewModel, WebviewMessage, WebviewCommand } from './types';
+import { buildSharedStyles } from '../shared/theme';
 import './style.css';
 
 // VS Code API
@@ -26,11 +27,25 @@ const Section: React.FC<{
   icon?: string;
 }> = ({ title, count, children, defaultCollapsed = false, className = '', icon }) => {
   const [collapsed, setCollapsed] = useState(defaultCollapsed);
+  const toggle = () => setCollapsed(!collapsed);
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      toggle();
+    }
+  };
   
   return (
-    <div className={`section ${className}`}>
-      <div className="section-header" onClick={() => setCollapsed(!collapsed)}>
-        <span className={`codicon codicon-chevron-${collapsed ? 'right' : 'down'}`} />
+    <div className={`section ${className} ${collapsed ? 'collapsed' : ''}`} data-collapsed={collapsed}>
+      <div
+        className="section-header"
+        onClick={toggle}
+        onKeyDown={handleKeyDown}
+        role="button"
+        aria-expanded={!collapsed}
+        tabIndex={0}
+      >
+        <span className={`codicon codicon-chevron-${collapsed ? 'right' : 'down'} collapse-icon`} />
         {icon && <span className={`codicon codicon-${icon}`} style={{ marginRight: 4 }} />}
         <span className="section-title">{title}</span>
         <span className="section-count">{count}</span>
@@ -48,6 +63,12 @@ const App: React.FC = () => {
 
   useEffect(() => {
     console.log('Beads Issues View mounted');
+
+    // Inject shared badge/token CSS into the webview document
+    const sharedStyle = document.createElement('style');
+    sharedStyle.textContent = buildSharedStyles();
+    document.head.appendChild(sharedStyle);
+
     const handler = (event: MessageEvent<WebviewMessage>) => {
       console.log('Received message:', event.data);
       const message = event.data;
@@ -63,7 +84,10 @@ const App: React.FC = () => {
     window.addEventListener('message', handler);
     // Signal ready
     vscode.postMessage({ command: 'ready' } as any);
-    return () => window.removeEventListener('message', handler);
+    return () => {
+      window.removeEventListener('message', handler);
+      document.head.removeChild(sharedStyle);
+    };
   }, []);
 
   const handleOpen = (id: string) => {

@@ -1,5 +1,6 @@
 import React from 'react';
 import { BeadViewModel } from './types';
+import { getIssueTypeToken, getPriorityToken, getStatusToken } from '../shared/theme';
 
 interface RowProps {
   bead: BeadViewModel;
@@ -14,8 +15,9 @@ export const Row: React.FC<RowProps> = ({ bead, onClick, compact }) => {
     preventDefaultContextMenuItems: true
   });
 
-  const priorityIcon = getPriorityIcon(bead.priority);
-  const priorityColor = getPriorityColor(bead.priority);
+  const typeToken = getIssueTypeToken(bead.issueType);
+  const statusToken = getStatusToken(bead.status);
+  const priorityToken = getPriorityToken(bead.priority);
 
   return (
     <div 
@@ -42,26 +44,40 @@ export const Row: React.FC<RowProps> = ({ bead, onClick, compact }) => {
         </div>
         
         <div className="bead-secondary-line">
-          <span className="bead-id">{bead.id}</span>
+          <span className="bead-id">
+            <span className={`codicon codicon-${typeToken.icon} type-dot`} style={{ color: typeToken.color }} />
+            {bead.id}
+          </span>
           <span className="bead-separator">•</span>
           
-          <span className="bead-priority" style={{ color: priorityColor }} title={`Priority ${bead.priority}`}>
-            <span className={`codicon ${priorityIcon}`} />
-            {!compact && <span className="bead-meta-text">P{bead.priority}</span>}
+          <span className={`bead-chip priority priority-${priorityToken.id}`} title={`Priority ${priorityToken.label}`}>
+            <span className={`codicon codicon-${priorityToken.icon}`} />
+            {!compact && priorityToken.label}
           </span>
           <span className="bead-separator">•</span>
 
-          <span className="bead-status" style={{ color: getStatusColor(bead.status) }}>
-            <span className="codicon codicon-circle-filled" />
-            {!compact && <span className="bead-meta-text">{bead.status}</span>}
+          <span
+            className={`bead-chip status status-${statusToken.id} ${statusToken.pulsing ? 'pulsing' : ''}`}
+            title={statusToken.label}
+          >
+            <span className={`codicon codicon-${statusToken.icon}`} />
+            {!compact && statusToken.label}
           </span>
           
           {bead.assignee && (
             <>
               <span className="bead-separator">•</span>
-              <span className="bead-assignee" title={bead.assignee.name}>
-                <span className="codicon codicon-account" />
-                {!compact && <span className="bead-meta-text">{bead.assignee.name}</span>}
+              <span
+                className="bead-chip assignee"
+                style={{
+                  color: bead.assignee.color,
+                  background: `color-mix(in srgb, ${bead.assignee.color} 18%, transparent)`,
+                  borderColor: `color-mix(in srgb, ${bead.assignee.color} 35%, transparent)`,
+                }}
+                title={bead.assignee.name}
+              >
+                <span className="assignee-initials">{bead.assignee.initials}</span>
+                {!compact && bead.assignee.name}
               </span>
             </>
           )}
@@ -78,29 +94,6 @@ export const Row: React.FC<RowProps> = ({ bead, onClick, compact }) => {
     </div>
   );
 };
-
-function getStatusColor(status: string): string {
-  switch (status) {
-    case 'open': return 'var(--vscode-charts-green)';
-    case 'in_progress': return 'var(--vscode-charts-blue)';
-    case 'blocked': return 'var(--vscode-charts-red)';
-    case 'closed': return 'var(--vscode-disabledForeground)';
-    default: return 'var(--vscode-foreground)';
-  }
-}
-
-function getPriorityIcon(p: number): string {
-  if (p === 0) return 'codicon-flame';
-  if (p === 1) return 'codicon-arrow-up';
-  if (p === 2) return 'codicon-arrow-right';
-  return 'codicon-arrow-down';
-}
-
-function getPriorityColor(p: number): string {
-  if (p === 0) return 'var(--vscode-charts-red)';
-  if (p === 1) return 'var(--vscode-charts-orange)';
-  return 'var(--vscode-descriptionForeground)';
-}
 
 function formatRelativeTime(dateStr: string): string {
   try {
