@@ -18,7 +18,8 @@ export function getBeadDetailHtml(
   const design = raw?.design || '';
   const acceptanceCriteria = raw?.acceptance_criteria || '';
   const notes = raw?.notes || '';
-  const issueType = raw?.issue_type || '';
+  const issueType = raw?.issue_type || 'task';
+  const priority = raw?.priority !== undefined ? raw.priority : 2;
   const createdAt = raw?.created_at ? new Date(raw.created_at).toLocaleString(locale) : '';
   const updatedAt = raw?.updated_at ? new Date(raw.updated_at).toLocaleString(locale) : '';
   const assigneeRaw = deriveAssigneeName(item, strings.assigneeFallback);
@@ -345,7 +346,7 @@ export function getBeadDetailHtml(
                 <div class="header-left">
                     <div class="id-badge" title="Copy ID" onclick="copyToClipboard('${item.id}')">${item.id}</div>
                     <div class="status-wrapper">
-                        <div class="status-badge" id="statusBadge" style="color: ${statusColor}; border: 1px solid ${statusColor}44; background-color: ${statusColor}11; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;" data-status="${item.status || 'open'}">
+                        <div class="status-badge" id="statusBadge" style="color: ${statusColor}; border: 1px solid ${statusColor}44; background-color: ${statusColor}11; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; cursor: pointer;" data-status="${item.status || 'open'}">
                             ${statusDisplay} ▾
                         </div>
                         <div class="status-dropdown" id="statusDropdown">
@@ -355,7 +356,17 @@ export function getBeadDetailHtml(
                             <div class="status-option" data-status="closed">${strings.statusLabels.closed}</div>
                         </div>
                     </div>
-                    ${issueType ? `<span class="tag" style="background-color: var(--vscode-badge-background);">${issueType.toUpperCase()}</span>` : ''}
+                    <div class="status-wrapper">
+                        <div class="status-badge" id="typeBadge" style="background-color: var(--vscode-badge-background); padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; cursor: pointer;" data-type="${issueType}">
+                            ${issueType.toUpperCase()} ▾
+                        </div>
+                        <div class="status-dropdown" id="typeDropdown">
+                            <div class="type-option" data-type="task">TASK</div>
+                            <div class="type-option" data-type="bug">BUG</div>
+                            <div class="type-option" data-type="feature">FEATURE</div>
+                            <div class="type-option" data-type="epic">EPIC</div>
+                        </div>
+                    </div>
                 </div>
                 <div class="actions">
                     <button id="toggle-compact" class="icon-button" title="${t('Toggle density')}">
@@ -371,6 +382,21 @@ export function getBeadDetailHtml(
                 <div class="meta-item">
                     <span class="meta-label">${strings.assigneeLabel}</span>
                     <span class="meta-value" id="assignee-edit" style="cursor: pointer; border-bottom: 1px dashed var(--vscode-descriptionForeground);">${escapeHtml(assignee)}</span>
+                </div>
+                <div class="meta-item">
+                    <span class="meta-label">Priority:</span>
+                    <div class="status-wrapper" style="display: inline-block;">
+                        <span class="meta-value" id="priorityBadge" style="cursor: pointer; border-bottom: 1px dashed var(--vscode-descriptionForeground);" data-priority="${priority}">
+                            P${priority} ▾
+                        </span>
+                        <div class="status-dropdown" id="priorityDropdown">
+                            <div class="priority-option" data-priority="0">P0 (Highest)</div>
+                            <div class="priority-option" data-priority="1">P1 (High)</div>
+                            <div class="priority-option" data-priority="2">P2 (Medium)</div>
+                            <div class="priority-option" data-priority="3">P3 (Low)</div>
+                            <div class="priority-option" data-priority="4">P4 (Lowest)</div>
+                        </div>
+                    </div>
                 </div>
                 <div class="meta-item">
                     <span class="meta-label">${strings.createdLabel}</span>
@@ -564,10 +590,48 @@ export function getBeadDetailHtml(
             });
         });
 
-        // Close dropdown when clicking outside
+        // Type Dropdown Logic
+        const typeBadge = document.getElementById('typeBadge');
+        const typeDropdown = document.getElementById('typeDropdown');
+
+        typeBadge.addEventListener('click', () => {
+            typeDropdown.classList.toggle('show');
+        });
+
+        document.querySelectorAll('.type-option').forEach(opt => {
+            opt.addEventListener('click', () => {
+                const newType = opt.getAttribute('data-type');
+                vscode.postMessage({ command: 'updateType', type: newType, issueId: '${item.id}' });
+                typeDropdown.classList.remove('show');
+            });
+        });
+
+        // Priority Dropdown Logic
+        const priorityBadge = document.getElementById('priorityBadge');
+        const priorityDropdown = document.getElementById('priorityDropdown');
+
+        priorityBadge.addEventListener('click', () => {
+            priorityDropdown.classList.toggle('show');
+        });
+
+        document.querySelectorAll('.priority-option').forEach(opt => {
+            opt.addEventListener('click', () => {
+                const newPriority = opt.getAttribute('data-priority');
+                vscode.postMessage({ command: 'updatePriority', priority: parseInt(newPriority, 10), issueId: '${item.id}' });
+                priorityDropdown.classList.remove('show');
+            });
+        });
+
+        // Close dropdowns when clicking outside
         document.addEventListener('click', (e) => {
             if (!statusBadge.contains(e.target) && !statusDropdown.contains(e.target)) {
                 statusDropdown.classList.remove('show');
+            }
+            if (!typeBadge.contains(e.target) && !typeDropdown.contains(e.target)) {
+                typeDropdown.classList.remove('show');
+            }
+            if (!priorityBadge.contains(e.target) && !priorityDropdown.contains(e.target)) {
+                priorityDropdown.classList.remove('show');
             }
         });
     </script>

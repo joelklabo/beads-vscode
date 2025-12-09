@@ -10,6 +10,8 @@ export type LittleGlenCommand =
   | { command: 'updateStatus'; status: string }
   | { command: 'updateTitle'; title: string }
   | { command: 'updateDescription' | 'updateDesign' | 'updateAcceptanceCriteria' | 'updateNotes'; value: string }
+  | { command: 'updateType'; type: string }
+  | { command: 'updatePriority'; priority: number }
   | { command: 'editAssignee'; issueId: string }
   | { command: 'addLabel' | 'removeLabel'; label: string }
   | { command: 'addDependency'; issueId?: string; sourceId?: string; targetId?: string }
@@ -108,6 +110,21 @@ export function validateLittleGlenMessage(
       const value = message.value;
       if (typeof value === 'string') {
         return { command, value };
+      }
+      return undefined;
+    }
+    case 'updateType': {
+      const type = message.type;
+      const validTypes = ['task', 'bug', 'feature', 'epic'];
+      if (typeof type === 'string' && validTypes.includes(type)) {
+        return { command, type };
+      }
+      return undefined;
+    }
+    case 'updatePriority': {
+      const priority = message.priority;
+      if (typeof priority === 'number' && priority >= 0 && priority <= 4) {
+        return { command, priority };
       }
       return undefined;
     }
