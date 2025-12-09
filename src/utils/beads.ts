@@ -15,6 +15,8 @@ export {
 export function toViewModel(item: BeadItemData): BeadViewModel {
   const raw = item.raw as any;
   const assignee = pickAssignee(item);
+  const parentDep = raw?.dependencies?.find((d: any) => d.type === 'parent-child' || d.dep_type === 'parent-child');
+  const epicId = parentDep?.id || parentDep?.depends_on_id || parentDep?.issue_id;
   
   return {
     id: item.id,
@@ -31,6 +33,7 @@ export function toViewModel(item: BeadItemData): BeadViewModel {
     updatedAt: item.updatedAt || new Date().toISOString(),
     isStale: false, // TODO: Pass in stale threshold logic
     worktree: raw?.worktree,
+    epicId,
     icon: {
       id: getIconForType(item.issueType),
       color: getColorForType(item.issueType)

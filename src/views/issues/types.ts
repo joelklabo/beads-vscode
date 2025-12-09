@@ -13,6 +13,7 @@ export interface BeadViewModel {
   updatedAt: string; // ISO or relative
   isStale: boolean;
   worktree?: string;
+  epicId?: string;
   icon?: {
     id: string;
     color?: string;
@@ -20,7 +21,7 @@ export interface BeadViewModel {
 }
 
 export type WebviewMessage =
-  | { type: 'update'; beads: BeadViewModel[] }
+  | { type: 'update'; beads: BeadViewModel[]; sortMode?: string }
   | { type: 'config'; config: { showClosed: boolean; sortMode: string } };
 
 export type WebviewCommand =
@@ -29,4 +30,5 @@ export type WebviewCommand =
   | { command: 'edit'; id: string }
   | { command: 'contextMenu'; id: string; x: number; y: number }
   | { command: 'log'; text: string }
+  | { command: 'pickSort' }
   | { command: 'ready' };

@@ -6,7 +6,8 @@ suite('Webview Test Suite', () => {
   test('Webview Provider Instantiation', async () => {
     const mockDataSource = {
       onDidChangeTreeData: new vscode.EventEmitter<void>().event,
-      getVisibleBeads: () => [{ id: 'test-1', title: 'Test' } as any]
+      getVisibleBeads: () => [{ id: 'test-1', title: 'Test' } as any],
+      getSortMode: () => 'id'
     };
     
     const provider = new BeadsWebviewProvider(vscode.Uri.parse('file:///'), mockDataSource);

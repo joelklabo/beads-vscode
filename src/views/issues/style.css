@@ -1,22 +1,78 @@
+/* Reset & Base */
+* {
+  box-sizing: border-box;
+}
+
 body {
   padding: 0;
   margin: 0;
   font-family: var(--vscode-font-family);
   font-size: var(--vscode-font-size);
   color: var(--vscode-foreground);
-  background-color: var(--vscode-sideBar-background);
+  background-color: var(--vscode-editor-background);
 }
 
-.bead-list {
+.bead-view {
   display: flex;
   flex-direction: column;
+  height: 100%;
 }
 
+/* Header */
+.bead-view-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 16px;
+  background-color: var(--vscode-sideBarSectionHeader-background);
+  border-bottom: 1px solid var(--vscode-panel-border);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.bead-count {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--vscode-sideBarTitle-foreground);
+}
+
+.bead-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.icon-button {
+  background: none;
+  border: none;
+  color: var(--vscode-icon-foreground);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-button:hover {
+  background-color: var(--vscode-toolbar-hoverBackground);
+}
+
+/* List */
+.bead-list {
+  padding: 0;
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* Row */
 .bead-row {
   display: flex;
   padding: 8px 12px;
-  border-bottom: 1px solid var(--vscode-panel-border);
+  border-bottom: 1px solid var(--vscode-tree-tableOddRowsBackground); /* Subtle separator */
   cursor: pointer;
+  transition: background-color 0.1s;
   gap: 12px;
 }
 
@@ -24,77 +80,183 @@ body {
   background-color: var(--vscode-list-hoverBackground);
 }
 
-.bead-icon {
-  display: flex;
-  align-items: flex-start;
-  padding-top: 2px;
-  font-size: 16px;
-  width: 16px;
-  flex-shrink: 0;
+.bead-row:focus {
+  outline: 1px solid var(--vscode-focusBorder);
+  background-color: var(--vscode-list-activeSelectionBackground);
+  color: var(--vscode-list-activeSelectionForeground);
 }
 
-.bead-content {
+/* Icon Column */
+.bead-icon-column {
+  flex-shrink: 0;
+  padding-top: 2px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  width: 16px;
+}
+
+.bead-icon-column .codicon {
+  font-size: 16px;
+}
+
+/* Content Column */
+.bead-content-column {
   flex: 1;
+  min-width: 0; /* Allow truncation */
   display: flex;
   flex-direction: column;
   gap: 4px;
-  min-width: 0;
 }
 
-.bead-header {
+/* Primary Line: Title & Time */
+.bead-primary-line {
   display: flex;
-  align-items: center;
+  justify-content: space-between;
+  align-items: baseline;
   gap: 8px;
 }
 
 .bead-title {
   font-weight: 600;
+  font-size: 13px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  color: var(--vscode-foreground);
 }
 
-.bead-id {
-  font-size: 0.9em;
+.bead-time {
+  font-size: 11px;
   color: var(--vscode-descriptionForeground);
   flex-shrink: 0;
 }
 
-.bead-description {
-  font-size: 0.9em;
-  color: var(--vscode-foreground);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  opacity: 0.9;
-}
-
-.bead-meta {
+/* Secondary Line: Meta Info */
+.bead-secondary-line {
   display: flex;
   align-items: center;
-  gap: 12px;
-  font-size: 0.85em;
+  gap: 6px;
+  font-size: 11px;
   color: var(--vscode-descriptionForeground);
-  margin-top: 2px;
   flex-wrap: wrap;
 }
 
-.bead-tag {
+.bead-id {
+  font-family: var(--vscode-editor-font-family);
+  opacity: 0.8;
+}
+
+.bead-separator {
+  opacity: 0.4;
+}
+
+.bead-priority, .bead-status, .bead-assignee {
   display: flex;
   align-items: center;
   gap: 4px;
 }
 
-.bead-labels {
+.bead-meta-text {
+  line-height: 1;
+}
+
+.bead-status .codicon {
+  font-size: 8px; /* Smaller dot */
+}
+
+/* Tertiary Line: Labels */
+.bead-tertiary-line {
   display: flex;
+  flex-wrap: wrap;
   gap: 4px;
+  margin-top: 2px;
 }
 
 .bead-label {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 10px;
   background-color: var(--vscode-badge-background);
   color: var(--vscode-badge-foreground);
-  padding: 1px 4px;
-  border-radius: 2px;
-  font-size: 0.85em;
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Sections */
+.section-group {
+  margin-bottom: 0;
+}
+
+.in-progress-group {
+  background-color: var(--vscode-editor-inactiveSelectionBackground);
+  border-bottom: 1px solid var(--vscode-panel-border);
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--vscode-sideBarTitle-foreground);
+  background-color: var(--vscode-sideBarSectionHeader-background);
+  border-bottom: 1px solid var(--vscode-panel-border);
+  border-top: 1px solid var(--vscode-panel-border);
+}
+
+.section-header:first-child {
+  border-top: none;
+}
+
+.section-count {
+  margin-left: auto;
+  background-color: var(--vscode-badge-background);
+  color: var(--vscode-badge-foreground);
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-size: 10px;
+  min-width: 16px;
+  text-align: center;
+}
+
+/* Compact Mode */
+.bead-row.compact {
+  padding: 4px 12px;
+  align-items: center;
+}
+
+.bead-row.compact .bead-content-column {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.bead-row.compact .bead-primary-line {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+.bead-row.compact .bead-secondary-line {
+  flex-shrink: 0;
+}
+
+.icon-button.active {
+  background-color: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+}
+
+.icon-button.active:hover {
+  background-color: var(--vscode-button-hoverBackground);
+}
+
+.empty-state {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--vscode-descriptionForeground);
+  font-style: italic;
 }

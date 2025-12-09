@@ -117,7 +117,7 @@ function validationMessage(kind: 'title' | 'label' | 'status' | 'assignee', reas
 }
 
 
-function createNonce(): string {
+function createNonce(): string {  
   return Math.random().toString(36).slice(2, 15) + Math.random().toString(36).slice(2, 15);
 }
 
@@ -213,9 +213,9 @@ const buildBeadDetailStrings = (statusLabels: StatusLabelMap): BeadDetailStrings
   addDownstreamPrompt: t('Enter the ID that should depend on this issue'),
   dependencyEmptyLabel: t('No dependencies yet'),
   missingDependencyLabel: t('Missing issue'),
-  editLabel: t('Edit'),
+  editLabel: t('Edit issue details'),
   editAssigneeLabel: t('Edit Assignee'),
-  deleteLabel: t('Delete'),
+  deleteLabel: t('Delete issue'),
   doneLabel: t('Done'),
   descriptionLabel: t('Description'),
   designLabel: t('Design'),
@@ -2026,8 +2026,29 @@ class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemType>, vs
       return this.sortByAssignee(items);
     }
 
+    if (this.sortMode === 'epic') {
+      return this.sortByEpic(items);
+    }
+
     // Default: return items as-is (already naturally sorted by ID)
     return items;
+  }
+
+  private sortByEpic(items: BeadItemData[]): BeadItemData[] {
+    const getEpicId = (item: BeadItemData): string => {
+      const raw = item.raw as any;
+      const parentDep = raw?.dependencies?.find((d: any) => d.type === 'parent-child' || d.dep_type === 'parent-child');
+      return parentDep?.id || parentDep?.depends_on_id || parentDep?.issue_id || '';
+    };
+
+    return [...items].sort((a, b) => {
+      const epicA = getEpicId(a);
+      const epicB = getEpicId(b);
+      if (epicA && !epicB) { return -1; }
+      if (!epicA && epicB) { return 1; }
+      if (epicA !== epicB) { return epicA.localeCompare(epicB); }
+      return naturalSort(a, b);
+    });
   }
 
   private sortByStatus(items: BeadItemData[]): BeadItemData[] {
@@ -2141,12 +2162,12 @@ function getBeadDetailHtml(
           safeType ? t('Type {0}', safeType) : ''
         ].filter(Boolean);
         return `
-          <div class="tree-row" role="treeitem" aria-level="${depth + 1}" aria-expanded="${children ? 'true' : 'false'}" tabindex="-1" data-issue-id="${escapeHtml(node.id)}" data-parent-id="${escapeHtml(parentId)}" data-direction="${direction}" style="--depth:${depth}" aria-label="${ariaLabelParts.join(' • ')}">
+          <div class="tree-row" role="treeitem" aria-level="${depth + 1}" aria-expanded="${children ? 'true' : 'false'}" tabindex="-1" data-issue-id="${escapeHtml(node.id)}" data-parent-id="${escapeHtml(parentId)}" data-direction="${direction}" style="--depth:${depth}" aria-label="${ariaLabelParts.join(' • ')}" title="${escapeHtml(node.title || '')}">
             <div class="tree-row-main">
               <div class="tree-left">
                 <span class="status-dot" aria-hidden="true" style="background-color:${color};"></span>
                 <span class="status-label">${escapeHtml(statusLabel)}</span>
-                <span class="tree-id">${escapeHtml(node.id)}</span>
+                <span class="tree-id" style="cursor: pointer; text-decoration: underline;" onclick="openBead('${escapeHtml(node.id)}')">${escapeHtml(node.id)}</span>
                 <span class="tree-title">${escapeHtml(node.title || '')}</span>
                 <span class="dep-type dep-${safeType}">${safeType}</span>
                 ${node.missing ? `<span class="missing-pill">${escapeHtml(strings.missingDependencyLabel)}</span>` : ''}
@@ -2271,122 +2292,235 @@ function getBeadDetailHtml(
     <title>${item.id}</title>
     <meta http-equiv="Content-Security-Policy" content="${csp}">
     <style nonce="${nonce}">
+        :root {
+            --spacing-unit: 16px;
+            --font-size-title: 24px;
+            --font-size-meta: 13px;
+            --header-padding: 20px;
+        }
+        body.compact {
+            --spacing-unit: 8px;
+            --font-size-title: 18px;
+            --font-size-meta: 11px;
+            --header-padding: 12px;
+        }
         body {
             font-family: var(--vscode-font-family);
             font-size: var(--vscode-font-size);
             color: var(--vscode-foreground);
             background-color: var(--vscode-editor-background);
-            padding: 20px;
-            line-height: 1.6;
+            padding: 0;
+            margin: 0;
+            line-height: 1.5;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .container {
             max-width: 900px;
             margin: 0 auto;
+            padding: var(--header-padding);
+            flex: 1;
+            overflow-y: auto;
+            width: 100%;
+            box-sizing: border-box;
         }
         .header {
             border-bottom: 1px solid var(--vscode-panel-border);
-            padding-bottom: 16px;
-            margin-bottom: 24px;
+            padding-bottom: var(--spacing-unit);
+            margin-bottom: var(--spacing-unit);
         }
         .header-top {
             display: flex;
             justify-content: space-between;
-            align-items: flex-start;
+            align-items: center;
             margin-bottom: 8px;
         }
-        .issue-id {
-            font-size: 14px;
-            color: var(--vscode-descriptionForeground);
-            font-weight: 500;
-            margin-bottom: 8px;
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
         }
-        .edit-button {
-            background-color: var(--vscode-button-secondaryBackground);
-            color: var(--vscode-button-secondaryForeground);
-            border: 1px solid var(--vscode-button-border);
-            padding: 6px 12px;
+        .id-badge {
+            font-family: var(--vscode-editor-font-family);
+            font-size: 12px;
+            background-color: var(--vscode-badge-background);
+            color: var(--vscode-badge-foreground);
+            padding: 2px 6px;
             border-radius: 4px;
             cursor: pointer;
-            font-size: 12px;
-            font-weight: 500;
         }
-        .edit-button:hover {
-            background-color: var(--vscode-button-secondaryHoverBackground);
+        .actions {
+            display: flex;
+            gap: 8px;
+        }
+        .icon-button {
+            background: none;
+            border: none;
+            color: var(--vscode-icon-foreground);
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .icon-button:hover {
+            background-color: var(--vscode-toolbar-hoverBackground);
         }
         .delete-button {
-            background-color: var(--vscode-inputValidation-errorBackground);
-            color: var(--vscode-inputValidation-errorForeground);
-            border: 1px solid var(--vscode-inputValidation-errorBorder);
-            padding: 6px 12px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 12px;
-            font-weight: 500;
-            display: none;
-        }
-        .delete-button:hover {
-            filter: brightness(0.95);
+            color: var(--vscode-errorForeground) !important;
         }
         .title {
-            font-size: 24px;
+            font-size: var(--font-size-title);
             font-weight: 600;
-            margin: 0 0 16px 0;
+            margin: 0 0 8px 0;
+            line-height: 1.2;
+            border: 1px solid transparent;
             border-radius: 4px;
-            padding: 4px;
-            transition: background-color 0.2s;
+            padding: 2px 4px;
+            margin-left: -5px;
         }
         .title[contenteditable="true"] {
             background-color: var(--vscode-input-background);
-            border: 1px solid var(--vscode-input-border);
+            border-color: var(--vscode-input-border);
             outline: none;
-            cursor: text;
         }
         .title[contenteditable="true"]:focus {
             border-color: var(--vscode-focusBorder);
         }
-        .metadata {
+        .meta-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 8px 16px;
+            font-size: var(--font-size-meta);
+            color: var(--vscode-descriptionForeground);
+        }
+        .meta-item {
             display: flex;
-            flex-wrap: wrap;
-            gap: 16px;
-            margin-top: 12px;
             align-items: center;
+            gap: 6px;
         }
-        .badge {
-            display: inline-block;
-            padding: 4px 10px;
-            border-radius: 4px;
-            font-size: 12px;
+        .meta-label {
             font-weight: 500;
-        }
-        .status-badge {
-            background-color: ${statusColor}22;
-            color: ${statusColor};
-            border: 1px solid ${statusColor}44;
-            position: relative;
-        }
-        .status-badge.editable {
-            cursor: pointer;
-            padding-right: 24px;
-        }
-        .status-badge.editable:hover {
             opacity: 0.8;
         }
-        .status-badge.editable::after {
-            content: '▾';
-            position: absolute;
-            right: 6px;
-            top: 50%;
-            transform: translateY(-50%);
+        .meta-value {
+            color: var(--vscode-foreground);
         }
-        .status-badge:focus-visible {
-            outline: 2px solid var(--vscode-focusBorder);
-            outline-offset: 2px;
+        .section {
+            margin-bottom: var(--spacing-unit);
         }
-        .status-option:focus-visible {
-            outline: 1px solid var(--vscode-focusBorder);
-            outline-offset: 2px;
+        .section-title {
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: var(--vscode-descriptionForeground);
+            margin-bottom: 8px;
+            letter-spacing: 0.5px;
         }
-        .status-badge::before {
-            content: '◆ ';
+        .description {
+            white-space: pre-wrap;
+            font-family: var(--vscode-editor-font-family);
+            background-color: var(--vscode-textBlockQuote-background);
+            border-left: 3px solid var(--vscode-textBlockQuote-border);
+            padding: 12px;
+            border-radius: 2px;
+        }
+        .tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .tag {
+            background-color: var(--vscode-badge-background);
+            color: var(--vscode-badge-foreground);
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .tag-remove {
+            cursor: pointer;
+            font-weight: bold;
+            opacity: 0.7;
+        }
+        .tag-remove:hover {
+            opacity: 1;
+            color: var(--vscode-errorForeground);
+        }
+        /* Dependency Tree Styles */
+        .tree-container {
+            border: 1px solid var(--vscode-panel-border);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .tree-branch {
+            padding: 8px;
+            border-bottom: 1px solid var(--vscode-panel-border);
+        }
+        .tree-branch:last-child {
+            border-bottom: none;
+        }
+        .tree-direction-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--vscode-descriptionForeground);
+            margin-bottom: 4px;
+            text-transform: uppercase;
+        }
+        .tree-branch-nodes {
+            margin-left: 4px;
+        }
+        .tree-row {
+            padding: 2px 0;
+        }
+        .tree-row-main {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .tree-left {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+        .tree-id {
+            font-family: var(--vscode-editor-font-family);
+            color: var(--vscode-textLink-foreground);
+            font-weight: 500;
+        }
+        .dep-type {
             font-size: 10px;
+            padding: 1px 4px;
+            border-radius: 4px;
+            background-color: var(--vscode-badge-background);
+            color: var(--vscode-badge-foreground);
+            opacity: 0.8;
+        }
+        .empty {
+            color: var(--vscode-descriptionForeground);
+            font-style: italic;
+            padding: 8px;
+        }
+        .external-link {
+            color: var(--vscode-textLink-foreground);
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .external-link:hover {
+            text-decoration: underline;
+        }
+        /* Status Dropdown */
+        .status-wrapper {
+            position: relative;
         }
         .status-dropdown {
             display: none;
@@ -2405,817 +2539,228 @@ function getBeadDetailHtml(
             display: block;
         }
         .status-option {
-            padding: 8px 12px;
+            padding: 6px 12px;
             cursor: pointer;
             font-size: 12px;
-            transition: background-color 0.1s;
         }
         .status-option:hover {
             background-color: var(--vscode-list-hoverBackground);
         }
-        .status-option:first-child {
-            border-radius: 4px 4px 0 0;
-        }
-        .status-option:last-child {
-            border-radius: 0 0 4px 4px;
-        }
-        .status-wrapper {
-            position: relative;
-        }
-        .type-badge {
-            background-color: var(--vscode-badge-background);
-            color: var(--vscode-badge-foreground);
-        }
-        .priority-badge {
-            background-color: var(--vscode-inputValidation-warningBackground);
-            color: var(--vscode-inputValidation-warningForeground);
-            border: 1px solid var(--vscode-inputValidation-warningBorder);
-        }
-        .section {
-            margin: 24px 0;
-        }
-        .section-title {
-            font-size: 16px;
-            font-weight: 600;
-            margin-bottom: 12px;
-            color: var(--vscode-foreground);
-        }
-        .description {
-            white-space: pre-wrap;
-            background-color: var(--vscode-textBlockQuote-background);
-            border-left: 4px solid var(--vscode-textBlockQuote-border);
-            padding: 12px 16px;
-            border-radius: 4px;
-        }
-        .meta-item {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 8px;
-        }
-        .meta-label {
-            font-weight: 600;
-            color: var(--vscode-descriptionForeground);
-            min-width: 120px;
-        }
-        .meta-value {
-            color: var(--vscode-foreground);
-        }
-        .tags {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-        }
-        .tag {
-            background-color: var(--vscode-button-secondaryBackground);
-            color: var(--vscode-button-secondaryForeground);
-            padding: 4px 10px;
-            border-radius: 12px;
-            font-size: 12px;
-            position: relative;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-        }
-        .tag.editable {
-            padding-right: 8px;
-        }
-        .tag-remove {
-            cursor: pointer;
-            font-weight: bold;
-            font-size: 14px;
-            opacity: 0.7;
-            line-height: 1;
-        }
-        .tag-remove:hover {
-            opacity: 1;
-            color: var(--vscode-errorForeground);
-        }
-        .dependency-item {
-            background-color: var(--vscode-editor-inactiveSelectionBackground);
-            padding: 8px 12px;
-            border-radius: 4px;
-            margin-bottom: 8px;
-            border-left: 3px solid var(--vscode-textLink-foreground);
-            cursor: pointer;
-            transition: background-color 0.2s ease, transform 0.1s ease;
-            position: relative;
-        }
-        .dependency-item:hover {
-            background-color: var(--vscode-list-hoverBackground);
-            transform: translateX(2px);
-        }
-        .dependency-item:active {
-            transform: translateX(0px);
-        }
-        .dependency-remove {
-            position: absolute;
-            right: 8px;
-            top: 8px;
-            border: none;
-            background: transparent;
-            color: var(--vscode-errorForeground);
-            cursor: pointer;
-            font-size: 12px;
-        }
-        .dependency-remove:hover {
-            text-decoration: underline;
-        }
-        .dependency-type {
-            font-size: 11px;
-            color: var(--vscode-descriptionForeground);
-            text-transform: uppercase;
-            font-weight: 600;
-        }
-        .empty {
-            color: var(--vscode-descriptionForeground);
-            font-style: italic;
-        }
-        .external-link {
-            color: var(--vscode-textLink-foreground);
-            text-decoration: none;
+        .status-badge {
             cursor: pointer;
         }
-        .external-link:hover {
-            color: var(--vscode-textLink-activeForeground);
-            text-decoration: underline;
-        }
-        .dependency-tree-section {
-            margin: 24px 0;
-        }
-        .tree-title-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 8px;
-        }
-        .tree-actions {
-            display: flex;
-            gap: 8px;
-        }
-        .dependency-tree-container {
-            padding: 12px;
-            background-color: var(--vscode-textBlockQuote-background);
-            border-radius: 4px;
-            margin-top: 12px;
-        }
-        .tree-direction-label {
-            font-size: 12px;
-            color: var(--vscode-descriptionForeground);
-            text-transform: uppercase;
-            font-weight: 600;
-            margin: 8px 0 4px 0;
-        }
-        .tree-branch-nodes {
-            border-left: 1px solid var(--vscode-panel-border);
-            margin-left: 4px;
-            padding-left: 8px;
-        }
-        .tree-children {
-            margin-left: 12px;
-        }
-        .tree-row:focus-visible {
-            outline: 2px solid var(--vscode-focusBorder);
-            outline-offset: 2px;
-            border-radius: 4px;
-        }
-        .status-label {
-            font-size: 11px;
-            color: var(--vscode-descriptionForeground);
-            text-transform: uppercase;
-            letter-spacing: 0.3px;
-        }
-        .sr-only {
-            position: absolute;
-            width: 1px;
-            height: 1px;
-            padding: 0;
-            margin: -1px;
-            overflow: hidden;
-            clip: rect(0, 0, 0, 0);
-            white-space: nowrap;
-            border: 0;
-        }
-        @media (forced-colors: active) {
-            .status-dot {
-                border: 1px solid CanvasText;
-                background: CanvasText;
-            }
-            .tree-row:focus-visible {
-                outline-color: CanvasText;
-            }
-            .badge {
-                border: 1px solid CanvasText;
-            }
-            .status-badge:focus-visible,
-            .status-option:focus-visible {
-                outline-color: CanvasText;
-            }
-            .tree-row[aria-expanded="true"] .tree-row-main {
-                border-left: 2px solid CanvasText;
-            }
-        }
-        .tree-row {
-            padding-left: calc(var(--depth, 0) * 14px);
-            margin: 4px 0;
-        }
-        .tree-row-main {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 8px;
-        }
-        .tree-row[aria-expanded="true"] .tree-row-main {
-            border-left: 2px solid var(--vscode-panel-border);
-            padding-left: 6px;
-        }
-        .tree-left {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            flex-wrap: wrap;
-        }
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-        }
-        .tree-id {
-            color: var(--vscode-textLink-foreground);
-            font-weight: 600;
-        }
-        .tree-title {
-            color: var(--vscode-foreground);
-        }
-        .dep-type {
-            font-size: 11px;
-            padding: 2px 6px;
-            border-radius: 10px;
-            background-color: var(--vscode-badge-background);
-            color: var(--vscode-badge-foreground);
-            text-transform: lowercase;
-        }
-        .missing-pill {
-            font-size: 11px;
-            color: var(--vscode-errorForeground);
-        }
-        .dependency-remove {
-            border: none;
-            background: transparent;
-            color: var(--vscode-errorForeground);
-            cursor: pointer;
-            font-size: 12px;
-        }
-        .dependency-remove:hover {
-            text-decoration: underline;
+        .status-badge:hover {
+            opacity: 0.8;
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <div class="header-top">
-            <div class="issue-id">${item.id}</div>
-            <div style="display:flex; gap:8px;">
-                <button class="edit-button" id="assigneeButton">${escapeHtml(strings.editAssigneeLabel)}</button>
-                <button class="delete-button" id="deleteButton">${escapeHtml(strings.deleteLabel)}</button>
-                <button class="edit-button" id="editButton">${escapeHtml(strings.editLabel)}</button>
-            </div>
-        </div>
-        <h1 class="title" id="issueTitle" contenteditable="false">${escapeHtml(item.title)}</h1>
-        <div class="metadata">
-            <div class="status-wrapper">
-                <span class="badge status-badge" id="statusBadge" role="button" tabindex="0" aria-haspopup="listbox" aria-expanded="false" aria-controls="statusDropdown" aria-label="${escapeHtml(t(strings.statusBadgeAriaLabel, statusDisplay || strings.statusLabels.open))}" data-status="${item.status || 'open'}">${escapeHtml(statusDisplay || strings.statusLabels.open)}</span>
-                <div class="status-dropdown" id="statusDropdown" role="listbox" aria-label="${escapeHtml(strings.statusDropdownLabel)}">
-                    <div class="status-option" data-status="open" role="option" aria-selected="${(item.status || 'open') === 'open'}" aria-label="${escapeHtml(t(strings.statusOptionAriaLabel, strings.statusLabels.open))}">${escapeHtml(strings.statusLabels.open)}</div>
-                    <div class="status-option" data-status="in_progress" role="option" aria-selected="${item.status === 'in_progress'}" aria-label="${escapeHtml(t(strings.statusOptionAriaLabel, strings.statusLabels.in_progress))}">${escapeHtml(strings.statusLabels.in_progress)}</div>
-                    <div class="status-option" data-status="blocked" role="option" aria-selected="${item.status === 'blocked'}" aria-label="${escapeHtml(t(strings.statusOptionAriaLabel, strings.statusLabels.blocked))}">${escapeHtml(strings.statusLabels.blocked)}</div>
-                    <div class="status-option" data-status="closed" role="option" aria-selected="${item.status === 'closed'}" aria-label="${escapeHtml(t(strings.statusOptionAriaLabel, strings.statusLabels.closed))}">${escapeHtml(strings.statusLabels.closed)}</div>
+    <div class="container">
+        <div class="header">
+            <div class="header-top">
+                <div class="header-left">
+                    <div class="id-badge" title="Copy ID" onclick="copyToClipboard('${item.id}')">${item.id}</div>
+                    <div class="status-wrapper">
+                        <div class="status-badge" id="statusBadge" style="color: ${statusColor}; border: 1px solid ${statusColor}44; background-color: ${statusColor}11; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;" data-status="${item.status || 'open'}">
+                            ${statusDisplay} ▾
+                        </div>
+                        <div class="status-dropdown" id="statusDropdown">
+                            <div class="status-option" data-status="open">${strings.statusLabels.open}</div>
+                            <div class="status-option" data-status="in_progress">${strings.statusLabels.in_progress}</div>
+                            <div class="status-option" data-status="blocked">${strings.statusLabels.blocked}</div>
+                            <div class="status-option" data-status="closed">${strings.statusLabels.closed}</div>
+                        </div>
+                    </div>
+                    ${issueType ? `<span class="tag" style="background-color: var(--vscode-badge-background);">${issueType.toUpperCase()}</span>` : ''}
+                </div>
+                <div class="actions">
+                    <button id="toggle-compact" class="icon-button" title="${t('Toggle density')}">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M1 3h14v2H1V3zm0 4h14v2H1V7zm0 4h14v2H1v-2z"/></svg>
+                    </button>
+                    <button class="icon-button" id="editButton" title="${strings.editLabel}">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M13.23 1h-1.46L3.52 9.25l-.16.22L1 13.59 2.41 15l4.12-2.36.22-.16L15 4.23V2.77L13.23 1zM2.41 13.59l.66-1.17L5.23 14l-1.17.66-.66-1.17zM14 4.23l-7.53 7.53-2.23-2.23L11.77 2h1.46v2.23z"/></svg>
+                    </button>
+                    <button class="icon-button delete-button" id="deleteButton" title="${strings.deleteLabel}" style="display: none;">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M6.5 2H9.5V3H14V4H2V3H6.5V2ZM3 5H13V14C13 14.55 12.55 15 12 15H4C3.45 15 3 14.55 3 14V5ZM5 7V13H6V7H5ZM8 7V13H9V7H8ZM11 7V13H12V7H11Z"/></svg>
+                    </button>
                 </div>
             </div>
-            ${issueType ? `<span class="badge type-badge">${issueType.toUpperCase()}</span>` : ''}
-            ${priorityLabel ? `<span class="badge priority-badge">${priorityLabel}</span>` : ''}
-        </div>
-    </div>
-
-    ${description ? `
-    <div class="section">
-        <div class="section-title">${escapeHtml(strings.descriptionLabel)}</div>
-        <div class="description">${linkifyText(description)}</div>
-    </div>
-    ` : ''}
-
-    ${design ? `
-    <div class="section">
-        <div class="section-title">${escapeHtml(strings.designLabel)}</div>
-        <div class="description">${linkifyText(design)}</div>
-    </div>
-    ` : ''}
-
-    ${acceptanceCriteria ? `
-    <div class="section">
-        <div class="section-title">${escapeHtml(strings.acceptanceLabel)}</div>
-        <div class="description">${linkifyText(acceptanceCriteria)}</div>
-    </div>
-    ` : ''}
-
-    ${notes ? `
-    <div class="section">
-        <div class="section-title">${escapeHtml(strings.notesLabel)}</div>
-        <div class="description">${linkifyText(notes)}</div>
-    </div>
-    ` : ''}
-
-    <div class="section">
-        <div class="section-title">${escapeHtml(strings.detailsLabel)}</div>
-        ${assignee ? `<div class="meta-item"><span class="meta-label">${escapeHtml(strings.assigneeLabel)}</span><span class="meta-value">${escapeHtml(assignee)}</span></div>` : ''}
-        ${item.externalReferenceId ? `<div class="meta-item"><span class="meta-label">${escapeHtml(strings.externalRefLabel)}</span><span class="meta-value"><a href="${escapeHtml(item.externalReferenceId)}" class="external-link" target="_blank">${escapeHtml(item.externalReferenceDescription || item.externalReferenceId)}</a></span></div>` : ''}
-        ${createdAt ? `<div class="meta-item"><span class="meta-label">${escapeHtml(strings.createdLabel)}</span><span class="meta-value">${createdAt}</span></div>` : ''}
-        ${updatedAt ? `<div class="meta-item"><span class="meta-label">${escapeHtml(strings.updatedLabel)}</span><span class="meta-value">${updatedAt}</span></div>` : ''}
-        ${closedAt ? `<div class="meta-item"><span class="meta-label">${escapeHtml(strings.closedLabel)}</span><span class="meta-value">${closedAt}</span></div>` : ''}
-    </div>
-
-    <div class="section">
-        <div class="section-title">${escapeHtml(strings.labelsLabel)}</div>
-        <div class="tags" id="labelsContainer">
-            ${labels && labels.length > 0 ? labels.map((label: string) => `<span class="tag" data-label="${escapeHtml(label)}">${escapeHtml(label)}<span class="tag-remove" style="display: none;">×</span></span>`).join('') : `<span class="empty">${escapeHtml(strings.noLabelsLabel)}</span>`}
-        </div>
-        <div style="margin-top: 12px; display: none;" id="labelActions">
-            <button class="edit-button" id="addInReviewButton" style="margin-right: 8px;">
-                <span id="inReviewButtonText">${escapeHtml(strings.markInReviewLabel)}</span>
-            </button>
-            <button class="edit-button" id="addLabelButton">${escapeHtml(strings.addLabelLabel)}</button>
-        </div>
-    </div>
-
-    ${dependsOn.length > 0 ? `
-    <div class="section">
-        <div class="section-title">${escapeHtml(strings.dependsOnLabel)}</div>
-        ${dependsOn.map((dep: any) => `
-            <div class="dependency-item" data-issue-id="${dep.id}">
-                ${dependencyEditingEnabled ? `<button class="dependency-remove" data-source-id="${escapeHtml(item.id)}" data-target-id="${escapeHtml(dep.id)}">${escapeHtml(strings.removeDependencyLabel)}</button>` : ''}
-                <div class="dependency-type">${dep.type}</div>
-                <strong>${dep.id}</strong>
-                ${dep.title ? `<div style="margin-top: 4px;">${escapeHtml(dep.title)}</div>` : ''}
-                ${dep.status ? `<span class="badge status-badge" style="margin-top: 4px; display: inline-block;">${escapeHtml(getStatusLabel(dep.status))}</span>` : ''}
+            <h1 class="title" id="issueTitle" contenteditable="false">${escapeHtml(item.title)}</h1>
+            <div class="meta-grid">
+                <div class="meta-item">
+                    <span class="meta-label">${strings.assigneeLabel}</span>
+                    <span class="meta-value" id="assignee-edit" style="cursor: pointer; border-bottom: 1px dashed var(--vscode-descriptionForeground);">${escapeHtml(assignee)}</span>
+                </div>
+                <div class="meta-item">
+                    <span class="meta-label">${strings.createdLabel}</span>
+                    <span class="meta-value">${createdAt}</span>
+                </div>
+                <div class="meta-item">
+                    <span class="meta-label">${strings.updatedLabel}</span>
+                    <span class="meta-value">${updatedAt}</span>
+                </div>
+                ${item.externalReferenceId ? `
+                <div class="meta-item">
+                    <span class="meta-label">${strings.externalRefLabel}</span>
+                    <span class="meta-value external-link" onclick="openExternal('${item.externalReferenceId}')">${escapeHtml(item.externalReferenceId)}</span>
+                </div>` : ''}
             </div>
-        `).join('')}
-    </div>
-    ` : ''}
+        </div>
 
-    ${blocks.length > 0 ? `
-    <div class="section">
-        <div class="section-title">${escapeHtml(strings.blocksLabel)}</div>
-        ${blocks.map((dep: any) => `
-            <div class="dependency-item" data-issue-id="${dep.id}">
-                ${dependencyEditingEnabled ? `<button class="dependency-remove" data-source-id="${escapeHtml(dep.id)}" data-target-id="${escapeHtml(item.id)}">${escapeHtml(strings.removeDependencyLabel)}</button>` : ''}
-                <div class="dependency-type">${dep.type}</div>
-                <strong>${dep.id}</strong>
-                ${dep.title ? `<div style="margin-top: 4px;">${escapeHtml(dep.title)}</div>` : ''}
-                ${dep.status ? `<span class="badge status-badge" style="margin-top: 4px; display: inline-block;">${escapeHtml(getStatusLabel(dep.status))}</span>` : ''}
+        <div class="section">
+            <div class="section-title">${strings.descriptionLabel}</div>
+            <div class="description">${linkifyText(description) || '<span class="empty">No description</span>'}</div>
+        </div>
+
+        ${design ? `
+        <div class="section">
+            <div class="section-title">${strings.designLabel}</div>
+            <div class="description">${linkifyText(design)}</div>
+        </div>` : ''}
+
+        ${acceptanceCriteria ? `
+        <div class="section">
+            <div class="section-title">${strings.acceptanceLabel}</div>
+            <div class="description">${linkifyText(acceptanceCriteria)}</div>
+        </div>` : ''}
+
+        ${notes ? `
+        <div class="section">
+            <div class="section-title">${strings.notesLabel}</div>
+            <div class="description">${linkifyText(notes)}</div>
+        </div>` : ''}
+
+        <div class="section">
+            <div class="section-title">${strings.labelsLabel}</div>
+            <div class="tags" id="labelsContainer">
+                ${labels.map((l: string) => `<span class="tag" data-label="${escapeHtml(l)}">${escapeHtml(l)}<span class="tag-remove" style="display: none;" onclick="removeLabel('${escapeHtml(l)}')">×</span></span>`).join('')}
+                <button class="icon-button" id="addLabelButton" title="${strings.addLabelLabel}" style="display: none;">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M14 7v1H8v6H7V8H1V7h6V1h1v6h6z"/></svg>
+                </button>
             </div>
-        `).join('')}
+        </div>
+
+        <div class="section">
+            <div class="section-title">${strings.dependencyTreeTitle}</div>
+            <div class="tree-container">
+                ${renderBranchSection('upstream', treeData.upstream, strings.dependencyTreeUpstream)}
+                ${renderBranchSection('downstream', treeData.downstream, strings.dependencyTreeDownstream)}
+                ${!hasAnyDeps ? `<div class="empty">${strings.dependencyEmptyLabel}</div>` : ''}
+            </div>
+            ${dependencyEditingEnabled ? `
+            <div class="tree-actions" style="margin-top: 8px; display: none;" id="treeActions">
+                <button class="icon-button" id="addUpstreamButton" title="${strings.addUpstreamLabel}">+ Upstream</button>
+                <button class="icon-button" id="addDownstreamButton" title="${strings.addDownstreamLabel}">+ Downstream</button>
+            </div>` : ''}
+        </div>
     </div>
-    ` : ''}
-
-    ${dependencyTreeHtml}
-
     <script nonce="${nonce}">
         const vscode = acquireVsCodeApi();
-        let isEditMode = false;
+        const state = vscode.getState() || { compact: false };
+        
+        if (state.compact) {
+            document.body.classList.add('compact');
+        }
 
+        document.getElementById('toggle-compact').addEventListener('click', () => {
+            document.body.classList.toggle('compact');
+            const isCompact = document.body.classList.contains('compact');
+            vscode.setState({ ...state, compact: isCompact });
+        });
+
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text);
+        }
+
+        function openExternal(url) {
+            vscode.postMessage({ command: 'openExternal', url });
+        }
+
+        function openBead(beadId) {
+            vscode.postMessage({ command: 'openBead', beadId });
+        }
+
+        function removeLabel(label) {
+            vscode.postMessage({ command: 'removeLabel', label, issueId: '${item.id}' });
+        }
+
+        let isEditMode = false;
         const editButton = document.getElementById('editButton');
-        const assigneeButton = document.getElementById('assigneeButton');
+        const deleteButton = document.getElementById('deleteButton');
+        const issueTitle = document.getElementById('issueTitle');
+        const addLabelButton = document.getElementById('addLabelButton');
+        const treeActions = document.getElementById('treeActions');
         const statusBadge = document.getElementById('statusBadge');
         const statusDropdown = document.getElementById('statusDropdown');
-        const issueTitle = document.getElementById('issueTitle');
-        const deleteButton = document.getElementById('deleteButton');
-
-        const labelActions = document.getElementById('labelActions');
-        const addInReviewButton = document.getElementById('addInReviewButton');
-        const addLabelButton = document.getElementById('addLabelButton');
-        const addUpstreamButton = document.getElementById('addUpstreamButton');
-        const addDownstreamButton = document.getElementById('addDownstreamButton');
-        const inReviewButtonText = document.getElementById('inReviewButtonText');
-        const labelsContainer = document.getElementById('labelsContainer');
-
-        const localized = ${JSON.stringify({
-          edit: strings.editLabel,
-          done: strings.doneLabel,
-          markInReview: strings.markInReviewLabel,
-          removeInReview: strings.removeInReviewLabel,
-          addLabel: strings.addLabelLabel,
-          promptLabel: strings.labelPrompt,
-          addUpstreamPrompt: strings.addUpstreamPrompt,
-          addDownstreamPrompt: strings.addDownstreamPrompt,
-        })};
-
-        let originalTitle = issueTitle.textContent;
-
-        console.log('DEBUG: labelActions element:', labelActions);
-        console.log('DEBUG: addInReviewButton element:', addInReviewButton);
-
-        const currentLabels = ${JSON.stringify(labels || [])};
-        const hasInReview = currentLabels.includes('in-review');
-
-        inReviewButtonText.textContent = localized.markInReview;
-
-        if (hasInReview) {
-            inReviewButtonText.textContent = localized.removeInReview;
-        }
 
         editButton.addEventListener('click', () => {
             isEditMode = !isEditMode;
-
             if (isEditMode) {
-                editButton.textContent = localized.done;
-                if (deleteButton) {
-                    deleteButton.style.display = 'inline-flex';
-                }
-                statusBadge.classList.add('editable');
-                labelActions.style.display = 'block';
+                editButton.style.color = 'var(--vscode-textLink-foreground)';
+                deleteButton.style.display = 'flex';
                 issueTitle.contentEditable = 'true';
-                originalTitle = issueTitle.textContent;
-
-                // Show remove buttons on labels
-                document.querySelectorAll('.tag-remove').forEach(btn => {
-                    btn.style.display = 'inline';
-                });
-                document.querySelectorAll('.tag').forEach(tag => {
-                    if (!tag.classList.contains('empty')) {
-                        tag.classList.add('editable');
-                    }
-                });
+                addLabelButton.style.display = 'inline-flex';
+                if (treeActions) treeActions.style.display = 'flex';
+                document.querySelectorAll('.tag-remove').forEach(el => el.style.display = 'inline');
             } else {
-                editButton.textContent = localized.edit;
-                if (deleteButton) {
-                    deleteButton.style.display = 'none';
-                }
-                statusBadge.classList.remove('editable');
-                statusDropdown.classList.remove('show');
-                statusBadge.setAttribute('aria-expanded', 'false');
-                labelActions.style.display = 'none';
+                editButton.style.color = '';
+                deleteButton.style.display = 'none';
                 issueTitle.contentEditable = 'false';
-
-                // Save title if changed
-                const newTitle = issueTitle.textContent.trim();
-                if (newTitle !== originalTitle && newTitle.length > 0) {
-                    vscode.postMessage({
-                        command: 'updateTitle',
-                        title: newTitle,
-                        issueId: '${item.id}'
-                    });
-                    originalTitle = newTitle;
-                } else if (newTitle.length === 0) {
-                    // Restore original title if empty
-                    issueTitle.textContent = originalTitle;
+                addLabelButton.style.display = 'none';
+                if (treeActions) treeActions.style.display = 'none';
+                document.querySelectorAll('.tag-remove').forEach(el => el.style.display = 'none');
+                
+                // Save title
+                const newTitle = issueTitle.innerText;
+                if (newTitle !== '${escapeHtml(item.title)}') {
+                    vscode.postMessage({ command: 'updateTitle', title: newTitle, issueId: '${item.id}' });
                 }
-
-                // Hide remove buttons on labels
-                document.querySelectorAll('.tag-remove').forEach(btn => {
-                    btn.style.display = 'none';
-                });
-                document.querySelectorAll('.tag').forEach(tag => {
-                    tag.classList.remove('editable');
-                });
             }
         });
 
-        if (deleteButton) {
-            deleteButton.addEventListener('click', () => {
-                vscode.postMessage({
-                    command: 'deleteBead',
-                    beadId: '${item.id}'
-                });
+        deleteButton.addEventListener('click', () => {
+            vscode.postMessage({ command: 'deleteBead', beadId: '${item.id}' });
+        });
+
+        document.getElementById('assignee-edit').addEventListener('click', () => {
+            vscode.postMessage({ command: 'editAssignee', id: '${item.id}' });
+        });
+
+        addLabelButton.addEventListener('click', () => {
+            vscode.postMessage({ command: 'addLabel', issueId: '${item.id}' });
+        });
+
+        if (document.getElementById('addUpstreamButton')) {
+            document.getElementById('addUpstreamButton').addEventListener('click', () => {
+                vscode.postMessage({ command: 'addDependency', type: 'upstream', issueId: '${item.id}' });
             });
         }
 
-        const statusOptions = Array.from(document.querySelectorAll('.status-option')) || [];
-
-        const setDropdownVisible = (visible) => {
-            statusDropdown.classList.toggle('show', visible);
-            statusBadge.setAttribute('aria-expanded', visible ? 'true' : 'false');
-        };
-
-        const syncSelectedStatus = (statusValue) => {
-            statusOptions.forEach(opt => {
-                const isSelected = opt.getAttribute('data-status') === statusValue;
-                opt.setAttribute('aria-selected', isSelected ? 'true' : 'false');
+        if (document.getElementById('addDownstreamButton')) {
+            document.getElementById('addDownstreamButton').addEventListener('click', () => {
+                vscode.postMessage({ command: 'addDependency', type: 'downstream', issueId: '${item.id}' });
             });
-        };
+        }
 
-        const applyStatus = (newStatus) => {
-            if (!newStatus) {
-                return;
-            }
-            vscode.postMessage({
-                command: 'updateStatus',
-                status: newStatus,
-                issueId: '${item.id}'
-            });
-            setDropdownVisible(false);
-            statusBadge.setAttribute('data-status', newStatus);
-            syncSelectedStatus(newStatus);
-        };
-
-        syncSelectedStatus(statusBadge.getAttribute('data-status'));
-
+        // Status Dropdown Logic
         statusBadge.addEventListener('click', () => {
             if (isEditMode) {
-                const nextVisible = !statusDropdown.classList.contains('show');
-                setDropdownVisible(nextVisible);
-                if (nextVisible) {
-                    const selected = statusOptions.find(opt => opt.getAttribute('aria-selected') === 'true') || statusOptions[0];
-                    if (selected) {
-                        selected.focus();
-                    }
-                }
+                statusDropdown.classList.toggle('show');
             }
         });
 
-        statusBadge.addEventListener('keydown', (e) => {
-            if (!isEditMode) {
-                return;
-            }
-            if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                const nextVisible = !statusDropdown.classList.contains('show');
-                setDropdownVisible(nextVisible);
-                if (nextVisible) {
-                    const selected = statusOptions.find(opt => opt.getAttribute('aria-selected') === 'true') || statusOptions[0];
-                    selected?.focus();
-                }
-            } else if (e.key === 'ArrowDown') {
-                e.preventDefault();
-                setDropdownVisible(true);
-                const selected = statusOptions.find(opt => opt.getAttribute('aria-selected') === 'true') || statusOptions[0];
-                selected?.focus();
-            } else if (e.key === 'Escape') {
-                if (statusDropdown.classList.contains('show')) {
-                    setDropdownVisible(false);
-                    statusBadge.focus();
-                }
-            }
-        });
-
-        statusOptions.forEach(option => {
-            option.addEventListener('click', () => {
-                applyStatus(option.getAttribute('data-status'));
-            });
-            option.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    applyStatus(option.getAttribute('data-status'));
-                } else if (e.key === 'Escape') {
-                    setDropdownVisible(false);
-                    statusBadge.focus();
-                }
+        document.querySelectorAll('.status-option').forEach(opt => {
+            opt.addEventListener('click', () => {
+                const newStatus = opt.getAttribute('data-status');
+                vscode.postMessage({ command: 'updateStatus', status: newStatus, issueId: '${item.id}' });
+                statusDropdown.classList.remove('show');
             });
         });
 
         // Close dropdown when clicking outside
         document.addEventListener('click', (e) => {
             if (!statusBadge.contains(e.target) && !statusDropdown.contains(e.target)) {
-                setDropdownVisible(false);
-            }
-        });
-
-        // Handle "In Review" toggle button
-        addInReviewButton.addEventListener('click', () => {
-            const hasInReview = currentLabels.includes('in-review');
-
-            if (hasInReview) {
-                const index = currentLabels.indexOf('in-review');
-                if (index >= 0) {
-                    currentLabels.splice(index, 1);
-                }
-                inReviewButtonText.textContent = localized.markInReview;
-                vscode.postMessage({
-                    command: 'removeLabel',
-                    label: 'in-review',
-                    issueId: '${item.id}'
-                });
-            } else {
-                currentLabels.push('in-review');
-                inReviewButtonText.textContent = localized.removeInReview;
-                vscode.postMessage({
-                    command: 'addLabel',
-                    label: 'in-review',
-                    issueId: '${item.id}'
-                });
-            }
-        });
-
-        // Handle custom label addition
-        addLabelButton.addEventListener('click', () => {
-            const label = prompt(localized.promptLabel);
-            if (label && label.trim()) {
-                vscode.postMessage({
-                    command: 'addLabel',
-                    label: label.trim(),
-                    issueId: '${item.id}'
-                });
-            }
-        });
-
-        const idPattern = /^[A-Za-z0-9._-]{1,64}$/;
-        const askForId = (promptText) => {
-            const value = prompt(promptText);
-            if (!value) {
-                return undefined;
-            }
-            const trimmed = value.trim();
-            return idPattern.test(trimmed) ? trimmed : undefined;
-        };
-
-        if (addUpstreamButton) {
-            addUpstreamButton.addEventListener('click', () => {
-                const targetId = askForId(localized.addUpstreamPrompt);
-                if (!targetId) {
-                    return;
-                }
-                vscode.postMessage({
-                    command: 'addDependency',
-                    sourceId: '${item.id}',
-                    targetId
-                });
-            });
-        }
-
-        if (addDownstreamButton) {
-            addDownstreamButton.addEventListener('click', () => {
-                const sourceId = askForId(localized.addDownstreamPrompt);
-                if (!sourceId) {
-                    return;
-                }
-                vscode.postMessage({
-                    command: 'addDependency',
-                    sourceId,
-                    targetId: '${item.id}'
-                });
-            });
-        }
-
-        // Handle label removal
-        document.addEventListener('click', (e) => {
-            if (e.target.classList.contains('tag-remove')) {
-                const tagElement = e.target.closest('.tag');
-                const label = tagElement.getAttribute('data-label');
-
-                if (label) {
-                    vscode.postMessage({
-                        command: 'removeLabel',
-                        label: label,
-                        issueId: '${item.id}'
-                    });
-                }
-            }
-        });
-
-        if (assigneeButton) {
-            assigneeButton.addEventListener('click', () => {
-                vscode.postMessage({
-                    command: 'editAssignee',
-                    issueId: '${item.id}'
-                });
-            });
-        }
-
-        // Handle dependency removal clicks
-        document.addEventListener('click', (e) => {
-            const removeBtn = e.target.closest('.dependency-remove');
-            if (removeBtn) {
-                e.stopPropagation();
-                const sourceId = removeBtn.getAttribute('data-source-id');
-                const targetId = removeBtn.getAttribute('data-target-id');
-
-                if (sourceId && targetId) {
-                    vscode.postMessage({
-                        command: 'removeDependency',
-                        sourceId,
-                        targetId,
-                    });
-                }
-            }
-        });
-
-        // Handle dependency tree node clicks
-        document.addEventListener('click', (e) => {
-            const treeRow = e.target.closest('.tree-row');
-            if (treeRow && !e.target.closest('.dependency-remove')) {
-                const issueId = treeRow.getAttribute('data-issue-id');
-                if (issueId && issueId !== '${item.id}') {
-                    vscode.postMessage({
-                        command: 'openBead',
-                        beadId: issueId
-                    });
-                }
-            }
-        });
-
-        const treeContainer = document.querySelector('.dependency-tree-container');
-        const treeRows = Array.from(document.querySelectorAll('.tree-row'));
-
-        const setActiveTreeRow = (row) => {
-            if (!row) {
-                return;
-            }
-            treeRows.forEach((r) => r.setAttribute('tabindex', r === row ? '0' : '-1'));
-            row.focus();
-        };
-
-        if (treeRows.length) {
-            setActiveTreeRow(treeRows[0]);
-        }
-
-        const focusParentRow = (row) => {
-            const parentId = row.getAttribute('data-parent-id');
-            if (!parentId) {
-                return;
-            }
-            const parentRow = treeRows.find((r) => r.getAttribute('data-issue-id') === parentId);
-            if (parentRow) {
-                setActiveTreeRow(parentRow);
-            }
-        };
-
-        const focusFirstChildRow = (row) => {
-            const childRow = treeRows.find((r) => r.getAttribute('data-parent-id') === row.getAttribute('data-issue-id'));
-            if (childRow) {
-                setActiveTreeRow(childRow);
-            }
-        };
-
-        if (treeContainer && treeRows.length) {
-            treeContainer.addEventListener('keydown', (e) => {
-                const currentRow = e.target && e.target.closest ? e.target.closest('.tree-row') : null;
-                if (!currentRow) {
-                    return;
-                }
-
-                if (e.target && e.target.tagName === 'BUTTON' && (e.key === ' ' || e.key === 'Enter')) {
-                    return;
-                }
-
-                const idx = treeRows.indexOf(currentRow);
-                if (idx === -1) {
-                    return;
-                }
-
-                if (e.key === 'ArrowDown') {
-                    const next = treeRows[idx + 1];
-                    if (next) {
-                        setActiveTreeRow(next);
-                        e.preventDefault();
-                    }
-                } else if (e.key === 'ArrowUp') {
-                    const prev = treeRows[idx - 1];
-                    if (prev) {
-                        setActiveTreeRow(prev);
-                        e.preventDefault();
-                    }
-                } else if (e.key === 'ArrowRight') {
-                    focusFirstChildRow(currentRow);
-                    e.preventDefault();
-                } else if (e.key === 'ArrowLeft') {
-                    focusParentRow(currentRow);
-                    e.preventDefault();
-                } else if (e.key === 'Enter' || e.key === ' ') {
-                    const issueId = currentRow.getAttribute('data-issue-id');
-                    if (issueId && issueId !== '${item.id}') {
-                        vscode.postMessage({
-                            command: 'openBead',
-                            beadId: issueId
-                        });
-                        e.preventDefault();
-                    }
-                }
-            });
-        }
-
-        // Handle dependency item clicks
-        document.addEventListener('click', (e) => {
-            const dependencyItem = e.target.closest('.dependency-item');
-            if (dependencyItem) {
-                const issueId = dependencyItem.getAttribute('data-issue-id');
-                if (issueId) {
-                    vscode.postMessage({
-                        command: 'openBead',
-                        beadId: issueId
-                    });
-                }
-            }
-        });
-
-        // Handle external link clicks
-        document.addEventListener('click', (e) => {
-            if (e.target.classList.contains('external-link')) {
-                e.preventDefault();
-                const url = e.target.getAttribute('href');
-                if (url) {
-                    vscode.postMessage({
-                        command: 'openExternalUrl',
-                        url: url
-                    });
-                }
+                statusDropdown.classList.remove('show');
             }
         });
     </script>
@@ -3223,7 +2768,6 @@ function getBeadDetailHtml(
 </html>`;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function getDependencyTreeHtml(items: BeadItemData[], strings: DependencyTreeStrings, locale: string, dependencyEditingEnabled: boolean): string {
   // DEBUG: Log input to HTML generator
   console.log('[getDependencyTreeHtml DEBUG] Received items count:', items?.length ?? 'undefined/null');
@@ -4061,7 +3605,21 @@ async function openBead(item: BeadItemData, provider: BeadsTreeDataProvider): Pr
         await editAssignee(provider, undefined, item);
         return;
       case 'addLabel':
-        await provider.addLabel(item, validated.label);
+        if (!validated.label) {
+          const input = await vscode.window.showInputBox({
+            placeHolder: t('Label name'),
+            prompt: t('Enter a label to add'),
+            validateInput: (value) => {
+              const res = validateLabelInput(value);
+              return res.valid ? null : t('Invalid label format');
+            }
+          });
+          if (input) {
+            await provider.addLabel(item, input);
+          }
+        } else {
+          await provider.addLabel(item, validated.label);
+        }
         return;
       case 'removeLabel':
         await provider.removeLabel(item, validated.label);

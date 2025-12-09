@@ -228,7 +228,7 @@
         {
           "type": "webview",
           "id": "beady.issuesView",
-          "name": "Issues"
+          "name": "Tasks"
         },
         {
           "id": "beadyExplorer",
@@ -452,8 +452,18 @@
           "group": "navigation@1.5"
         },
         {
+          "command": "beady.applyQuickFilterPreset",
+          "when": "view == beady.issuesView && beady.quickFiltersEnabled",
+          "group": "navigation@1.5"
+        },
+        {
           "command": "beady.clearQuickFilters",
           "when": "view == beadyExplorer && beady.quickFiltersEnabled && beady.activeQuickFilter != ''",
+          "group": "navigation@1.6"
+        },
+        {
+          "command": "beady.clearQuickFilters",
+          "when": "view == beady.issuesView && beady.quickFiltersEnabled && beady.activeQuickFilter != ''",
           "group": "navigation@1.6"
         },
         {
@@ -462,8 +472,18 @@
           "group": "navigation@1"
         },
         {
+          "command": "beady.pickSortMode",
+          "when": "view == beady.issuesView && beady.sortPickerEnabled",
+          "group": "navigation@1"
+        },
+        {
           "command": "beady.toggleSortMode",
           "when": "view == beadyExplorer && !beady.sortPickerEnabled",
+          "group": "navigation@1"
+        },
+        {
+          "command": "beady.toggleSortMode",
+          "when": "view == beady.issuesView && !beady.sortPickerEnabled",
           "group": "navigation@1"
         },
         {
@@ -473,8 +493,19 @@
           "toggled": "beady.closedHidden"
         },
         {
+          "command": "beady.toggleClosedVisibility",
+          "when": "view == beady.issuesView",
+          "group": "navigation@1.4",
+          "toggled": "beady.closedHidden"
+        },
+        {
           "command": "beady.search",
           "when": "view == beadyExplorer",
+          "group": "navigation@2"
+        },
+        {
+          "command": "beady.search",
+          "when": "view == beady.issuesView",
           "group": "navigation@2"
         },
         {
@@ -483,13 +514,28 @@
           "group": "navigation@3"
         },
         {
+          "command": "beady.clearSearch",
+          "when": "view == beady.issuesView",
+          "group": "navigation@3"
+        },
+        {
           "command": "beady.refresh",
           "when": "view == beadyExplorer",
           "group": "navigation@4"
         },
         {
+          "command": "beady.refresh",
+          "when": "view == beady.issuesView",
+          "group": "navigation@4"
+        },
+        {
           "command": "beady.createBead",
           "when": "view == beadyExplorer",
+          "group": "navigation@5"
+        },
+        {
+          "command": "beady.createBead",
+          "when": "view == beady.issuesView",
           "group": "navigation@5"
         },
         {

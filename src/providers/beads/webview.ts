@@ -5,6 +5,7 @@ import { WebviewMessage, WebviewCommand } from '../../views/issues/types';
 export interface BeadsDataSource {
   onDidChangeTreeData: vscode.Event<any>;
   getVisibleBeads(): BeadItemData[];
+  getSortMode(): string;
 }
 
 export class BeadsWebviewProvider implements vscode.WebviewViewProvider {
@@ -56,6 +57,10 @@ export class BeadsWebviewProvider implements vscode.WebviewViewProvider {
           console.log('[Webview]', message.text);
           break;
         }
+        case 'pickSort': {
+          vscode.commands.executeCommand('beady.pickSortMode');
+          break;
+        }
         case 'ready': {
           this._updateWebview();
           break;
@@ -74,8 +79,9 @@ export class BeadsWebviewProvider implements vscode.WebviewViewProvider {
     
     this._view.webview.postMessage({
       type: 'update',
-      beads: viewModels
-    } as WebviewMessage);
+      beads: viewModels,
+      sortMode: this._dataSource.getSortMode()
+    } as any);
   }
 
   private _getHtmlForWebview(webview: vscode.Webview) {
