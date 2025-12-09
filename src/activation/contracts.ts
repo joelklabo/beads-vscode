@@ -73,7 +73,7 @@ export type CommandRegistrar = (
 export type ConfigurationWatcher = (
   context: vscode.ExtensionContext,
   provider: BeadsTreeDataProvider
-) => void;
+) => vscode.Disposable[];
 
 export interface ContextStateManager {
   applyWorkspaceContext(provider: BeadsTreeDataProvider): void;
