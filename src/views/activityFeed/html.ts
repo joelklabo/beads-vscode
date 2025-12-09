@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import type { EventData } from '../../activityFeed';
+import { buildSharedStyles, getIssueTypeToken, getStatusToken } from '../shared/theme';
 import { escapeHtml } from '../../utils';
 
 const t = vscode.l10n.t;
@@ -12,46 +13,67 @@ export interface ActivityFeedStrings {
 }
 
 export function getActivityFeedPanelHtml(events: EventData[], strings: ActivityFeedStrings, locale: string): string {
+  const statusForEvent = (event: EventData) => {
+    switch (event.colorClass) {
+      case 'event-success': return getStatusToken('closed');
+      case 'event-warning': return getStatusToken('blocked');
+      case 'event-created': return getStatusToken('in_progress');
+      case 'event-info': return getStatusToken('open');
+      default: return getStatusToken('open');
+    }
+  };
+
+  const typeForEvent = (event: EventData) => getIssueTypeToken((event as any)?.issueType || 'task');
+
+  const codiconMap: Record<string, string> = {
+    sparkle: 'codicon-sparkle',
+    check: 'codicon-check',
+    sync: 'codicon-sync',
+    'git-merge': 'codicon-git-merge',
+    'git-compare': 'codicon-git-compare',
+    edit: 'codicon-edit',
+    note: 'codicon-note',
+    flame: 'codicon-flame',
+    tag: 'codicon-tag',
+    close: 'codicon-close',
+    'person-add': 'codicon-account-add',
+    person: 'codicon-account',
+    comment: 'codicon-comment-discussion',
+    history: 'codicon-history',
+    question: 'codicon-question',
+  };
+
   const eventCards = events.map(event => {
-    const iconMap: Record<string, string> = {
-      'sparkle': '✨',
-      'check': '✓',
-      'sync': '↻',
-      'git-merge': '⑂',
-      'git-compare': '⌥',
-      'edit': '✏',
-      'note': '📝',
-      'flame': '🔥',
-      'tag': '🏷',
-      'close': '✕',
-      'person-add': '👤+',
-      'person': '👤',
-      'comment': '💬',
-      'history': '↺',
-      'question': '?',
-    };
-    const colorMap: Record<string, string> = {
-      'event-created': '#f9c513',
-      'event-success': '#73c991',
-      'event-warning': '#f9c513',
-      'event-info': '#3794ff',
-      'event-purple': '#a855f7',
-      'event-default': '#666',
-    };
-    const icon = iconMap[event.iconName] || '•';
-    const color = colorMap[event.colorClass] || '#666';
+    const statusToken = statusForEvent(event);
+    const typeToken = typeForEvent(event);
+    const iconClass = codiconMap[event.iconName] || 'codicon-symbol-event';
     const time = event.createdAt.toLocaleString(locale);
     const actorLabel = escapeHtml(t('by {0}', event.actor));
+    const actorColor = colorFromName(event.actor || 'actor');
 
     return `
       <div class="event-card" data-issue-id="${escapeHtml(event.issueId)}">
-        <div class="timeline-dot" style="background-color: ${color};">${icon}</div>
+        <div class="timeline-dot" style="background-color: ${statusToken.color};">
+          <span class="codicon ${iconClass}"></span>
+        </div>
         <div class="event-content">
           <div class="event-header">
             <span class="event-description">${escapeHtml(event.description)}</span>
             <span class="event-time" title="${time}">${escapeHtml(event.createdAt.toLocaleTimeString(locale))}</span>
           </div>
           ${event.issueTitle ? `<div class="event-issue">${escapeHtml(event.issueTitle)}</div>` : ''}
+          <div class="event-chips">
+            <span class="bead-chip status status-${statusToken.id} ${statusToken.pulsing ? 'pulsing' : ''}">
+              <span class="codicon codicon-${statusToken.icon}"></span>${statusToken.label}
+            </span>
+            <span class="bead-chip type type-${typeToken.id}">
+              <span class="codicon codicon-${typeToken.icon}"></span>${typeToken.label}
+            </span>
+            <span class="bead-chip assignee" style="color: ${actorColor}; background: color-mix(in srgb, ${actorColor} 18%, transparent); border-color: color-mix(in srgb, ${actorColor} 35%, transparent);">
+              <span class="assignee-initials">${escapeHtml((event.actor || '').slice(0,2).toUpperCase())}</span>
+              <span class="assignee-name">${escapeHtml(event.actor)}</span>
+            </span>
+          </div>
           <div class="event-meta">
             <span class="event-actor">${actorLabel}</span>
             <span class="event-id">#${escapeHtml(event.issueId)}</span>
@@ -68,6 +90,7 @@ export function getActivityFeedPanelHtml(events: EventData[], strings: ActivityF
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${escapeHtml(strings.title)}</title>
     <style>
+        ${buildSharedStyles()}
         body {
             font-family: var(--vscode-font-family);
             font-size: var(--vscode-font-size);
@@ -153,6 +176,7 @@ export function getActivityFeedPanelHtml(events: EventData[], strings: ActivityF
             font-size: 12px;
             border: 2px solid var(--vscode-editor-background);
         }
+        .timeline-dot .codicon { color: var(--vscode-editor-background); filter: drop-shadow(0 0 4px rgba(0,0,0,0.25)); }
 
         .event-content {
             display: flex;
@@ -184,6 +208,14 @@ export function getActivityFeedPanelHtml(events: EventData[], strings: ActivityF
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+        }
+
+        .event-chips {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+            margin: 4px 0;
         }
 
         .event-meta {
@@ -244,4 +276,13 @@ export function getActivityFeedPanelHtml(events: EventData[], strings: ActivityF
     </script>
 </body>
 </html>`;
+}
+
+function colorFromName(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+  }
+  const hue = hash % 360;
+  return `hsl(${hue}, 65%, 60%)`;
 }
