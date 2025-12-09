@@ -319,6 +319,23 @@ export function getBeadDetailHtml(
         .status-badge:hover {
             opacity: 0.8;
         }
+        .editable-field {
+            width: 100%;
+            min-height: 60px;
+            background-color: var(--vscode-input-background);
+            color: var(--vscode-input-foreground);
+            border: 1px solid var(--vscode-input-border);
+            border-radius: 2px;
+            padding: 8px;
+            font-family: var(--vscode-editor-font-family);
+            font-size: var(--vscode-editor-font-size);
+            resize: vertical;
+            box-sizing: border-box;
+        }
+        .editable-field:focus {
+            outline: 1px solid var(--vscode-focusBorder);
+            border-color: var(--vscode-focusBorder);
+        }
     </style>
 </head>
 <body>
@@ -344,15 +361,12 @@ export function getBeadDetailHtml(
                     <button id="toggle-compact" class="icon-button" title="${t('Toggle density')}">
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M1 3h14v2H1V3zm0 4h14v2H1V7zm0 4h14v2H1v-2z"/></svg>
                     </button>
-                    <button class="icon-button" id="editButton" title="${strings.editLabel}">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M13.23 1h-1.46L3.52 9.25l-.16.22L1 13.59 2.41 15l4.12-2.36.22-.16L15 4.23V2.77L13.23 1zM2.41 13.59l.66-1.17L5.23 14l-1.17.66-.66-1.17zM14 4.23l-7.53 7.53-2.23-2.23L11.77 2h1.46v2.23z"/></svg>
-                    </button>
-                    <button class="icon-button delete-button" id="deleteButton" title="${strings.deleteLabel}" style="display: none;">
+                    <button class="icon-button delete-button" id="deleteButton" title="${strings.deleteLabel}">
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M6.5 2H9.5V3H14V4H2V3H6.5V2ZM3 5H13V14C13 14.55 12.55 15 12 15H4C3.45 15 3 14.55 3 14V5ZM5 7V13H6V7H5ZM8 7V13H9V7H8ZM11 7V13H12V7H11Z"/></svg>
                     </button>
                 </div>
             </div>
-            <h1 class="title" id="issueTitle" contenteditable="false">${escapeHtml(item.title)}</h1>
+            <h1 class="title" id="issueTitle" contenteditable="true">${escapeHtml(item.title)}</h1>
             <div class="meta-grid">
                 <div class="meta-item">
                     <span class="meta-label">${strings.assigneeLabel}</span>
@@ -376,32 +390,29 @@ export function getBeadDetailHtml(
 
         <div class="section">
             <div class="section-title">${strings.descriptionLabel}</div>
-            <div class="description">${linkifyText(description) || '<span class="empty">No description</span>'}</div>
+            <textarea class="editable-field" id="description" placeholder="Add a description...">${escapeHtml(description)}</textarea>
         </div>
 
-        ${design ? `
         <div class="section">
             <div class="section-title">${strings.designLabel}</div>
-            <div class="description">${linkifyText(design)}</div>
-        </div>` : ''}
+            <textarea class="editable-field" id="design" placeholder="Add design notes...">${escapeHtml(design)}</textarea>
+        </div>
 
-        ${acceptanceCriteria ? `
         <div class="section">
             <div class="section-title">${strings.acceptanceLabel}</div>
-            <div class="description">${linkifyText(acceptanceCriteria)}</div>
-        </div>` : ''}
+            <textarea class="editable-field" id="acceptanceCriteria" placeholder="Add acceptance criteria...">${escapeHtml(acceptanceCriteria)}</textarea>
+        </div>
 
-        ${notes ? `
         <div class="section">
             <div class="section-title">${strings.notesLabel}</div>
-            <div class="description">${linkifyText(notes)}</div>
-        </div>` : ''}
+            <textarea class="editable-field" id="notes" placeholder="Add notes...">${escapeHtml(notes)}</textarea>
+        </div>
 
         <div class="section">
             <div class="section-title">${strings.labelsLabel}</div>
             <div class="tags" id="labelsContainer">
-                ${labels.map((l: string) => `<span class="tag" data-label="${escapeHtml(l)}">${escapeHtml(l)}<span class="tag-remove" style="display: none;" onclick="removeLabel('${escapeHtml(l)}')">×</span></span>`).join('')}
-                <button class="icon-button" id="addLabelButton" title="${strings.addLabelLabel}" style="display: none;">
+                ${labels.map((l: string) => `<span class="tag" data-label="${escapeHtml(l)}">${escapeHtml(l)}<span class="tag-remove" onclick="removeLabel('${escapeHtml(l)}')">×</span></span>`).join('')}
+                <button class="icon-button" id="addLabelButton" title="${strings.addLabelLabel}">
                     <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M14 7v1H8v6H7V8H1V7h6V1h1v6h6z"/></svg>
                 </button>
             </div>
@@ -415,7 +426,7 @@ export function getBeadDetailHtml(
                 ${!hasAnyDeps ? `<div class="empty">${strings.dependencyEmptyLabel}</div>` : ''}
             </div>
             ${dependencyEditingEnabled ? `
-            <div class="tree-actions" style="margin-top: 8px; display: none;" id="treeActions">
+            <div class="tree-actions" style="margin-top: 8px;" id="treeActions">
                 <button class="icon-button" id="addUpstreamButton" title="${strings.addUpstreamLabel}">+ Upstream</button>
                 <button class="icon-button" id="addDownstreamButton" title="${strings.addDownstreamLabel}">+ Downstream</button>
             </div>` : ''}
@@ -451,39 +462,54 @@ export function getBeadDetailHtml(
             vscode.postMessage({ command: 'removeLabel', label, issueId: '${item.id}' });
         }
 
-        let isEditMode = false;
-        const editButton = document.getElementById('editButton');
         const deleteButton = document.getElementById('deleteButton');
         const issueTitle = document.getElementById('issueTitle');
         const addLabelButton = document.getElementById('addLabelButton');
-        const treeActions = document.getElementById('treeActions');
         const statusBadge = document.getElementById('statusBadge');
         const statusDropdown = document.getElementById('statusDropdown');
 
-        editButton.addEventListener('click', () => {
-            isEditMode = !isEditMode;
-            if (isEditMode) {
-                editButton.style.color = 'var(--vscode-textLink-foreground)';
-                deleteButton.style.display = 'flex';
-                issueTitle.contentEditable = 'true';
-                addLabelButton.style.display = 'inline-flex';
-                if (treeActions) treeActions.style.display = 'flex';
-                document.querySelectorAll('.tag-remove').forEach(el => el.style.display = 'inline');
-            } else {
-                editButton.style.color = '';
-                deleteButton.style.display = 'none';
-                issueTitle.contentEditable = 'false';
-                addLabelButton.style.display = 'none';
-                if (treeActions) treeActions.style.display = 'none';
-                document.querySelectorAll('.tag-remove').forEach(el => el.style.display = 'none');
-                
-                // Save title
-                const newTitle = issueTitle.innerText;
-                if (newTitle !== '${escapeHtml(item.title)}') {
-                    vscode.postMessage({ command: 'updateTitle', title: newTitle, issueId: '${item.id}' });
-                }
-            }
+        // Auto-resize textareas
+        const textareas = document.querySelectorAll('textarea');
+        textareas.forEach(textarea => {
+            textarea.style.height = 'auto';
+            textarea.style.height = (textarea.scrollHeight) + 'px';
+            textarea.addEventListener('input', function() {
+                this.style.height = 'auto';
+                this.style.height = (this.scrollHeight) + 'px';
+            });
         });
+
+        // Field updates
+        function setupField(id, command) {
+            const element = document.getElementById(id);
+            if (!element) return;
+
+            let originalValue = element.value || element.innerText;
+
+            element.addEventListener('blur', () => {
+                const newValue = element.value || element.innerText;
+                if (newValue !== originalValue) {
+                    vscode.postMessage({ command, value: newValue, issueId: '${item.id}' });
+                    originalValue = newValue;
+                }
+            });
+            
+            // Handle Enter in title to blur
+            if (id === 'issueTitle') {
+                element.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        element.blur();
+                    }
+                });
+            }
+        }
+
+        setupField('issueTitle', 'updateTitle');
+        setupField('description', 'updateDescription');
+        setupField('design', 'updateDesign');
+        setupField('acceptanceCriteria', 'updateAcceptanceCriteria');
+        setupField('notes', 'updateNotes');
 
         deleteButton.addEventListener('click', () => {
             vscode.postMessage({ command: 'deleteBead', beadId: '${item.id}' });
@@ -511,9 +537,7 @@ export function getBeadDetailHtml(
 
         // Status Dropdown Logic
         statusBadge.addEventListener('click', () => {
-            if (isEditMode) {
-                statusDropdown.classList.toggle('show');
-            }
+            statusDropdown.classList.toggle('show');
         });
 
         document.querySelectorAll('.status-option').forEach(opt => {

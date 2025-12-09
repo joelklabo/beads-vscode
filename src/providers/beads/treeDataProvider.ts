@@ -1124,6 +1124,48 @@ export class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemTy
     }
   }
 
+  async updateDescription(item: BeadItemData, value: string): Promise<void> {
+    await this.updateField(item, 'description', ['-d', value]);
+  }
+
+  async updateDesign(item: BeadItemData, value: string): Promise<void> {
+    await this.updateField(item, 'design', ['--design', value]);
+  }
+
+  async updateAcceptanceCriteria(item: BeadItemData, value: string): Promise<void> {
+    await this.updateField(item, 'acceptance criteria', ['--acceptance-criteria', value]);
+  }
+
+  async updateNotes(item: BeadItemData, value: string): Promise<void> {
+    await this.updateField(item, 'notes', ['--notes', value]);
+  }
+
+  private async updateField(item: BeadItemData, fieldName: string, args: string[]): Promise<void> {
+    const itemId = resolveBeadId(item);
+    if (!itemId) {
+      void vscode.window.showWarningMessage(INVALID_ID_MESSAGE);
+      return;
+    }
+
+    const config = vscode.workspace.getConfiguration('beady');
+    const projectRoot = resolveProjectRoot(config);
+
+    if (!projectRoot) {
+      void vscode.window.showErrorMessage(PROJECT_ROOT_ERROR);
+      return;
+    }
+
+    try {
+      await runBdCommand(['update', itemId, ...args], projectRoot);
+      await this.refresh();
+      // void vscode.window.showInformationMessage(t('Updated {0}', fieldName)); // Too noisy for auto-save
+    } catch (error) {
+      const message = formatSafeError(t('Failed to update {0}', fieldName), error, [projectRoot]);
+      console.error(`Failed to update ${fieldName}`, message);
+      void vscode.window.showErrorMessage(message);
+    }
+  }
+
   async updateAssignee(item: BeadItemData, assigneeInput: string): Promise<void> {
     const validation = validateAssigneeInput(assigneeInput);
     if (!validation.valid) {
