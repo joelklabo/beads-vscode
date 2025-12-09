@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { BeadItemData, sanitizeInlineText, escapeHtml, deriveAssigneeName } from '../../utils';
+import { buildSharedStyles, getIssueTypeToken, getPriorityToken, getStatusToken } from '../shared/theme';
 
 const t = vscode.l10n.t;
 
@@ -75,11 +76,16 @@ function formatInProgressAge(timestamp: string | undefined): { label: string; ms
 }
 
 export function getInProgressPanelHtml(items: BeadItemData[], strings: InProgressPanelStrings, locale: string): string {
+  const heroStatus = getStatusToken('in_progress');
+
   const normalized = items.map((item) => {
     const ageInfo = formatInProgressAge(item.inProgressSince ?? item.updatedAt);
     const assigneeRaw = deriveAssigneeName(item, strings.assigneeFallback);
     const assignee = sanitizeInlineText(assigneeRaw) || strings.assigneeFallback;
     const color = colorForAssignee(assigneeRaw || strings.assigneeFallback);
+    const issueTypeToken = getIssueTypeToken((item.raw as any)?.issue_type || 'task');
+    const priorityToken = getPriorityToken((item.raw as any)?.priority);
+    const statusToken = getStatusToken(item.status);
     return {
       item,
       ageLabel: ageInfo.label,
@@ -87,6 +93,9 @@ export function getInProgressPanelHtml(items: BeadItemData[], strings: InProgres
       assignee,
       color,
       blockers: item.blockingDepsCount ?? 0,
+      issueTypeToken,
+      priorityToken,
+      statusToken,
     };
   });
 
@@ -141,15 +150,24 @@ export function getInProgressPanelHtml(items: BeadItemData[], strings: InProgres
         <div class="wip-card" data-issue-id="${escapeHtml(entry.item.id)}" title="${escapeHtml(strings.openLabel)}">
           <div class="wip-card-top">
             <div class="id-chip">#${escapeHtml(entry.item.id)}</div>
-            <div class="assignee" style="border-color: ${entry.color}; background-color: ${entry.color}22; color: ${entry.color};">
-              <span class="pill-dot" style="background-color: ${entry.color};"></span>
+            <div class="bead-chip assignee" style="color: ${entry.color}; background: color-mix(in srgb, ${entry.color} 18%, transparent); border-color: color-mix(in srgb, ${entry.color} 35%, transparent);">
+              <span class="assignee-initials">${escapeHtml(entry.assignee.slice(0,2).toUpperCase())}</span>
               <span class="assignee-name">${escapeHtml(entry.assignee)}</span>
             </div>
           </div>
           <div class="wip-title">${escapeHtml(entry.item.title)}</div>
           <div class="wip-meta">
-            <span class="meta-item">${escapeHtml(strings.ageLabel)}: <strong>${escapeHtml(entry.ageLabel)}</strong></span>
-            <span class="meta-item">${escapeHtml(strings.blockersCountLabel)}: <strong>${entry.blockers}</strong></span>
+            <span class="bead-chip status status-${entry.statusToken.id} ${entry.statusToken.pulsing ? 'pulsing' : ''}">
+              <span class="codicon codicon-${entry.statusToken.icon}"></span>${entry.statusToken.label}
+            </span>
+            <span class="bead-chip priority priority-${entry.priorityToken.id}">
+              <span class="codicon codicon-${entry.priorityToken.icon}"></span>${entry.priorityToken.label}
+            </span>
+            <span class="bead-chip type type-${entry.issueTypeToken.id}">
+              <span class="codicon codicon-${entry.issueTypeToken.icon}"></span>${entry.issueTypeToken.label}
+            </span>
+            <span class="meta-item subtle">${escapeHtml(strings.ageLabel)}: <strong>${escapeHtml(entry.ageLabel)}</strong></span>
+            <span class="meta-item subtle">${escapeHtml(strings.blockersCountLabel)}: <strong>${entry.blockers}</strong></span>
           </div>
         </div>
       `).join('')
@@ -166,6 +184,7 @@ export function getInProgressPanelHtml(items: BeadItemData[], strings: InProgres
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${escapeHtml(strings.title)}</title>
   <style>
+    ${buildSharedStyles()}
     body {
       font-family: var(--vscode-font-family);
       font-size: var(--vscode-font-size);
@@ -190,6 +209,12 @@ export function getInProgressPanelHtml(items: BeadItemData[], strings: InProgres
       display: flex;
       flex-direction: column;
       gap: 16px;
+    }
+    .wip-hero {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
     }
     .summary-grid {
       display: grid;
@@ -373,6 +398,13 @@ export function getInProgressPanelHtml(items: BeadItemData[], strings: InProgres
       color: var(--vscode-descriptionForeground);
       font-size: 12px;
       flex-wrap: wrap;
+      align-items: center;
+    }
+    .bead-chip.assignee .assignee-initials {
+      font-weight: 700; letter-spacing: 0.2px;
+    }
+    .bead-chip.assignee .assignee-name {
+      font-weight: 600;
     }
     .meta-item strong {
       color: var(--vscode-foreground);
@@ -390,10 +422,13 @@ export function getInProgressPanelHtml(items: BeadItemData[], strings: InProgres
 </head>
 <body>
   <div class="layout">
-    <div>
+    <div class="wip-hero">
       <h1>${escapeHtml(strings.title)}</h1>
-      <div class="subtle">${escapeHtml(strings.wipSubtitle)}</div>
+      <span class="bead-chip status status-${heroStatus.id} ${heroStatus.pulsing ? 'pulsing' : ''}">
+        <span class="codicon codicon-${heroStatus.icon}"></span>${heroStatus.label}
+      </span>
     </div>
+    <div class="subtle">${escapeHtml(strings.wipSubtitle)}</div>
 
     <div class="summary-grid">
       <div class="summary-card">
