@@ -15,8 +15,6 @@ export {
 export function toViewModel(item: BeadItemData): BeadViewModel {
   const raw = item.raw as any;
   const assignee = pickAssignee(item);
-  const parentDep = raw?.dependencies?.find((d: any) => d.type === 'parent-child' || d.dep_type === 'parent-child');
-  const epicId = parentDep?.id || parentDep?.depends_on_id || parentDep?.issue_id;
   
   return {
     id: item.id,
@@ -61,4 +59,33 @@ function getColorForType(type?: string): string | undefined {
     case 'chore': return 'var(--vscode-charts-yellow)';
     default: return undefined;
   }
+}
+
+export function deriveAssigneeName(bead: BeadItemData, fallback: string): string {
+  const typed = (bead as any).assignee;
+  if (typeof typed === 'string' && typed.trim().length > 0) {
+    return typed.trim();
+  }
+
+  const raw = bead.raw as any;
+  const candidates = [
+    raw?.assignee,
+    raw?.assignee_name,
+    raw?.assigneeName,
+    raw?.assigned_to,
+    raw?.owner,
+    raw?.user,
+    raw?.author
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim().length > 0) {
+      return candidate.trim();
+    }
+    if (candidate && typeof candidate === 'object' && typeof candidate.name === 'string' && candidate.name.trim().length > 0) {
+      return candidate.name.trim();
+    }
+  }
+
+  return fallback;
 }
