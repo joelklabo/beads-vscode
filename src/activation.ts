@@ -6,7 +6,7 @@
  */
 
 import * as vscode from 'vscode';
-import { BeadsTreeDataProvider, TreeItemType, getStatusLabels } from './providers/beads/treeDataProvider';
+import { BeadsTreeDataProvider } from './providers/beads/treeDataProvider';
 import { BeadTreeItem } from './providers/beads/items';
 import { WatcherManager } from './providers/beads/store';
 import { getWorkspaceOptions, resolveProjectRoot } from './utils/workspace';
@@ -25,17 +25,18 @@ import { createBead } from './commands/beads';
 import { selectWorkspace, bulkUpdateStatus, bulkUpdateLabel, toggleFavorites, inlineEditTitle, inlineEditLabels, inlineStatusQuickChange, editAssignee } from './commands';
 import { registerSendFeedbackCommand } from './commands/sendFeedback';
 import { runBdCommand } from './services/cliService';
+import type {
+  ActivityFeedRegistryResult,
+  BeadPicker,
+  CommandRegistrar,
+  CommandResolver,
+  ConfigurationWatcher,
+  ContextStateManager,
+  PanelOpeners,
+  ViewRegistryResult,
+} from './activation/contracts';
 
 const t = vscode.l10n.t;
-
-export interface ActivationContext {
-  provider: BeadsTreeDataProvider;
-  treeView: vscode.TreeView<TreeItemType>;
-  dependencyTreeProvider: DependencyTreeProvider;
-  dependencyTreeView: vscode.TreeView<unknown>;
-  activityFeedProvider: ActivityFeedTreeDataProvider;
-  activityFeedView: vscode.TreeView<vscode.TreeItem>;
-}
 
 /**
  * Set up the main providers (Beads tree, dependency tree, webview, status bar).
@@ -43,7 +44,7 @@ export interface ActivationContext {
 export function setupProviders(
   context: vscode.ExtensionContext,
   watchManager: WatcherManager
-): Pick<ActivationContext, 'provider' | 'treeView' | 'dependencyTreeProvider' | 'dependencyTreeView'> {
+): ViewRegistryResult {
   const provider = new BeadsTreeDataProvider(context, watchManager);
   if (!provider) {
     throw new Error('Beads tree provider failed to initialize');
@@ -125,8 +126,8 @@ export function setupProviders(
 export function setupActivityFeed(
   context: vscode.ExtensionContext,
   watchManager: WatcherManager,
-  beadsProvider: BeadsTreeDataProvider
-): Pick<ActivationContext, 'activityFeedProvider' | 'activityFeedView'> {
+  _beadsProvider: BeadsTreeDataProvider
+): ActivityFeedRegistryResult {
   const activityFeedProvider = new ActivityFeedTreeDataProvider(context, { watchManager });
   const activityFeedView = vscode.window.createTreeView('activityFeed', {
     treeDataProvider: activityFeedProvider,
@@ -154,17 +155,17 @@ export function setupActivityFeed(
 /**
  * Register all extension commands.
  */
-export function registerCommands(
-  context: vscode.ExtensionContext,
-  activationContext: ActivationContext,
-  resolveCommandItem: (item: any, provider: BeadsTreeDataProvider) => BeadItemData | undefined,
-  openBead: (item: BeadItemData, provider: BeadsTreeDataProvider) => Promise<void>,
-  openBeadFromFeed: (selectedId: string, provider: BeadsTreeDataProvider, opener?: (item: BeadItemData, provider: BeadsTreeDataProvider) => Promise<void>) => Promise<boolean>,
-  openActivityFeedPanel: (activityFeedProvider: ActivityFeedTreeDataProvider, beadsProvider: BeadsTreeDataProvider) => Promise<void>,
-  openInProgressPanel: (provider: BeadsTreeDataProvider) => Promise<void>,
-  pickBeadQuick: (items: BeadItemData[] | undefined, placeholder: string, excludeId?: string) => Promise<BeadItemData | undefined>,
-  visualizeDependencies: (provider: BeadsTreeDataProvider) => Promise<void>
-): void {
+export const registerCommands: CommandRegistrar = (
+  context,
+  activationContext,
+  resolveCommandItem: CommandResolver,
+  openBead: PanelOpeners['openBead'],
+  openBeadFromFeed: PanelOpeners['openBeadFromFeed'],
+  openActivityFeedPanel: PanelOpeners['openActivityFeedPanel'],
+  openInProgressPanel: PanelOpeners['openInProgressPanel'],
+  pickBeadQuick: BeadPicker,
+  visualizeDependencies: PanelOpeners['visualizeDependencies']
+): void => {
   const { provider, treeView, dependencyTreeProvider, activityFeedProvider, activityFeedView } = activationContext;
 
   const openActivityFeedEvent = async (issueId?: string): Promise<void> => {
@@ -427,15 +428,12 @@ export function registerCommands(
     }),
     registerSendFeedbackCommand(context),
   );
-}
+};
 
 /**
  * Set up configuration and workspace watchers.
  */
-export function setupConfigurationWatchers(
-  context: vscode.ExtensionContext,
-  provider: BeadsTreeDataProvider
-): void {
+export const setupConfigurationWatchers: ConfigurationWatcher = (context, provider) => {
   // If dependency editing is enabled, warn early when the bd CLI is too old
   const workspaces = vscode.workspace.workspaceFolders ?? [];
   workspaces.forEach((workspaceFolder) => {
@@ -481,7 +479,16 @@ export function setupConfigurationWatchers(
   });
 
   context.subscriptions.push(configurationWatcher, workspaceWatcher);
-}
+};
+
+export const contextStateManager: ContextStateManager = {
+  applyWorkspaceContext,
+  applyBulkActionsContext,
+  applyQuickFiltersContext,
+  applySortPickerContext,
+  applyFavoritesContext,
+  applyFeedbackContext,
+};
 
 // Context application helpers
 
