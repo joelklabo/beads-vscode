@@ -1,6 +1,6 @@
 # Beads architecture (overview)
 
-This repo now targets a single surface: the VS Code extension. Shared logic stays in `@beads/core`; VS Code wiring lives in `@beads/platform-vscode` with lean activation and modular services/commands/views. See `docs/adr/2025-12-vscode-architecture.md` for the current plan, `docs/adr/2025-12-core-layering.md` for legacy multi-surface context, `docs/adr/2025-12-vscode-recommendations.md` for how we surface the VS Code extension to bd/`.beads` workspaces, and `docs/adr/2025-12-vscode-bundling.md` for the bundling strategy.
+This repo now targets a single surface: the VS Code extension. Shared logic stays in `@beads/core`; VS Code wiring lives in `@beads/platform-vscode` with lean activation and modular services/commands/views. See `docs/adr/2025-12-vscode-architecture.md` for the current plan, `docs/adr/2025-12-core-layering.md` for legacy multi-surface context, `docs/adr/2025-12-vscode-recommendations.md` for how we surface the VS Code extension to bd/`.beads` workspaces, `docs/adr/2025-12-vscode-bundling.md` for the bundling strategy, and `docs/adr/2025-12-activation-lifecycle.md` for activation/performance/CSP/size budgets.
 
 ```mermaid
 graph TD
@@ -59,3 +59,4 @@ graph TD
 - All bd invocations must include `--no-daemon` (cliService/BdCliClient inject it and sanitize stderr). Worktree guard runs before mutations when enabled.
 - Do not write directly to `.beads` db files; always go through the CLI or BeadsStore helpers.
 - See `docs/accessibility.md` (a11y checklist) and `docs/tooltips/hover-rules.md` (sanitization notes) when touching UI/tooltips.
+- Activation/perf budgets: cold activation ≤100ms (measured by `check:perf`), VSIX ≤3.0 MB zipped, bundled `dist/extension.js` ≤1.5 MB, webview bundles ≤1.2 MB each, and CSP must forbid unsafe-inline/eval with nonce + `webview.cspSource` for all scripts/styles. Detailed guardrails live in `docs/adr/2025-12-activation-lifecycle.md` and are enforced in prepublish/CI.
