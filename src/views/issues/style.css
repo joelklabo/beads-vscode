@@ -18,7 +18,7 @@ body {
   --bead-chip-font-size: 11px;
   --bead-chip-padding-y: 2px;
   --bead-chip-padding-x: 8px;
-  --bead-chip-height: 22px;
+  --bead-chip-gap: 6px;
   --bead-assignee-color: var(--vscode-charts-blue);
   --bead-assignee-bg: color-mix(in srgb, var(--vscode-charts-blue) 22%, transparent);
 }
@@ -32,18 +32,19 @@ body {
 .bead-chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--bead-chip-gap);
   padding: var(--bead-chip-padding-y) var(--bead-chip-padding-x);
   border-radius: var(--bead-chip-radius);
   border: 1px solid transparent;
   font-family: var(--bead-chip-font);
   font-size: var(--bead-chip-font-size);
-  line-height: 1;
-  height: var(--bead-chip-height);
+  line-height: 1.2;
+  min-height: 20px;
   white-space: nowrap;
   user-select: none;
   background: color-mix(in srgb, var(--vscode-foreground) 10%, transparent);
   color: var(--vscode-foreground);
+  vertical-align: middle;
 }
 
 .bead-chip .codicon {
@@ -58,7 +59,7 @@ body {
   padding: 1px 6px;
   font-size: 10px;
   gap: 4px;
-  height: 20px;
+  min-height: 18px;
 }
 
 .bead-chip.id {
