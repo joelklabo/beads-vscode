@@ -4,7 +4,7 @@ import type { BeadItemData } from '../../utils';
 import { getInProgressPanelHtml, buildInProgressPanelStrings, InProgressPanelStrings } from '../inProgress';
 import { validateLittleGlenMessage, AllowedLittleGlenCommand } from '../../littleGlen/validation';
 import { buildSharedStyles } from '../shared/theme';
-import { t } from '../../l10n';
+const t = vscode.l10n.t;
 
 export interface InProgressPanelDeps {
   provider: BeadsTreeDataProvider;

@@ -75,7 +75,7 @@ describe('view panel helpers', () => {
       activityFeedProvider,
       beadsProvider,
       openBead: async (item) => { opened = item.id; },
-      fetchEvents: async () => ({ events }),
+      fetchEvents: async () => ({ events, totalCount: events.length, hasMore: false }),
       getProjectRoot: () => '',
       locale: 'en',
     });

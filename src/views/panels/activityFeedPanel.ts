@@ -6,7 +6,7 @@ import { getActivityFeedPanelHtml, ActivityFeedStrings } from '../activityFeed';
 import { validateLittleGlenMessage, AllowedLittleGlenCommand } from '../../littleGlen/validation';
 import { buildSharedStyles } from '../shared/theme';
 import { fetchEvents as defaultFetchEvents } from '../../activityFeed';
-import { t } from '../../l10n';
+const t = vscode.l10n.t;
 
 export interface ActivityFeedPanelDeps {
   activityFeedProvider: ActivityFeedTreeDataProvider;
