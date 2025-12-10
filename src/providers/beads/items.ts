@@ -59,7 +59,7 @@ export class StatusSectionItem extends vscode.TreeItem {
     const statusDisplay = status.split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
     super(statusDisplay, isCollapsed ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.Expanded);
     this.contextValue = 'statusSection';
-    this.label = `${isCollapsed ? '$(chevron-right)' : '$(chevron-down)'} ${statusDisplay}`;
+    this.label = statusDisplay;
     this.description = `${beads.length}`;
     const iconConfig: Record<string, { icon: string; color: string }> = {
       open: { icon: getStatusIcon('open'), color: 'charts.blue' },
@@ -99,7 +99,7 @@ export class EpicStatusSectionItem extends vscode.TreeItem {
     const statusDisplay = status.split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
     super(statusDisplay, isCollapsed ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.Expanded);
     this.contextValue = 'epicStatusSection';
-    this.label = `${isCollapsed ? '$(chevron-right)' : '$(chevron-down)'} ${statusDisplay}`;
+    this.label = statusDisplay;
     this.description = `${epics.length}`;
     const iconConfig: Record<string, { icon: string; color: string }> = {
       open: { icon: getStatusIcon('open'), color: 'charts.blue' },
@@ -145,7 +145,7 @@ export class UngroupedSectionItem extends vscode.TreeItem {
   constructor(public readonly children: BeadItemData[], isCollapsed: boolean = false) {
     super('Ungrouped', isCollapsed ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.Expanded);
     this.contextValue = 'ungroupedSection';
-    this.label = `${isCollapsed ? '$(chevron-right)' : '$(chevron-down)'} ${t('Ungrouped')}`;
+    this.label = t('Ungrouped');
     this.description = `${children.length} item${children.length !== 1 ? 's' : ''}`;
     this.iconPath = new vscode.ThemeIcon('inbox', new vscode.ThemeColor('charts.blue'));
     this.tooltip = `Items without a parent epic: ${children.length}`;
@@ -165,7 +165,7 @@ export class AssigneeSectionItem extends vscode.TreeItem {
     const safeLabel = sanitizeInlineText(assignee) || t('Unassigned');
     super(`${dot} ${safeLabel}`, isCollapsed ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.Expanded);
     this.contextValue = 'assigneeSection';
-    this.label = `${isCollapsed ? '$(chevron-right)' : '$(chevron-down)'} ${dot} ${safeLabel}`;
+    this.label = `${dot} ${safeLabel}`;
     this.description = `${beads.length}`;
     this.tooltip = `${safeLabel}: ${beads.length} item${beads.length !== 1 ? 's' : ''}`;
     const label = safeLabel;
@@ -208,16 +208,16 @@ export class BeadTreeItem extends vscode.TreeItem {
     const safeAssigneeColor = sanitizeInlineText(assigneeInfo.colorName);
     const safeId = sanitizeInlineText(bead.id) || bead.id;
 
-    const statusIcon = getStatusIcon(bead.status || 'open');
+    const status = bead.status || 'open';
     const priorityValue = (bead as any).priority ?? 2;
     const priorityIcon = getPriorityIcon(priorityValue);
     const typeIcon = getIssueTypeIcon(bead.issueType || 'task');
 
     const descParts: string[] = [
       safeId,
-      `$(${statusIcon}) ${formatStatusLabel(bead.status || 'open')}`,
-      `$(${priorityIcon}) P${priorityValue}`,
-      `$(person) ${safeAssigneeDisplay}`,
+      `${formatStatusLabel(status)}`,
+      `P${priorityValue}`,
+      `@${safeAssigneeDisplay}`,
     ];
     if (isTaskStale && staleInfo) {
       descParts.push(`⚠️ ${staleInfo.formattedTime}`);
