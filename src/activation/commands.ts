@@ -131,7 +131,7 @@ function registerActivityFeedCommands(
   activityFeedView: vscode.TreeView<vscode.TreeItem>,
   openBead: PanelOpeners['openBead'],
   openBeadFromFeed: PanelOpeners['openBeadFromFeed'],
-  openActivityFeedPanel: any,
+  openActivityFeedPanel: PanelOpeners['openActivityFeedPanel'],
   provider: BeadsTreeDataProvider
 ): CommandDefinition[] {
   const openActivityFeedEvent = async (issueId?: string): Promise<void> => {
@@ -220,26 +220,27 @@ function registerActivityFeedCommands(
     },
     {
       id: 'beady.openActivityFeedPanel',
-      handler: () => {
-        const density = (provider as any).getDensity ? (provider as any).getDensity() : 'default';
-        return openActivityFeedPanel({ activityFeedProvider, beadsProvider: provider, openBead: (item: BeadItemData) => openBead(item, provider), density });
-      },
+      handler: () => openActivityFeedPanel({
+        activityFeedProvider,
+        beadsProvider: provider,
+        openBead: (item: BeadItemData) => openBead(item, provider),
+      }),
     },
   ];
 }
 
 function registerPanelCommands(
   provider: BeadsTreeDataProvider,
-  openInProgressPanel: any,
+  openInProgressPanel: PanelOpeners['openInProgressPanel'],
   openBead: PanelOpeners['openBead']
 ): CommandDefinition[] {
   return [
     {
       id: 'beady.openInProgressPanel',
-      handler: () => {
-        const density = (provider as any).getDensity ? (provider as any).getDensity() : 'default';
-        return openInProgressPanel({ provider, openBead: (item: BeadItemData) => openBead(item, provider), density });
-      },
+      handler: () => openInProgressPanel({
+        provider,
+        openBead: (item: BeadItemData) => openBead(item, provider),
+      }),
     },
   ];
 }
