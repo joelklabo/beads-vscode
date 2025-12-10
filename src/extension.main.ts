@@ -191,9 +191,9 @@ export function activate(context: vscode.ExtensionContext): void {
       resolveCommandItem,
       openBead,
       openBeadFromFeed,
-      (activityFeedProvider, beadsProvider) =>
+      (activityFeedProvider: ActivityFeedTreeDataProvider, beadsProvider: BeadsTreeDataProvider) =>
         openActivityFeedPanel({ activityFeedProvider, beadsProvider, openBead: (item) => openBead(item, beadsProvider) }),
-      (provider) => openInProgressPanel({ provider, openBead: (item) => openBead(item, provider) }),
+      (provider: BeadsTreeDataProvider) => openInProgressPanel({ provider, openBead: (item) => openBead(item, provider) }),
       pickBeadQuick,
       visualizeDependencies
     );
