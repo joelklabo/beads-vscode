@@ -196,6 +196,10 @@ export function getInProgressPanelHtml(items: BeadItemData[], strings: InProgres
       padding: 16px 20px 28px;
       line-height: 1.5;
     }
+    body.compact {
+      padding: 12px 16px 28px;
+      font-size: 12px;
+    }
     h1 {
       margin: 0;
       font-size: 22px;
@@ -344,6 +348,9 @@ export function getInProgressPanelHtml(items: BeadItemData[], strings: InProgres
       cursor: pointer;
       transition: transform 0.12s ease, box-shadow 0.12s ease;
     }
+    body.compact .wip-card {
+      padding: 10px 12px;
+    }
     .wip-card:hover {
       transform: translateY(-2px);
       box-shadow: 0 4px 12px rgba(0,0,0,0.12);
@@ -354,6 +361,10 @@ export function getInProgressPanelHtml(items: BeadItemData[], strings: InProgres
       justify-content: space-between;
       gap: 6px;
       align-items: center;
+      margin-bottom: 6px;
+    }
+    body.compact .wip-card-top {
+      gap: 6px;
       margin-bottom: 6px;
     }
     .id-chip {
@@ -376,6 +387,12 @@ export function getInProgressPanelHtml(items: BeadItemData[], strings: InProgres
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+    body.compact .bead-chip,
+    body.compact .assignee {
+      padding: 2px 6px;
+      gap: 4px;
+      font-size: 10px;
     }
     .assignee-name {
       overflow: hidden;

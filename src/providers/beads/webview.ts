@@ -15,7 +15,8 @@ export class BeadsWebviewProvider implements vscode.WebviewViewProvider {
 
   constructor(
     private readonly _extensionUri: vscode.Uri,
-    private readonly _dataSource: BeadsDataSource
+    private readonly _dataSource: BeadsDataSource,
+    private readonly _getDensity?: () => 'default' | 'compact'
   ) { }
 
   public resolveWebviewView(
@@ -33,7 +34,8 @@ export class BeadsWebviewProvider implements vscode.WebviewViewProvider {
       ]
     };
 
-    webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
+    const initialDensity = this._getDensity ? this._getDensity() : 'default';
+    webviewView.webview.html = this._getHtmlForWebview(webviewView.webview, initialDensity);
 
     // Listen for data changes
     this._dataSource.onDidChangeTreeData(() => {
@@ -80,11 +82,12 @@ export class BeadsWebviewProvider implements vscode.WebviewViewProvider {
     this._view.webview.postMessage({
       type: 'update',
       beads: viewModels,
-      sortMode: this._dataSource.getSortMode()
+      sortMode: this._dataSource.getSortMode(),
+      density: this._getDensity ? this._getDensity() : 'default'
     } as any);
   }
 
-  private _getHtmlForWebview(webview: vscode.Webview) {
+  private _getHtmlForWebview(webview: vscode.Webview, density: 'default' | 'compact') {
     // Get the local path to main script run in the webview, then convert it to a uri we can use in the webview.
     // We assume the build process will output the react app to `out/views/issues/index.js` or similar.
     // For now, we'll just use a placeholder script or assume it's there.
@@ -95,6 +98,8 @@ export class BeadsWebviewProvider implements vscode.WebviewViewProvider {
 
     const nonce = getNonce();
 
+    const densityClass = density === 'compact' ? 'class="compact"' : '';
+
     return `<!DOCTYPE html>
     <html lang="en">
     <head>
@@ -104,7 +109,7 @@ export class BeadsWebviewProvider implements vscode.WebviewViewProvider {
       <link href="${styleUri}" rel="stylesheet">
       <title>Beads Issues</title>
     </head>
-    <body>
+    <body ${densityClass}>
       <div id="root">Loading... (CSP Relaxed)</div>
       <script nonce="${nonce}">
         console.log('Inline script starting');

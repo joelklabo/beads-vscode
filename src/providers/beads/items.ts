@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { BeadItemData, buildPreviewSnippet, formatRelativeTime, getStaleInfo, isStale, sanitizeTooltipText, stripBeadIdPrefix, formatStatusLabel, sanitizeInlineText } from '../../utils';
 import { getIssueTypeIcon, getPriorityIcon, getStatusIcon } from '../../views/shared/icons';
+import { DensityMode } from '../../utils/density';
 
 const t = vscode.l10n.t;
 
@@ -193,7 +194,7 @@ export class BeadDetailItem extends vscode.TreeItem {
 export class BeadTreeItem extends vscode.TreeItem {
   private readonly detailItems: BeadDetailItem[];
 
-  constructor(public readonly bead: BeadItemData, expanded: boolean = false, private readonly worktreeId?: string) {
+  constructor(public readonly bead: BeadItemData, expanded: boolean = false, private readonly worktreeId?: string, density: DensityMode = "default") {
     const cleanTitle = stripBeadIdPrefix(bead.title || bead.id, bead.id);
     const rawLabel = cleanTitle || bead.title || bead.id;
     const label = sanitizeInlineText(rawLabel) || rawLabel;
@@ -217,12 +218,17 @@ export class BeadTreeItem extends vscode.TreeItem {
     const statusIcon = getStatusIcon(status);
     const typeIcon = getIssueTypeIcon(bead.issueType || 'task');
 
+    const relTime = bead.updatedAt ? formatRelativeTime(bead.updatedAt) : undefined;
+
     const descParts: string[] = [
       safeId,
       `$(${statusIcon}) ${formatStatusLabel(status)}`,
       `$(${priorityIcon}) P${priorityValue}`,
       `${assigneeInfo.dot} $(person) ${safeAssigneeDisplay}`,
     ];
+    if (relTime) {
+      descParts.push(relTime);
+    }
     if (isTaskStale && staleInfo) {
       descParts.push(`⚠️ ${staleInfo.formattedTime}`);
     }
@@ -275,11 +281,10 @@ export class BeadTreeItem extends vscode.TreeItem {
 
     const preview = buildPreviewSnippet(bead.description, 80);
     const safePreview = sanitizeInlineText(preview);
-    if (safePreview) {
+    if (safePreview && density !== 'compact') {
       const previewSnippet = truncate(safePreview, 80);
       this.description = `${this.description} · ${previewSnippet}`;
     }
-    const relTime = bead.updatedAt ? formatRelativeTime(bead.updatedAt) : undefined;
     const labels = (bead.tags && bead.tags.length > 0) ? sanitizeInlineText(bead.tags.join(', ')) : t('None');
     const priority = (bead as any).priority !== undefined && (bead as any).priority !== null ? String((bead as any).priority) : t('Unset');
 

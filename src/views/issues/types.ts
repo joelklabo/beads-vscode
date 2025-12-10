@@ -22,7 +22,7 @@ export interface BeadViewModel {
 }
 
 export type WebviewMessage =
-  | { type: 'update'; beads: BeadViewModel[]; sortMode?: string }
+  | { type: 'update'; beads: BeadViewModel[]; sortMode?: string; density?: 'default' | 'compact' }
   | { type: 'config'; config: { showClosed: boolean; sortMode: string } };
 
 export type WebviewCommand =

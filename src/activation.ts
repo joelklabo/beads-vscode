@@ -38,7 +38,7 @@ export function setupProviders(
     canSelectMany: true,
   });
 
-  const webviewProvider = new BeadsWebviewProvider(context.extensionUri, provider);
+  const webviewProvider = new BeadsWebviewProvider(context.extensionUri, provider, () => provider.getDensity());
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(BeadsWebviewProvider.viewType, webviewProvider)
   );
@@ -172,6 +172,11 @@ export const setupConfigurationWatchers: ConfigurationWatcher = (context, provid
 
     if (event.affectsConfiguration('beady.feedback') || event.affectsConfiguration('beady.projectRoot')) {
       applyFeedbackContext(provider);
+    }
+
+    if (event.affectsConfiguration('beady.density')) {
+      const value = vscode.workspace.getConfiguration('beady').get<string>('density', 'default');
+      void provider.setDensity(value === 'compact' ? 'compact' : 'default');
     }
   });
 

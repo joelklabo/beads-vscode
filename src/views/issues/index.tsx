@@ -67,6 +67,9 @@ const App: React.FC = () => {
       console.log('Received message:', event.data);
       const message = event.data;
       if (message.type === 'update') {
+        if ((message as any).density) {
+          document.body.classList.toggle('compact', (message as any).density === 'compact');
+        }
         setBeads(message.beads);
         if (message.sortMode) {
           setSortMode(message.sortMode);

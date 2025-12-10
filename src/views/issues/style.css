@@ -23,6 +23,14 @@ body {
   --bead-assignee-bg: color-mix(in srgb, var(--vscode-charts-blue) 22%, transparent);
 }
 
+body.compact {
+  --bead-chip-font-size: 10px;
+  --bead-chip-padding-y: 1px;
+  --bead-chip-padding-x: 6px;
+  --bead-chip-gap: 4px;
+}
+
+
 @keyframes beadPulse {
   0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--vscode-charts-yellow) 42%, transparent); }
   65% { box-shadow: 0 0 0 10px color-mix(in srgb, var(--vscode-charts-yellow) 0%, transparent); }
@@ -227,6 +235,15 @@ body {
   gap: 12px;
 }
 
+body.compact .bead-row {
+  padding: 6px 10px;
+  gap: 8px;
+}
+
+body.compact .bead-primary-line {
+  gap: 6px;
+}
+
 .bead-row:hover {
   background-color: var(--vscode-list-hoverBackground);
 }
@@ -293,6 +310,10 @@ body {
   flex-wrap: wrap;
   line-height: 1;
   margin-top: 1px;
+}
+
+body.compact .bead-secondary-line {
+  gap: 6px;
 }
 
 .bead-id {

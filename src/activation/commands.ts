@@ -129,8 +129,9 @@ function registerDependencyTreeCommands({
 function registerActivityFeedCommands(
   activityFeedProvider: ActivityFeedTreeDataProvider,
   activityFeedView: vscode.TreeView<vscode.TreeItem>,
+  openBead: PanelOpeners['openBead'],
   openBeadFromFeed: PanelOpeners['openBeadFromFeed'],
-  openActivityFeedPanel: PanelOpeners['openActivityFeedPanel'],
+  openActivityFeedPanel: any,
   provider: BeadsTreeDataProvider
 ): CommandDefinition[] {
   const openActivityFeedEvent = async (issueId?: string): Promise<void> => {
@@ -219,19 +220,26 @@ function registerActivityFeedCommands(
     },
     {
       id: 'beady.openActivityFeedPanel',
-      handler: () => openActivityFeedPanel(activityFeedProvider, provider),
+      handler: () => {
+        const density = (provider as any).getDensity ? (provider as any).getDensity() : 'default';
+        return openActivityFeedPanel({ activityFeedProvider, beadsProvider: provider, openBead: (item: BeadItemData) => openBead(item, provider), density });
+      },
     },
   ];
 }
 
 function registerPanelCommands(
   provider: BeadsTreeDataProvider,
-  openInProgressPanel: PanelOpeners['openInProgressPanel']
+  openInProgressPanel: any,
+  openBead: PanelOpeners['openBead']
 ): CommandDefinition[] {
   return [
     {
       id: 'beady.openInProgressPanel',
-      handler: () => openInProgressPanel(provider),
+      handler: () => {
+        const density = (provider as any).getDensity ? (provider as any).getDensity() : 'default';
+        return openInProgressPanel({ provider, openBead: (item: BeadItemData) => openBead(item, provider), density });
+      },
     },
   ];
 }
@@ -364,8 +372,8 @@ export const registerCommands: CommandRegistrar = (
     ...createExportCommands(provider, treeView),
     ...createFavoritesCommands(provider, treeView, context, runBdCommand),
     ...registerDependencyTreeCommands({ provider, dependencyTreeProvider, pickBeadQuick, visualizeDependencies }),
-    ...registerActivityFeedCommands(activityFeedProvider, activityFeedView, openBeadFromFeed, openActivityFeedPanel, provider),
-    ...registerPanelCommands(provider, openInProgressPanel),
+    ...registerActivityFeedCommands(activityFeedProvider, activityFeedView, openBead, openBeadFromFeed, openActivityFeedPanel, provider),
+    ...registerPanelCommands(provider, openInProgressPanel, openBead),
     ...registerExternalReferenceCommands(provider),
     ...registerDeletionCommands(provider, treeView),
     {

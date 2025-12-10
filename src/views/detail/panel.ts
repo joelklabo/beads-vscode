@@ -18,7 +18,8 @@ function createNonce(): string {
 export async function openBeadPanel(
   item: BeadItemData,
   provider: BeadsTreeDataProvider,
-  openBead: (item: BeadItemData, provider: BeadsTreeDataProvider) => Promise<void>
+  openBead: (item: BeadItemData, provider: BeadsTreeDataProvider) => Promise<void>,
+  density: "default" | "compact" = "default"
 ): Promise<void> {
   const nonce = createNonce();
   const viewColumn = (vscode.ViewColumn && vscode.ViewColumn.One) || 1;
@@ -44,7 +45,8 @@ export async function openBeadPanel(
   const statusLabels = getStatusLabels();
   const beadStrings = buildBeadDetailStrings(statusLabels);
   const locale = vscode.env.language || 'en';
-  panel.webview.html = getBeadDetailHtml(item, allItems, panel.webview, nonce, beadStrings, locale);
+  panel.webview.html = getBeadDetailHtml(item, allItems, panel.webview, nonce, beadStrings, locale)
+    .replace('<body', `<body data-density="${density}"${density === 'compact' ? ' class=\"compact\"' : ''}`);
 
   provider.registerPanel(item.id, panel);
 

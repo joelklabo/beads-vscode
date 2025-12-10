@@ -189,7 +189,7 @@ export function activate(context: vscode.ExtensionContext): void {
 }
 
 const openBead = (item: BeadItemData, provider: BeadsTreeDataProvider): Promise<void> =>
-  openBeadPanel(item, provider, openBead);
+  openBeadPanel(item, provider, openBead, (provider as any).getDensity ? provider.getDensity() : "default");
 
 const openBeadFromFeed = (
   issueId: string,

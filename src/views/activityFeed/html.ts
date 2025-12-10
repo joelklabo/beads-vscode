@@ -101,6 +101,25 @@ export function getActivityFeedPanelHtml(events: EventData[], strings: ActivityF
             line-height: 1.5;
         }
 
+        body.compact {
+            padding: 12px;
+            font-size: 12px;
+        }
+
+        body.compact .event-card {
+            padding: 10px 10px 10px 16px;
+        }
+
+        body.compact .event-chips {
+            gap: 6px;
+        }
+
+        body.compact .bead-chip {
+            padding: 1px 6px;
+            gap: 4px;
+            font-size: 10px;
+        }
+
         .activity-header {
             display: flex;
             justify-content: space-between;

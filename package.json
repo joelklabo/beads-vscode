@@ -39,6 +39,11 @@
   "contributes": {
     "commands": [
       {
+        "command": "beady.toggleDensity",
+        "title": "Beady: Toggle Density",
+        "icon": "$(screen-full)"
+      },
+      {
         "command": "beady.refresh",
         "title": "%command.beady.refresh%",
         "icon": "$(refresh)"

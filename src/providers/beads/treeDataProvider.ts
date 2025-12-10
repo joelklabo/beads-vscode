@@ -39,6 +39,7 @@ import {
   normalizeQuickFilter,
   deriveAssigneeName,
 } from '../../utils';
+import { DensityMode, loadDensity, saveDensity } from '../../utils/density';
 import { ActivityFeedTreeDataProvider, ActivityEventItem } from '../../activityFeedProvider';
 import { EventType } from '../../activityFeed';
 import { validateLittleGlenMessage, AllowedLittleGlenCommand } from '../../littleGlen/validation';
@@ -212,6 +213,7 @@ export class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemTy
   private collapsedAssignees: Map<string, boolean> = new Map();
   // Expanded state for bead rows (id -> expanded)
   private expandedRows: Set<string> = new Set();
+  private density: DensityMode = "default";
 
   constructor(private readonly context: vscode.ExtensionContext, watchManager?: WatcherManager) {
     this.watchManager = watchManager ?? new WatcherManager(createVsCodeWatchAdapter());
@@ -231,6 +233,8 @@ export class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemTy
     this.loadExpandedRows();
     // Load quick filter preset
     this.loadQuickFilter();
+    // Load density preference
+    this.density = loadDensity(this.context);
     // Load closed visibility toggle
     this.loadClosedVisibility();
     // Restore workspace selection
@@ -279,6 +283,16 @@ export class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemTy
   setFeedbackEnabled(enabled: boolean): void {
     this.feedbackEnabled = enabled;
     this.updateStatusBar(this.lastStaleCount, this.lastThresholdMinutes);
+  }
+
+  getDensity(): DensityMode {
+    return this.density;
+  }
+
+  async setDensity(density: DensityMode): Promise<void> {
+    this.density = density;
+    await saveDensity(this.context, density);
+    this.onDidChangeTreeDataEmitter.fire();
   }
 
   private updateBadge(): void {
@@ -1430,7 +1444,7 @@ export class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemTy
 
   private createTreeItem(item: BeadItemData): BeadTreeItem {
     const isExpanded = this.expandedRows.has(item.id);
-    const treeItem = new BeadTreeItem(item, isExpanded);
+    const treeItem = new BeadTreeItem(item, isExpanded, undefined, this.density);
     treeItem.contextValue = 'bead';
 
     const statusLabel = formatStatusLabel(item.status || 'open');
