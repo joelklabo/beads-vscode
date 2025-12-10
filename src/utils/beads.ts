@@ -22,6 +22,7 @@ export function toViewModel(item: BeadItemData): BeadViewModel {
     description: raw?.description,
     status: item.status || 'open',
     priority: typeof raw?.priority === 'number' ? raw.priority : 2,
+    issueType: item.issueType || raw?.issue_type || raw?.issueType || raw?.type,
     assignee: assignee ? {
       name: assignee,
       color: 'var(--vscode-charts-blue)', // Placeholder, ideally derived from name

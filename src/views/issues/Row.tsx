@@ -1,5 +1,6 @@
 import React from 'react';
 import { BeadViewModel } from './types';
+import { getAssigneeToken, getIssueTypeToken, getPriorityToken, getStatusToken } from '../shared/theme';
 
 interface RowProps {
   bead: BeadViewModel;
@@ -14,8 +15,11 @@ export const Row: React.FC<RowProps> = ({ bead, onClick, compact }) => {
     preventDefaultContextMenuItems: true
   });
 
-  const priorityIcon = getPriorityIcon(bead.priority);
-  const priorityColor = getPriorityColor(bead.priority);
+  const statusToken = getStatusToken(bead.status);
+  const priorityToken = getPriorityToken(bead.priority);
+  const issueTypeToken = getIssueTypeToken((bead as any)?.issueType);
+  const assigneeToken = bead.assignee ? getAssigneeToken(bead.assignee.color) : undefined;
+  const chipSize = compact ? 'sm' : '';
 
   return (
     <div 
@@ -42,28 +46,50 @@ export const Row: React.FC<RowProps> = ({ bead, onClick, compact }) => {
         </div>
         
         <div className="bead-secondary-line">
-          <span className="bead-id">{bead.id}</span>
-          <span className="bead-separator">•</span>
-          
-          <span className="bead-priority" style={{ color: priorityColor }} title={`Priority ${bead.priority}`}>
-            <span className={`codicon ${priorityIcon}`} />
-            {!compact && <span className="bead-meta-text">P{bead.priority}</span>}
+          <span className={`bead-chip id ${chipSize}`} aria-label={`Task ${bead.id}`}>
+            <span className="codicon codicon-tag" aria-hidden="true" />
+            <span className="chip-label">{bead.id}</span>
           </span>
-          <span className="bead-separator">•</span>
 
-          <span className="bead-status" style={{ color: getStatusColor(bead.status) }}>
-            <span className="codicon codicon-circle-filled" />
-            {!compact && <span className="bead-meta-text">{bead.status}</span>}
+          <span 
+            className={`bead-chip status status-${statusToken.id} ${statusToken.pulsing ? 'pulsing' : ''} ${chipSize}`} 
+            aria-label={`Status ${statusToken.label}`}
+          >
+            <span className={`codicon codicon-${statusToken.icon}`} aria-hidden="true" />
+            <span className="chip-label">{statusToken.label}</span>
           </span>
-          
-          {bead.assignee && (
-            <>
-              <span className="bead-separator">•</span>
-              <span className="bead-assignee" title={bead.assignee.name}>
-                <span className="codicon codicon-account" />
-                {!compact && <span className="bead-meta-text">{bead.assignee.name}</span>}
-              </span>
-            </>
+
+          <span 
+            className={`bead-chip type type-${issueTypeToken.id} ${chipSize}`} 
+            aria-label={`Type ${issueTypeToken.label}`}
+          >
+            <span className={`codicon codicon-${issueTypeToken.icon}`} aria-hidden="true" />
+            <span className="chip-label">{issueTypeToken.label}</span>
+          </span>
+
+          <span 
+            className={`bead-chip priority priority-${priorityToken.id} ${chipSize}`} 
+            aria-label={`Priority ${priorityToken.label}`}
+          >
+            <span className={`codicon codicon-${priorityToken.icon}`} aria-hidden="true" />
+            <span className="chip-label">{priorityToken.label}</span>
+          </span>
+
+          {assigneeToken && (
+            <span
+              className={`bead-chip assignee ${chipSize}`}
+              aria-label={`Assignee ${bead.assignee?.name}`}
+              style={
+                {
+                  '--bead-assignee-color': assigneeToken.color,
+                  '--bead-assignee-bg': assigneeToken.background,
+                } as React.CSSProperties
+              }
+              title={bead.assignee?.name}
+            >
+              <span className="codicon codicon-account" aria-hidden="true" />
+              <span className="chip-label">{bead.assignee?.name}</span>
+            </span>
           )}
         </div>
 
@@ -78,29 +104,6 @@ export const Row: React.FC<RowProps> = ({ bead, onClick, compact }) => {
     </div>
   );
 };
-
-function getStatusColor(status: string): string {
-  switch (status) {
-    case 'open': return 'var(--vscode-charts-green)';
-    case 'in_progress': return 'var(--vscode-charts-blue)';
-    case 'blocked': return 'var(--vscode-charts-red)';
-    case 'closed': return 'var(--vscode-disabledForeground)';
-    default: return 'var(--vscode-foreground)';
-  }
-}
-
-function getPriorityIcon(p: number): string {
-  if (p === 0) return 'codicon-flame';
-  if (p === 1) return 'codicon-arrow-up';
-  if (p === 2) return 'codicon-arrow-right';
-  return 'codicon-arrow-down';
-}
-
-function getPriorityColor(p: number): string {
-  if (p === 0) return 'var(--vscode-charts-red)';
-  if (p === 1) return 'var(--vscode-charts-orange)';
-  return 'var(--vscode-descriptionForeground)';
-}
 
 function formatRelativeTime(dateStr: string): string {
   try {
