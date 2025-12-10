@@ -60,16 +60,16 @@ export function getBeadDetailHtml(
     <style nonce="${nonce}">
         ${buildSharedStyles()}
         :root {
-            --spacing-unit: 16px;
+            --spacing-unit: 14px;
             --font-size-title: 24px;
             --font-size-meta: 13px;
-            --header-padding: 20px;
+            --header-padding: 18px;
         }
         body.compact {
             --spacing-unit: 8px;
             --font-size-title: 18px;
             --font-size-meta: 11px;
-            --header-padding: 12px;
+            --header-padding: 10px;
         }
         body {
             font-family: var(--vscode-font-family);
@@ -106,12 +106,12 @@ export function getBeadDetailHtml(
         .header-left {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 10px;
         }
         .hero-chips {
             display: flex;
             flex-wrap: wrap;
-            gap: 8px;
+            gap: 6px;
             align-items: center;
         }
         .hero-chips .bead-chip { cursor: pointer; }
@@ -167,7 +167,7 @@ export function getBeadDetailHtml(
         .meta-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 8px 16px;
+            gap: 6px 12px;
             font-size: var(--font-size-meta);
             color: var(--vscode-descriptionForeground);
         }
@@ -233,7 +233,7 @@ export function getBeadDetailHtml(
             overflow: hidden;
         }
         .tree-branch {
-            padding: 8px;
+            padding: 6px 8px;
             border-bottom: 1px solid var(--vscode-panel-border);
         }
         .tree-branch:last-child {
@@ -250,17 +250,17 @@ export function getBeadDetailHtml(
             margin-left: 4px;
         }
         .tree-row {
-            padding: 2px 0;
+            padding: 1px 0;
         }
         .tree-row-main {
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
         }
         .tree-left {
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 4px;
         }
         .status-dot {
             width: 8px;
