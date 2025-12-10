@@ -4,6 +4,7 @@ export interface BeadViewModel {
   description?: string;
   status: string;
   priority: number;
+  issueType?: string;
   assignee?: {
     name: string;
     color: string; // hex or theme color
