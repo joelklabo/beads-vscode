@@ -104,7 +104,9 @@ describe('activation/commands orchestrator', () => {
       },
       search: async () => undefined,
       clearSearch: () => undefined,
-      clearSortOrder: () => undefined,
+      clearSortOrder: () => {
+        provider.clearSortCount = (provider.clearSortCount ?? 0) + 1;
+      },
       toggleClosedVisibility: async () => undefined,
       updateExternalReference: async () => undefined,
       setTreeView: () => undefined,
@@ -206,5 +208,8 @@ describe('activation/commands orchestrator', () => {
 
     await registeredCommands.get('beady.refreshActivityFeed')();
     assert.deepStrictEqual(activityRefreshes, ['manual']);
+
+    await registeredCommands.get('beady.clearSortOrder')();
+    assert.strictEqual(activationContext.provider.clearSortCount, 1);
   });
 });
