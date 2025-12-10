@@ -24,6 +24,7 @@ export const ISSUE_TYPE_ICONS: Record<IssueTypeId, string> = {
 };
 
 export const DEFAULT_ASSIGNEE_ICON = 'account';
+export const TIME_ICON = 'history';
 
 export const codiconClass = (id: string): string => `codicon codicon-${id}`;
 

@@ -212,6 +212,8 @@ export class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemTy
   private collapsedAssignees: Map<string, boolean> = new Map();
   // Expanded state for bead rows (id -> expanded)
   private expandedRows: Set<string> = new Set();
+  // Row density preference
+  private rowDensity: 'default' | 'compact' = 'compact';
 
   constructor(private readonly context: vscode.ExtensionContext, watchManager?: WatcherManager) {
     this.watchManager = watchManager ?? new WatcherManager(createVsCodeWatchAdapter());
@@ -235,8 +237,20 @@ export class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemTy
     this.loadClosedVisibility();
     // Restore workspace selection
     this.restoreWorkspaceSelection();
+    // Load density preference
+    this.loadRowDensity();
     // Start periodic refresh for stale detection
     this.startStaleRefreshTimer();
+
+    this.context.subscriptions.push(
+      vscode.commands.registerCommand('beady.toggleTreeDensity', () => this.toggleRowDensity()),
+      vscode.workspace.onDidChangeConfiguration((event) => {
+        if (event.affectsConfiguration('beady.treeDensity')) {
+          this.loadRowDensity();
+          void this.refresh();
+        }
+      })
+    );
   }
   
   private startStaleRefreshTimer(): void {
@@ -274,6 +288,7 @@ export class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemTy
 
   setStatusBarItem(statusBarItem: vscode.StatusBarItem): void {
     this.statusBarItem = statusBarItem;
+    this.statusBarItem.command = 'beady.toggleTreeDensity';
   }
 
   setFeedbackEnabled(enabled: boolean): void {
@@ -318,24 +333,39 @@ export class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemTy
 
     if (staleCount > 0) {
       this.statusBarItem.text = `$(warning) ${staleCount} stale task${staleCount !== 1 ? 's' : ''}`;
-      this.statusBarItem.tooltip = t('{0} task{1} in progress for more than {2} minutes. Click to view.',
+      this.statusBarItem.tooltip = t('{0} task{1} in progress for more than {2} minutes. Click to toggle density (current: {3}).',
         staleCount,
         staleCount !== 1 ? 's' : '',
-        thresholdMinutes);
-      this.statusBarItem.command = 'beadyExplorer.focus';
+        thresholdMinutes,
+        this.rowDensity);
       this.statusBarItem.show();
       return;
     }
 
     if (this.feedbackEnabled) {
       this.statusBarItem.text = `$(comment-discussion) ${t('Send Feedback')}`;
-      this.statusBarItem.tooltip = t('Share feedback or report a bug (opens GitHub)');
-      this.statusBarItem.command = 'beady.sendFeedback';
+      this.statusBarItem.tooltip = t('Share feedback or report a bug (opens GitHub). Click to toggle density (current: {0}).', this.rowDensity);
       this.statusBarItem.show();
       return;
     }
 
     this.statusBarItem.hide();
+  }
+
+  private loadRowDensity(): void {
+    const config = vscode.workspace.getConfiguration('beady');
+    const configValue = config.get<'default' | 'compact'>('treeDensity');
+    const saved = this.context.workspaceState.get<'default' | 'compact'>('beady.treeDensity', configValue ?? 'compact');
+    this.rowDensity = saved;
+    void vscode.commands.executeCommand('setContext', 'beady.treeDensity', this.rowDensity);
+  }
+
+  private async toggleRowDensity(): Promise<void> {
+    this.rowDensity = this.rowDensity === 'compact' ? 'default' : 'compact';
+    await this.context.workspaceState.update('beady.treeDensity', this.rowDensity);
+    void vscode.commands.executeCommand('setContext', 'beady.treeDensity', this.rowDensity);
+    this.updateBadge();
+    this.refresh();
   }
 
   getTreeItem(element: TreeItemType): vscode.TreeItem {
@@ -1430,7 +1460,7 @@ export class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemTy
 
   private createTreeItem(item: BeadItemData): BeadTreeItem {
     const isExpanded = this.expandedRows.has(item.id);
-    const treeItem = new BeadTreeItem(item, isExpanded);
+    const treeItem = new BeadTreeItem(item, isExpanded, this.rowDensity);
     treeItem.contextValue = 'bead';
 
     const statusLabel = formatStatusLabel(item.status || 'open');
