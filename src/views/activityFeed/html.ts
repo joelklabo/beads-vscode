@@ -96,7 +96,7 @@ export function getActivityFeedPanelHtml(events: EventData[], strings: ActivityF
             font-size: var(--vscode-font-size);
             color: var(--vscode-foreground);
             background-color: var(--vscode-editor-background);
-            padding: 20px;
+            padding: 16px 18px;
             margin: 0;
             line-height: 1.5;
         }
@@ -123,23 +123,23 @@ export function getActivityFeedPanelHtml(events: EventData[], strings: ActivityF
 
         .timeline {
             position: relative;
-            padding-left: 40px;
+            padding-left: 28px;
         }
 
         .timeline::before {
             content: '';
             position: absolute;
-            left: 16px;
+            left: 10px;
             top: 0;
             bottom: 0;
-            width: 2px;
+            width: 1px;
             background-color: var(--vscode-panel-border);
         }
 
         .event-card {
             position: relative;
             margin-bottom: 16px;
-            padding: 12px 16px;
+            padding: 10px 12px;
             background-color: var(--vscode-editor-inactiveSelectionBackground);
             border-radius: 8px;
             cursor: pointer;
@@ -165,15 +165,15 @@ export function getActivityFeedPanelHtml(events: EventData[], strings: ActivityF
 
         .timeline-dot {
             position: absolute;
-            left: -32px;
-            top: 14px;
-            width: 24px;
-            height: 24px;
+            left: -24px;
+            top: 10px;
+            width: 18px;
+            height: 18px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 12px;
+            font-size: 11px;
             border: 2px solid var(--vscode-editor-background);
         }
         .timeline-dot.pulsing {
@@ -184,7 +184,7 @@ export function getActivityFeedPanelHtml(events: EventData[], strings: ActivityF
         .event-content {
             display: flex;
             flex-direction: column;
-            gap: 4px;
+            gap: 3px;
         }
 
         .event-header {
@@ -215,15 +215,16 @@ export function getActivityFeedPanelHtml(events: EventData[], strings: ActivityF
 
         .event-chips {
             display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
+            gap: 6px;
+            flex-wrap: nowrap;
+            overflow: hidden;
             align-items: center;
             margin: 4px 0;
         }
 
         .event-meta {
             display: flex;
-            gap: 12px;
+            gap: 8px;
             font-size: 11px;
             color: var(--vscode-descriptionForeground);
         }

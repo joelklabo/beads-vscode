@@ -193,7 +193,7 @@ export function getInProgressPanelHtml(items: BeadItemData[], strings: InProgres
                   radial-gradient(circle at 80% 0%, rgba(249, 197, 19, 0.05), transparent 22%),
                   var(--vscode-editor-background);
       margin: 0;
-      padding: 20px 24px 40px;
+      padding: 16px 20px 28px;
       line-height: 1.5;
     }
     h1 {
@@ -208,7 +208,7 @@ export function getInProgressPanelHtml(items: BeadItemData[], strings: InProgres
     .layout {
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 12px;
     }
     .wip-hero {
       display: flex;
@@ -225,7 +225,7 @@ export function getInProgressPanelHtml(items: BeadItemData[], strings: InProgres
       background: var(--vscode-editor-inactiveSelectionBackground);
       border: 1px solid var(--vscode-panel-border);
       border-radius: 10px;
-      padding: 14px 16px;
+      padding: 10px 12px;
       box-shadow: 0 2px 6px rgba(0,0,0,0.08);
     }
     .summary-label {
@@ -279,7 +279,7 @@ export function getInProgressPanelHtml(items: BeadItemData[], strings: InProgres
       background: var(--vscode-editor-inactiveSelectionBackground);
       border: 1px solid var(--vscode-panel-border);
       border-radius: 10px;
-      padding: 14px 16px;
+      padding: 12px 14px;
     }
     .section-title {
       font-size: 14px;
@@ -332,14 +332,14 @@ export function getInProgressPanelHtml(items: BeadItemData[], strings: InProgres
     .wip-list {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-      gap: 12px;
-      margin-top: 10px;
+      gap: 10px;
+      margin-top: 8px;
     }
     .wip-card {
       background: var(--vscode-editor-background);
       border: 1px solid var(--vscode-panel-border);
       border-radius: 10px;
-      padding: 12px 14px;
+      padding: 10px 12px;
       box-shadow: 0 2px 6px rgba(0,0,0,0.06);
       cursor: pointer;
       transition: transform 0.12s ease, box-shadow 0.12s ease;
@@ -352,9 +352,9 @@ export function getInProgressPanelHtml(items: BeadItemData[], strings: InProgres
     .wip-card-top {
       display: flex;
       justify-content: space-between;
-      gap: 8px;
+      gap: 6px;
       align-items: center;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
     }
     .id-chip {
       background: var(--vscode-badge-background);
@@ -385,7 +385,7 @@ export function getInProgressPanelHtml(items: BeadItemData[], strings: InProgres
     }
     .wip-title {
       font-weight: 700;
-      margin: 0 0 6px 0;
+      margin: 0 0 4px 0;
       overflow: hidden;
       text-overflow: ellipsis;
       display: -webkit-box;
@@ -394,10 +394,11 @@ export function getInProgressPanelHtml(items: BeadItemData[], strings: InProgres
     }
     .wip-meta {
       display: flex;
-      gap: 12px;
+      gap: 8px;
       color: var(--vscode-descriptionForeground);
       font-size: 12px;
-      flex-wrap: wrap;
+      flex-wrap: nowrap;
+      overflow: hidden;
       align-items: center;
     }
     .bead-chip.assignee .assignee-initials {
