@@ -95,7 +95,7 @@ describe('detail panel badges and dependency affordance', () => {
 
       const html = getBeadDetailHtml(
         root,
-        [root, upstream as any, downstream as any],
+        [root, { ...upstream, externalReferenceId: 'https://example.com/BD-11' } as any, downstream as any],
         { cspSource: 'vscode-resource' } as any,
         'nonce',
         buildBeadDetailStrings(getStatusLabels()),
@@ -110,6 +110,7 @@ describe('detail panel badges and dependency affordance', () => {
       assert.ok(html.includes('data-direction="upstream"'), 'upstream branch missing');
       assert.ok(html.includes('data-direction="downstream"'), 'downstream branch missing');
       assert.ok(html.includes('tree-direction-label'), 'dependency section affordance missing');
+      assert.ok(html.includes('tree-external-link'), 'dependency external link missing');
     });
   });
 });

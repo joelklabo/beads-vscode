@@ -39,7 +39,7 @@ import {
   normalizeQuickFilter,
   deriveAssigneeName,
 } from '../../utils';
-import { DensityMode, loadDensity, saveDensity } from '../../utils/density';
+import { DensityMode, loadDensity, saveDensity, nextDensity } from '../../utils/density';
 import { ActivityFeedTreeDataProvider, ActivityEventItem } from '../../activityFeedProvider';
 import { EventType } from '../../activityFeed';
 import { validateLittleGlenMessage, AllowedLittleGlenCommand } from '../../littleGlen/validation';
@@ -74,7 +74,6 @@ import { getBulkActionsConfig } from '../../utils/config';
 import { registerSendFeedbackCommand } from '../../commands/sendFeedback';
 import { CommandRegistry, createExportCommands, createQuickFilterCommands } from '../../commands';
 import { DependencyTreeProvider } from '../../dependencyTreeProvider';
-import { BeadsWebviewProvider } from './webview';
 import { currentWorktreeId } from '../../worktree';
 import { warnIfDependencyEditingUnsupported } from '../../services/runtimeEnvironment';
 import { BdCommandOptions, formatBdError, resolveBeadId, runBdCommand } from '../../services/cliService';
@@ -292,6 +291,21 @@ export class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemTy
   async setDensity(density: DensityMode): Promise<void> {
     this.density = density;
     await saveDensity(this.context, density);
+    this.onDidChangeTreeDataEmitter.fire();
+  }
+
+  toggleDensity(): void {
+    void this.setDensity(nextDensity(this.density));
+  }
+
+  collapseAll(): void {
+    this.collapsedSections = new Set(DEFAULT_COLLAPSED_SECTION_KEYS);
+    this.collapsedEpics = new Map(Array.from(this.collapsedEpics.keys()).map((id) => [id, true]));
+    this.collapsedAssignees = new Map(Array.from(this.collapsedAssignees.keys()).map((key) => [key, true]));
+    this.expandedRows.clear();
+    this.saveCollapsedSections();
+    this.saveCollapsedAssignees();
+    this.saveExpandedRows();
     this.onDidChangeTreeDataEmitter.fire();
   }
 

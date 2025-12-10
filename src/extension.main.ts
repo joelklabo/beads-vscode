@@ -85,7 +85,6 @@ import {
   selectWorkspace,
 } from './commands';
 import { DependencyTreeProvider } from './dependencyTreeProvider';
-import { BeadsWebviewProvider } from './providers/beads/webview';
 import { BeadsTreeDataProvider, TreeItemType, getStatusLabels, buildBeadDetailStrings } from './providers/beads/treeDataProvider';
 import { currentWorktreeId } from './worktree';
 import { warnIfDependencyEditingUnsupported } from './services/runtimeEnvironment';

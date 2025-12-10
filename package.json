@@ -231,13 +231,8 @@
     "views": {
       "beady": [
         {
-          "type": "webview",
-          "id": "beady.issuesView",
-          "name": "Tasks"
-        },
-        {
           "id": "beadyExplorer",
-          "name": "Issues (Legacy)"
+          "name": "Tasks"
         },
         {
           "id": "activityFeed",
@@ -457,18 +452,8 @@
           "group": "navigation@1.5"
         },
         {
-          "command": "beady.applyQuickFilterPreset",
-          "when": "view == beady.issuesView && beady.quickFiltersEnabled",
-          "group": "navigation@1.5"
-        },
-        {
           "command": "beady.clearQuickFilters",
           "when": "view == beadyExplorer && beady.quickFiltersEnabled && beady.activeQuickFilter != ''",
-          "group": "navigation@1.6"
-        },
-        {
-          "command": "beady.clearQuickFilters",
-          "when": "view == beady.issuesView && beady.quickFiltersEnabled && beady.activeQuickFilter != ''",
           "group": "navigation@1.6"
         },
         {
@@ -477,29 +462,13 @@
           "group": "navigation@1"
         },
         {
-          "command": "beady.pickSortMode",
-          "when": "view == beady.issuesView && beady.sortPickerEnabled",
-          "group": "navigation@1"
-        },
-        {
           "command": "beady.toggleSortMode",
           "when": "view == beadyExplorer && !beady.sortPickerEnabled",
           "group": "navigation@1"
         },
         {
-          "command": "beady.toggleSortMode",
-          "when": "view == beady.issuesView && !beady.sortPickerEnabled",
-          "group": "navigation@1"
-        },
-        {
           "command": "beady.toggleClosedVisibility",
           "when": "view == beadyExplorer",
-          "group": "navigation@1.4",
-          "toggled": "beady.closedHidden"
-        },
-        {
-          "command": "beady.toggleClosedVisibility",
-          "when": "view == beady.issuesView",
           "group": "navigation@1.4",
           "toggled": "beady.closedHidden"
         },
@@ -509,18 +478,8 @@
           "group": "navigation@2"
         },
         {
-          "command": "beady.search",
-          "when": "view == beady.issuesView",
-          "group": "navigation@2"
-        },
-        {
           "command": "beady.clearSearch",
           "when": "view == beadyExplorer",
-          "group": "navigation@3"
-        },
-        {
-          "command": "beady.clearSearch",
-          "when": "view == beady.issuesView",
           "group": "navigation@3"
         },
         {
@@ -529,18 +488,8 @@
           "group": "navigation@4"
         },
         {
-          "command": "beady.refresh",
-          "when": "view == beady.issuesView",
-          "group": "navigation@4"
-        },
-        {
           "command": "beady.createBead",
           "when": "view == beadyExplorer",
-          "group": "navigation@5"
-        },
-        {
-          "command": "beady.createBead",
-          "when": "view == beady.issuesView",
           "group": "navigation@5"
         },
         {
@@ -627,23 +576,6 @@
           "command": "beady.dependencyTree.addDownstream",
           "when": "view == beadyDependencyTree && config.beady.enableDependencyEditing",
           "group": "navigation@3"
-        }
-      ],
-      "webview/context": [
-        {
-          "command": "beady.openBead",
-          "when": "webviewId == beady.issuesView && webviewSection == bead",
-          "group": "navigation@1"
-        },
-        {
-          "command": "beady.inlineStatusChange",
-          "when": "webviewId == beady.issuesView && webviewSection == bead",
-          "group": "modification@1"
-        },
-        {
-          "command": "beady.editAssignee",
-          "when": "webviewId == beady.issuesView && webviewSection == bead",
-          "group": "modification@2"
         }
       ],
       "view/item/context": [

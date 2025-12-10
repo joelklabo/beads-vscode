@@ -31,6 +31,7 @@ export const renderBranch = (
     .map((node: any) => {
       const removeSourceId = direction === 'upstream' ? parentId : node.id;
       const removeTargetId = direction === 'upstream' ? node.id : parentId;
+      const externalUrl = node.externalReferenceId;
       const children = node.children && node.children.length > 0 ? renderBranch(node.children, node.id, direction, depth + 1, strings, dependencyEditingEnabled) : '';
       const color = statusColors[node.status || 'open'] || statusColors.open;
       const statusLabel = getStatusLabel(node.status, strings) || strings.statusLabels.open;
@@ -50,6 +51,11 @@ export const renderBranch = (
               <span class="status-label">${escapeHtml(statusLabel)}</span>
               <span class="tree-id" style="cursor: pointer; text-decoration: underline;" onclick="openBead('${escapeHtml(node.id)}')">${escapeHtml(node.id)}</span>
               <span class="tree-title">${escapeHtml(node.title || '')}</span>
+              ${
+                externalUrl
+                  ? `<button class="tree-external-link external-link" data-external-url="${escapeHtml(externalUrl)}" title="${escapeHtml(node.externalReferenceDescription || externalUrl)}"><span class="codicon codicon-link-external"></span></button>`
+                  : ''
+              }
               <span class="dep-type dep-${safeType}">${safeType}</span>
               ${node.missing ? `<span class="missing-pill">${escapeHtml(strings.missingDependencyLabel)}</span>` : ''}
             </div>

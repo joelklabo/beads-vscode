@@ -7,7 +7,6 @@ import { getBulkActionsConfig } from './utils/config';
 import { computeFeedbackEnablement } from './feedback/enablement';
 import { DependencyTreeProvider } from './dependencyTreeProvider';
 import { ActivityFeedTreeDataProvider } from './activityFeedProvider';
-import { BeadsWebviewProvider } from './providers/beads/webview';
 import { BeadItemData } from './utils';
 import { warnIfDependencyEditingUnsupported } from './services/runtimeEnvironment';
 import type {
@@ -37,11 +36,6 @@ export function setupProviders(
     dragAndDropController: provider,
     canSelectMany: true,
   });
-
-  const webviewProvider = new BeadsWebviewProvider(context.extensionUri, provider, () => provider.getDensity());
-  context.subscriptions.push(
-    vscode.window.registerWebviewViewProvider(BeadsWebviewProvider.viewType, webviewProvider)
-  );
 
   // Set tree view reference for badge updates
   provider.setTreeView(treeView);

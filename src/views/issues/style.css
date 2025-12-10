@@ -21,6 +21,8 @@ body {
   --bead-chip-gap: 6px;
   --bead-assignee-color: var(--vscode-charts-blue);
   --bead-assignee-bg: color-mix(in srgb, var(--vscode-charts-blue) 22%, transparent);
+  --row-padding-y: 8px;
+  --row-gap: 12px;
 }
 
 body.compact {
@@ -28,6 +30,8 @@ body.compact {
   --bead-chip-padding-y: 1px;
   --bead-chip-padding-x: 6px;
   --bead-chip-gap: 4px;
+  --row-padding-y: 6px;
+  --row-gap: 8px;
 }
 
 
@@ -228,16 +232,16 @@ body.compact {
 /* Row */
 .bead-row {
   display: flex;
-  padding: 8px 12px;
+  padding: var(--row-padding-y) 12px;
   border-bottom: 1px solid var(--vscode-tree-tableOddRowsBackground); /* Subtle separator */
   cursor: pointer;
   transition: background-color 0.1s;
-  gap: 12px;
+  gap: var(--row-gap);
 }
 
 body.compact .bead-row {
-  padding: 6px 10px;
-  gap: 8px;
+  padding: var(--row-padding-y) 10px;
+  gap: var(--row-gap);
 }
 
 body.compact .bead-primary-line {

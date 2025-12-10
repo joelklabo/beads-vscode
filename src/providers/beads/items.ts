@@ -227,7 +227,7 @@ export class BeadTreeItem extends vscode.TreeItem {
       `${assigneeInfo.dot} $(person) ${safeAssigneeDisplay}`,
     ];
     if (relTime) {
-      descParts.push(relTime);
+      descParts.push(`$(history) ${relTime}`);
     }
     if (isTaskStale && staleInfo) {
       descParts.push(`⚠️ ${staleInfo.formattedTime}`);

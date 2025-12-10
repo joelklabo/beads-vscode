@@ -293,6 +293,20 @@ export function getBeadDetailHtml(
         .external-link:hover {
             text-decoration: underline;
         }
+        .tree-external-link {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            border: 1px solid transparent;
+            background: none;
+            padding: 2px;
+            border-radius: 4px;
+            color: var(--vscode-textLink-foreground);
+        }
+        .tree-external-link:hover {
+            background-color: var(--vscode-toolbar-hoverBackground);
+        }
         /* Status Dropdown */
         .status-wrapper {
             position: relative;
@@ -500,7 +514,7 @@ export function getBeadDetailHtml(
         }
 
         function openExternal(url) {
-            vscode.postMessage({ command: 'openExternal', url });
+            vscode.postMessage({ command: 'openExternalUrl', url });
         }
 
         function openBead(beadId) {
@@ -655,6 +669,18 @@ export function getBeadDetailHtml(
             }
             if (!priorityBadge.contains(e.target) && !priorityDropdown.contains(e.target)) {
                 priorityDropdown.classList.remove('show');
+            }
+        });
+
+        // Dependency external links
+        document.addEventListener('click', (e) => {
+            const target = e.target as HTMLElement | null;
+            const linkButton = target?.closest?.('.tree-external-link') as HTMLElement | null;
+            if (linkButton) {
+                const url = linkButton.getAttribute('data-external-url');
+                if (url) {
+                    openExternal(url);
+                }
             }
         });
   </script>

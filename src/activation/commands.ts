@@ -389,6 +389,14 @@ export const registerCommands: CommandRegistrar = (
         }
       },
     },
+    {
+      id: 'beady.collapseAll',
+      handler: () => provider.collapseAll(),
+    },
+    {
+      id: 'beady.toggleDensity',
+      handler: () => provider.toggleDensity(),
+    },
   ];
 
   commandRegistry.registerAll(coreCommands);
