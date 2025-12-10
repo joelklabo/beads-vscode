@@ -549,6 +549,11 @@
           "group": "navigation@6"
         },
         {
+          "command": "beady.visualizeDependencies",
+          "when": "view == beady.issuesView",
+          "group": "navigation@6"
+        },
+        {
           "command": "beady.exportCsv",
           "when": "view == beadyExplorer && config.beady.exportCsv.enabled",
           "group": "navigation@7"
@@ -581,6 +586,11 @@
         {
           "command": "beady.clearSortOrder",
           "when": "view == beadyExplorer",
+          "group": "1_sort@1"
+        },
+        {
+          "command": "beady.clearSortOrder",
+          "when": "view == beady.issuesView",
           "group": "1_sort@1"
         },
         {
