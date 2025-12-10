@@ -55,6 +55,10 @@ export class BeadsWebviewProvider implements vscode.WebviewViewProvider {
           }
           break;
         }
+        case 'openInProgressPanel': {
+          vscode.commands.executeCommand('beady.openInProgressPanel');
+          break;
+        }
         case 'log': {
           console.log('[Webview]', message.text);
           break;
@@ -95,6 +99,7 @@ export class BeadsWebviewProvider implements vscode.WebviewViewProvider {
     
     const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'dist', 'views', 'issues.js'));
     const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'dist', 'views', 'issues.css'));
+    const codiconUri = vscode.Uri.parse('https://microsoft.github.io/vscode-codicons/dist/codicon.css');
 
     const nonce = getNonce();
 
@@ -107,6 +112,7 @@ export class BeadsWebviewProvider implements vscode.WebviewViewProvider {
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval'; script-src * 'unsafe-inline' 'unsafe-eval'; style-src * 'unsafe-inline';">
       <link href="${styleUri}" rel="stylesheet">
+      <link href="${codiconUri}" rel="stylesheet">
       <title>Beads Issues</title>
     </head>
     <body ${densityClass}>

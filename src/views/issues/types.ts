@@ -32,4 +32,5 @@ export type WebviewCommand =
   | { command: 'contextMenu'; id: string; x: number; y: number }
   | { command: 'log'; text: string }
   | { command: 'pickSort' }
+  | { command: 'openInProgressPanel' }
   | { command: 'ready' };

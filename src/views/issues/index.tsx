@@ -203,6 +203,9 @@ const App: React.FC = () => {
           <button className="icon-button" onClick={handleSort} title="Sort">
             <span className="codicon codicon-sort-precedence" />
           </button>
+          <button className="icon-button" onClick={() => vscode.postMessage({ command: 'openInProgressPanel' } as any)} title="Open In Progress">
+            <span className="codicon codicon-pulse" />
+          </button>
         </div>
       </div>
       <div className="bead-list">
