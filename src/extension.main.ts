@@ -152,14 +152,14 @@ export function activate(context: vscode.ExtensionContext): void {
 
   try {
     // Set up providers and tree views
-    const { provider, treeView, dependencyTreeProvider, dependencyTreeView } = setupProviders(context, watchManager);
+    const { provider, dependencyTreeProvider, dependencyTreeView } = setupProviders(context, watchManager);
     providerRef = provider;
 
     // Set up activity feed
     const { activityFeedProvider, activityFeedView } = setupActivityFeed(context, watchManager, provider);
 
     // Register all commands
-    const activationContext = { provider, treeView, dependencyTreeProvider, dependencyTreeView, activityFeedProvider, activityFeedView };
+    const activationContext = { provider, dependencyTreeProvider, dependencyTreeView, activityFeedProvider, activityFeedView };
     registerCommands(
       context,
       activationContext,

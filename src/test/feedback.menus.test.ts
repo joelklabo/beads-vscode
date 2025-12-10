@@ -208,7 +208,7 @@ describe('Feedback surfaces & enablement', () => {
 
     assert.strictEqual(statusItem.visible, true);
     assert.ok(statusItem.text.includes('2 stale'));
-    assert.strictEqual(statusItem.command, 'beadyExplorer.focus');
+    assert.strictEqual(statusItem.command, 'beady.issuesView.focus');
 
     provider.dispose();
   });

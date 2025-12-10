@@ -169,7 +169,7 @@ async function showBulkResultSummary(
  */
 export async function bulkUpdateStatus(
   provider: RefreshableProvider,
-  treeView: vscode.TreeView<unknown>,
+  treeView: vscode.TreeView<unknown> | undefined,
   runCommand: RunBdCommandFn
 ): Promise<void> {
   const bulkConfig = getBulkActionsConfig();
@@ -179,6 +179,11 @@ export async function bulkUpdateStatus(
       ? t('Bulk actions are disabled: {0}', bulkConfig.validationError)
       : t('Enable "beady.bulkActions.enabled" to run bulk status updates.');
     void vscode.window.showWarningMessage(message);
+    return;
+  }
+
+  if (!treeView) {
+    void vscode.window.showWarningMessage(t('Select items in the Tasks list to run bulk updates.'));
     return;
   }
 
@@ -257,7 +262,7 @@ export async function bulkUpdateStatus(
  */
 export async function bulkUpdateLabel(
   provider: RefreshableProvider,
-  treeView: vscode.TreeView<unknown>,
+  treeView: vscode.TreeView<unknown> | undefined,
   action: BulkLabelAction,
   runCommand: RunBdCommandFn
 ): Promise<void> {
@@ -268,6 +273,11 @@ export async function bulkUpdateLabel(
       ? t('Bulk actions are disabled: {0}', bulkConfig.validationError)
       : t('Enable "beady.bulkActions.enabled" to run bulk label updates.');
     void vscode.window.showWarningMessage(message);
+    return;
+  }
+
+  if (!treeView) {
+    void vscode.window.showWarningMessage(t('Select items in the Tasks list to run bulk updates.'));
     return;
   }
 
@@ -354,7 +364,7 @@ export async function bulkUpdateLabel(
  */
 export function createBulkCommands(
   provider: RefreshableProvider,
-  treeView: vscode.TreeView<unknown>,
+  treeView: vscode.TreeView<unknown> | undefined,
   runCommand: RunBdCommandFn
 ): CommandDefinition[] {
   return [

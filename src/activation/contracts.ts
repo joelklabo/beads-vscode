@@ -12,7 +12,7 @@ import { BeadItemData } from '../utils';
 
 export interface ActivationContext {
   provider: BeadsTreeDataProvider;
-  treeView: vscode.TreeView<TreeItemType>;
+  treeView?: vscode.TreeView<TreeItemType>;
   dependencyTreeProvider: DependencyTreeProvider;
   dependencyTreeView: vscode.TreeView<unknown>;
   activityFeedProvider: ActivityFeedTreeDataProvider;

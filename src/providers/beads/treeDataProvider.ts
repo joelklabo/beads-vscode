@@ -171,8 +171,8 @@ export class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemTy
   readonly onDidChangeTreeData = this.onDidChangeTreeDataEmitter.event;
 
   // Drag and drop support
-  readonly dropMimeTypes = ['application/vnd.code.tree.beadyExplorer'];
-  readonly dragMimeTypes = ['application/vnd.code.tree.beadyExplorer'];
+  readonly dropMimeTypes = ['application/vnd.code.tree.beads'];
+  readonly dragMimeTypes = ['application/vnd.code.tree.beads'];
 
   private items: BeadItemData[] = [];
   private document: BeadsDocument | undefined;
@@ -296,10 +296,6 @@ export class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemTy
   }
 
   private updateBadge(): void {
-    if (!this.treeView) {
-      return;
-    }
-
     // Get stale threshold from configuration (in minutes, convert to hours for isStale)
     const config = vscode.workspace.getConfiguration('beady');
     const thresholdMinutes = config.get<number>('staleThresholdMinutes', 10);
@@ -308,17 +304,19 @@ export class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemTy
     // Count stale in_progress items
     const staleCount = this.items.filter(item => isStale(item, thresholdHours)).length;
 
-    if (staleCount > 0) {
-      const badgeTooltip = t('{0} stale task{1} (in progress > {2} min)', staleCount, staleCount !== 1 ? 's' : '', thresholdMinutes);
-      this.treeView.badge = {
-        tooltip: badgeTooltip,
-        value: staleCount
-      };
-    } else {
-      this.treeView.badge = undefined;
+    if (this.treeView) {
+      if (staleCount > 0) {
+        const badgeTooltip = t('{0} stale task{1} (in progress > {2} min)', staleCount, staleCount !== 1 ? 's' : '', thresholdMinutes);
+        this.treeView.badge = {
+          tooltip: badgeTooltip,
+          value: staleCount
+        };
+      } else {
+        this.treeView.badge = undefined;
+      }
     }
 
-    // Also update status bar
+    // Always update status bar even if the tree view is disabled
     this.updateStatusBar(staleCount, thresholdMinutes);
   }
 
@@ -336,7 +334,7 @@ export class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemTy
         staleCount,
         staleCount !== 1 ? 's' : '',
         thresholdMinutes);
-      this.statusBarItem.command = 'beadyExplorer.focus';
+      this.statusBarItem.command = 'beady.issuesView.focus';
       this.statusBarItem.show();
       return;
     }
@@ -1472,11 +1470,11 @@ export class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemTy
       return;
     }
     const items = beadItems.map(item => item.bead);
-    dataTransfer.set('application/vnd.code.tree.beadyExplorer', new vscode.DataTransferItem(items));
+    dataTransfer.set('application/vnd.code.tree.beads', new vscode.DataTransferItem(items));
   }
 
   async handleDrop(target: TreeItemType | undefined, dataTransfer: vscode.DataTransfer, _token: vscode.CancellationToken): Promise<void> {
-    const transferItem = dataTransfer.get('application/vnd.code.tree.beadyExplorer');
+    const transferItem = dataTransfer.get('application/vnd.code.tree.beads');
     if (!transferItem) {
       return;
     }

@@ -1,6 +1,5 @@
 import * as vscode from 'vscode';
 import { BeadsTreeDataProvider } from './providers/beads/treeDataProvider';
-import { BeadTreeItem } from './providers/beads/items';
 import { WatcherManager } from './providers/beads/store';
 import { getWorkspaceOptions, resolveProjectRoot } from './utils/workspace';
 import { getBulkActionsConfig } from './utils/config';
@@ -32,19 +31,10 @@ export function setupProviders(
     throw new Error('Beads tree provider failed to initialize');
   }
 
-  const treeView = vscode.window.createTreeView('beadyExplorer', {
-    treeDataProvider: provider,
-    dragAndDropController: provider,
-    canSelectMany: true,
-  });
-
   const webviewProvider = new BeadsWebviewProvider(context.extensionUri, provider, () => provider.getDensity());
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(BeadsWebviewProvider.viewType, webviewProvider)
   );
-
-  // Set tree view reference for badge updates
-  provider.setTreeView(treeView);
 
   const dependencyTreeProvider = new DependencyTreeProvider(() => provider['items'] as BeadItemData[] | undefined);
   const dependencyTreeView = vscode.window.createTreeView('beadyDependencyTree', {
@@ -52,26 +42,12 @@ export function setupProviders(
     showCollapseAll: true,
   });
 
-  const rowExpandOnSelect = treeView.onDidChangeSelection((event) => {
-    event.selection.forEach((item) => provider.expandRow(item));
-  });
-
-  const dependencySelection = treeView.onDidChangeSelection((event) => {
-    const bead = event.selection.find((item): item is BeadTreeItem => item instanceof BeadTreeItem);
-    if (bead?.bead) {
-      dependencyTreeProvider.setRoot(bead.bead.id);
+  const dependencySync = provider.onDidChangeTreeData(() => {
+    dependencyTreeProvider.refresh();
+    const items = provider['items'] as BeadItemData[] | undefined;
+    if (!dependencyTreeProvider.getRootId() && items && items.length > 0) {
+      dependencyTreeProvider.setRoot(items[0].id);
     }
-  });
-
-  const dependencySync = provider.onDidChangeTreeData(() => dependencyTreeProvider.refresh());
-
-  // Track expand/collapse to update icons and persist state
-  const expandListener = treeView.onDidExpandElement(event => {
-    provider.handleCollapseChange(event.element, false);
-  });
-
-  const collapseListener = treeView.onDidCollapseElement(event => {
-    provider.handleCollapseChange(event.element, true);
   });
 
   // Create and register status bar item for stale count
@@ -90,16 +66,11 @@ export function setupProviders(
   // Register provider disposal
   context.subscriptions.push(
     { dispose: () => provider.dispose() },
-    treeView,
     dependencyTreeView,
-    rowExpandOnSelect,
-    dependencySelection,
-    dependencySync,
-    expandListener,
-    collapseListener
+    dependencySync
   );
 
-  return { provider, treeView, dependencyTreeProvider, dependencyTreeView };
+  return { provider, dependencyTreeProvider, dependencyTreeView };
 }
 
 /**
