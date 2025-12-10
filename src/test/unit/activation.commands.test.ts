@@ -190,6 +190,22 @@ describe('activation/commands orchestrator', () => {
     }
   });
 
+  it('registers tasks toolbar commands', () => {
+    registerAllCommands();
+    const toolbarIds = [
+      'beady.search',
+      'beady.clearSearch',
+      'beady.applyQuickFilterPreset',
+      'beady.clearQuickFilters',
+      'beady.toggleClosedVisibility',
+      'beady.createBead',
+    ];
+
+    toolbarIds.forEach((id) => {
+      assert.ok(registeredCommands.has(id), `expected toolbar command ${id} to be registered`);
+    });
+  });
+
   it('delegates handlers to providers and helpers', async () => {
     const { activationContext } = registerAllCommands();
 

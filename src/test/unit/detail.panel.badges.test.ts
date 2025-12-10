@@ -112,6 +112,7 @@ describe('detail panel badges and dependency affordance', () => {
       assert.ok(html.includes('data-direction="downstream"'), 'downstream branch missing');
       assert.ok(html.includes('tree-direction-label'), 'dependency section affordance missing');
       assert.ok(html.includes('data-url="https://example.com/BD-12"'), 'dependency link should carry external url');
+      assert.ok(html.includes('handleDepLink'), 'dependency links should wire click handler');
       assert.ok(html.includes('openExternalUrl'), 'external link handler should post openExternalUrl');
     });
   });
