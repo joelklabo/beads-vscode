@@ -500,11 +500,26 @@ export function getBeadDetailHtml(
         }
 
         function openExternal(url) {
-            vscode.postMessage({ command: 'openExternal', url });
+            vscode.postMessage({ command: 'openExternalUrl', url });
         }
 
         function openBead(beadId) {
             vscode.postMessage({ command: 'openBead', beadId });
+        }
+
+        function handleDepLink(event) {
+            event.preventDefault();
+            const target = event.currentTarget;
+            if (!target) { return; }
+            const url = target.getAttribute('data-url');
+            const beadId = target.getAttribute('data-bead-id');
+            if (url) {
+                vscode.postMessage({ command: 'openExternalUrl', url });
+                return;
+            }
+            if (beadId) {
+                vscode.postMessage({ command: 'openBead', beadId });
+            }
         }
 
         function removeLabel(label) {
