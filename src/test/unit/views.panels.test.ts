@@ -40,7 +40,7 @@ const originalLoad = (Module as any)._load;
 
 import { openInProgressPanel } from '../../views/panels/inProgressPanel';
 import { openActivityFeedPanel } from '../../views/panels/activityFeedPanel';
-import { BeadItemData } from '../../utils';
+import type { BeadItemData } from '../../utils';
 
 describe('view panel helpers', () => {
   after(() => { (Module as any)._load = originalLoad; });
@@ -55,7 +55,7 @@ describe('view panel helpers', () => {
       refresh: () => Promise.resolve(),
     };
 
-    await openInProgressPanel({ provider, openBead: async (item) => { opened = item.id; } });
+    await openInProgressPanel({ provider, openBead: async (item: BeadItemData) => { opened = item.id; } });
     assert.ok(createdPanels[0], 'panel not created');
     assert.ok(createdPanels[0].webview.html.includes('bead-chip status status-in_progress'));
 
@@ -74,7 +74,7 @@ describe('view panel helpers', () => {
     await openActivityFeedPanel({
       activityFeedProvider,
       beadsProvider,
-      openBead: async (item) => { opened = item.id; },
+      openBead: async (item: BeadItemData) => { opened = item.id; },
       fetchEvents: async () => ({ events, totalCount: events.length, hasMore: false }),
       getProjectRoot: () => '',
       locale: 'en',
