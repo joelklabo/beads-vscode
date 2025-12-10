@@ -614,9 +614,9 @@ export class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemTy
       entry.beads.sort(naturalSort);
       const collapsed = this.collapsedAssignees.get(key) === true;
       const label = entry.display || fallback;
-      const dot = entry.dot || '⚪';
-      const colorName = getAssigneeInfo(entry.beads[0] ?? { assignee: label } as any).colorName;
-      return new AssigneeSectionItem(label, entry.beads, dot, colorName, collapsed, key);
+      const assigneeMeta = getAssigneeInfo(entry.beads[0] ?? { assignee: label } as any);
+      const dot = assigneeMeta.dot || '⚪';
+      return new AssigneeSectionItem(label, entry.beads, dot, assigneeMeta.colorName, assigneeMeta.colorId, collapsed, key);
     });
   }
 
@@ -2076,4 +2076,3 @@ export class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemTy
     });
   }
 }
-

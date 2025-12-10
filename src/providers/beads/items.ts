@@ -1,17 +1,17 @@
 import * as vscode from 'vscode';
 import { BeadItemData, buildPreviewSnippet, formatRelativeTime, getStaleInfo, isStale, sanitizeTooltipText, stripBeadIdPrefix, formatStatusLabel, sanitizeInlineText } from '../../utils';
+import { getIssueTypeIcon, getPriorityIcon, getStatusIcon } from '../../views/shared/icons';
 
 const t = vscode.l10n.t;
 
-const ASSIGNEE_COLOR_EMOJI: Array<{ dot: string; name: string }> = [
-  { dot: '🔵', name: t('Blue') },
-  { dot: '🟢', name: t('Green') },
-  { dot: '🟣', name: t('Purple') },
-  { dot: '🟠', name: t('Orange') },
-  { dot: '🔴', name: t('Red') },
-  { dot: '🟡', name: t('Yellow') },
-  { dot: '⚫', name: t('Black') },
-  { dot: '⚪', name: t('Neutral') },
+const ASSIGNEE_COLORS: Array<{ colorId: string; name: string; dot: string }> = [
+  { colorId: 'charts.blue', name: t('Blue'), dot: '🟦' },
+  { colorId: 'charts.green', name: t('Green'), dot: '🟩' },
+  { colorId: 'charts.purple', name: t('Purple'), dot: '🟪' },
+  { colorId: 'charts.orange', name: t('Orange'), dot: '🟧' },
+  { colorId: 'charts.red', name: t('Red'), dot: '🟥' },
+  { colorId: 'charts.yellow', name: t('Yellow'), dot: '🟨' },
+  { colorId: 'foreground', name: t('Neutral'), dot: '⬜' },
 ];
 
 function hashString(value: string): number {
@@ -22,7 +22,7 @@ function hashString(value: string): number {
   return hash;
 }
 
-export function getAssigneeInfo(bead: BeadItemData): { name: string; display: string; dot: string; colorName: string } {
+export function getAssigneeInfo(bead: BeadItemData): { name: string; display: string; dot: string; colorName: string; colorId: string } {
   const fallback = t('Unassigned');
   const raw = (bead.assignee ?? '').trim();
   const safe = sanitizeInlineText(raw);
@@ -30,15 +30,16 @@ export function getAssigneeInfo(bead: BeadItemData): { name: string; display: st
   const truncated = name.length > 18 ? `${name.slice(0, 17)}…` : name;
 
   if (!safe || safe.length === 0) {
-    return { name, display: truncated, dot: '⚪', colorName: t('Neutral') };
+    const neutral = ASSIGNEE_COLORS[ASSIGNEE_COLORS.length - 1];
+    return { name, display: truncated, dot: neutral.dot, colorName: neutral.name, colorId: neutral.colorId };
   }
 
-  const colorIndex = hashString(name.toLowerCase()) % ASSIGNEE_COLOR_EMOJI.length;
-  const paletteEntry = ASSIGNEE_COLOR_EMOJI[colorIndex] ?? ASSIGNEE_COLOR_EMOJI[ASSIGNEE_COLOR_EMOJI.length - 1];
+  const colorIndex = hashString(name.toLowerCase()) % ASSIGNEE_COLORS.length;
+  const paletteEntry = ASSIGNEE_COLORS[colorIndex] ?? ASSIGNEE_COLORS[ASSIGNEE_COLORS.length - 1];
   const dot = paletteEntry.dot;
   const colorName = paletteEntry.name;
 
-  return { name, display: truncated, dot, colorName };
+  return { name, display: truncated, dot, colorName, colorId: paletteEntry.colorId };
 }
 
 export class SummaryHeaderItem extends vscode.TreeItem {
@@ -58,12 +59,13 @@ export class StatusSectionItem extends vscode.TreeItem {
     const statusDisplay = status.split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
     super(statusDisplay, isCollapsed ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.Expanded);
     this.contextValue = 'statusSection';
+    this.label = `${isCollapsed ? '$(chevron-right)' : '$(chevron-down)'} ${statusDisplay}`;
     this.description = `${beads.length}`;
     const iconConfig: Record<string, { icon: string; color: string }> = {
-      open: { icon: 'circle-outline', color: 'charts.blue' },
-      in_progress: { icon: 'clock', color: 'charts.yellow' },
-      blocked: { icon: 'error', color: 'errorForeground' },
-      closed: { icon: 'pass', color: 'testing.iconPassed' },
+      open: { icon: getStatusIcon('open'), color: 'charts.blue' },
+      in_progress: { icon: getStatusIcon('in_progress'), color: 'charts.yellow' },
+      blocked: { icon: getStatusIcon('blocked'), color: 'errorForeground' },
+      closed: { icon: getStatusIcon('closed'), color: 'testing.iconPassed' },
     };
     const config = iconConfig[status] || { icon: 'folder', color: 'foreground' };
     this.iconPath = new vscode.ThemeIcon(config.icon, new vscode.ThemeColor(config.color));
@@ -97,12 +99,13 @@ export class EpicStatusSectionItem extends vscode.TreeItem {
     const statusDisplay = status.split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
     super(statusDisplay, isCollapsed ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.Expanded);
     this.contextValue = 'epicStatusSection';
+    this.label = `${isCollapsed ? '$(chevron-right)' : '$(chevron-down)'} ${statusDisplay}`;
     this.description = `${epics.length}`;
     const iconConfig: Record<string, { icon: string; color: string }> = {
-      open: { icon: 'circle-outline', color: 'charts.blue' },
-      in_progress: { icon: 'clock', color: 'charts.yellow' },
-      blocked: { icon: 'error', color: 'errorForeground' },
-      closed: { icon: 'pass', color: 'testing.iconPassed' },
+      open: { icon: getStatusIcon('open'), color: 'charts.blue' },
+      in_progress: { icon: getStatusIcon('in_progress'), color: 'charts.yellow' },
+      blocked: { icon: getStatusIcon('blocked'), color: 'errorForeground' },
+      closed: { icon: getStatusIcon('closed'), color: 'testing.iconPassed' },
     };
     const config = iconConfig[status] || { icon: 'folder', color: 'foreground' };
     this.iconPath = new vscode.ThemeIcon(config.icon, new vscode.ThemeColor(config.color));
@@ -142,6 +145,7 @@ export class UngroupedSectionItem extends vscode.TreeItem {
   constructor(public readonly children: BeadItemData[], isCollapsed: boolean = false) {
     super('Ungrouped', isCollapsed ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.Expanded);
     this.contextValue = 'ungroupedSection';
+    this.label = `${isCollapsed ? '$(chevron-right)' : '$(chevron-down)'} ${t('Ungrouped')}`;
     this.description = `${children.length} item${children.length !== 1 ? 's' : ''}`;
     this.iconPath = new vscode.ThemeIcon('inbox', new vscode.ThemeColor('charts.blue'));
     this.tooltip = `Items without a parent epic: ${children.length}`;
@@ -154,12 +158,14 @@ export class AssigneeSectionItem extends vscode.TreeItem {
     public readonly beads: BeadItemData[],
     public readonly dot: string,
     public readonly colorName: string,
+    public readonly colorId: string,
     isCollapsed: boolean = false,
     public readonly key: string,
   ) {
     const safeLabel = sanitizeInlineText(assignee) || t('Unassigned');
     super(`${dot} ${safeLabel}`, isCollapsed ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.Expanded);
     this.contextValue = 'assigneeSection';
+    this.label = `${isCollapsed ? '$(chevron-right)' : '$(chevron-down)'} ${dot} ${safeLabel}`;
     this.description = `${beads.length}`;
     this.tooltip = `${safeLabel}: ${beads.length} item${beads.length !== 1 ? 's' : ''}`;
     const label = safeLabel;
@@ -167,6 +173,7 @@ export class AssigneeSectionItem extends vscode.TreeItem {
     this.accessibilityInformation = {
       label: t('Assignee {0} — {1}. Color: {2}.', label, countLabel, colorName),
     };
+    this.iconPath = new vscode.ThemeIcon('account', new vscode.ThemeColor(colorId));
   }
 }
 
@@ -201,7 +208,17 @@ export class BeadTreeItem extends vscode.TreeItem {
     const safeAssigneeColor = sanitizeInlineText(assigneeInfo.colorName);
     const safeId = sanitizeInlineText(bead.id) || bead.id;
 
-    const descParts: string[] = [safeId, `${assigneeInfo.dot} ${safeAssigneeDisplay}`, formatStatusLabel(bead.status || 'open')];
+    const statusIcon = getStatusIcon(bead.status || 'open');
+    const priorityValue = (bead as any).priority ?? 2;
+    const priorityIcon = getPriorityIcon(priorityValue);
+    const typeIcon = getIssueTypeIcon(bead.issueType || 'task');
+
+    const descParts: string[] = [
+      safeId,
+      `$(${statusIcon}) ${formatStatusLabel(bead.status || 'open')}`,
+      `$(${priorityIcon}) P${priorityValue}`,
+      `$(person) ${safeAssigneeDisplay}`,
+    ];
     if (isTaskStale && staleInfo) {
       descParts.push(`⚠️ ${staleInfo.formattedTime}`);
     }
@@ -209,14 +226,6 @@ export class BeadTreeItem extends vscode.TreeItem {
     this.description = descParts.join(' · ');
     this.contextValue = 'bead';
 
-    const typeIcons: Record<string, string> = {
-      epic: 'list-tree',
-      task: 'checklist',
-      bug: 'bug',
-      feature: 'sparkle',
-      chore: 'wrench',
-      spike: 'telescope',
-    };
     const statusColors: Record<string, string> = {
       open: 'charts.blue',
       in_progress: isTaskStale ? 'charts.orange' : 'charts.yellow',
@@ -224,16 +233,10 @@ export class BeadTreeItem extends vscode.TreeItem {
       closed: 'testing.iconPassed',
     };
 
-    if (bead.status === 'closed') {
-      const iconName = 'pass';
-      const themeIcon = new vscode.ThemeIcon(iconName, new vscode.ThemeColor(statusColors.closed));
-      this.iconPath = (themeIcon || { id: iconName }) as any;
-    } else {
-      const iconName = typeIcons[bead.issueType || ''] || 'symbol-event';
-      const iconColor = statusColors[bead.status || 'open'] || 'charts.blue';
-      const themeIcon = new vscode.ThemeIcon(iconName, new vscode.ThemeColor(iconColor));
-      this.iconPath = (themeIcon || { id: iconName }) as any;
-    }
+    const iconName = bead.status === 'closed' ? 'pass' : typeIcon;
+    const iconColor = statusColors[bead.status || 'open'] || 'charts.blue';
+    const themeIcon = new vscode.ThemeIcon(iconName, new vscode.ThemeColor(iconColor));
+    this.iconPath = (themeIcon || { id: iconName }) as any;
 
     const tooltip = new vscode.MarkdownString();
     tooltip.isTrusted = false;
