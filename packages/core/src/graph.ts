@@ -36,6 +36,8 @@ export interface DependencyNeighbor {
   type: DependencyType;
   direction: DependencyDirection;
   missing?: boolean;
+  externalReferenceId?: string;
+  externalReferenceDescription?: string;
 }
 
 export interface DependencyTreeNode extends DependencyNeighbor {
@@ -145,6 +147,8 @@ function linksToNeighbors(
       type: link.type,
       direction,
       missing: !match,
+      externalReferenceId: match?.externalReferenceId,
+      externalReferenceDescription: match?.externalReferenceDescription,
     });
   }
 
@@ -187,6 +191,8 @@ function buildBranch(
       type: link.type,
       direction,
       missing: !match,
+      externalReferenceId: match?.externalReferenceId,
+      externalReferenceDescription: match?.externalReferenceDescription,
       children: [],
     };
 

@@ -4,6 +4,16 @@ import { escapeHtml } from '../../utils';
 
 const t = vscode.l10n.t;
 
+function isHttpUrl(input: string | undefined): boolean {
+  if (!input) return false;
+  try {
+    const url = new URL(input);
+    return url.protocol === 'https:' || url.protocol === 'http:';
+  } catch {
+    return false;
+  }
+}
+
 export const statusColors: Record<string, string> = {
   open: '#3794ff',
   in_progress: '#f9c513',
@@ -35,6 +45,9 @@ export const renderBranch = (
       const color = statusColors[node.status || 'open'] || statusColors.open;
       const statusLabel = getStatusLabel(node.status, strings) || strings.statusLabels.open;
       const safeType = escapeHtml(node.type);
+      const hasExternal = isHttpUrl(node.externalReferenceId);
+      const linkLabel = hasExternal ? (node.externalReferenceDescription || node.externalReferenceId || node.id) : node.id;
+      const linkTitle = hasExternal ? node.externalReferenceId : node.id;
       const ariaLabelParts = [
         `${escapeHtml(node.id)}`,
         node.title ? escapeHtml(node.title) : '',
@@ -48,7 +61,7 @@ export const renderBranch = (
             <div class="tree-left">
               <span class="status-dot" aria-hidden="true" style="background-color:${color};"></span>
               <span class="status-label">${escapeHtml(statusLabel)}</span>
-              <span class="tree-id" style="cursor: pointer; text-decoration: underline;" onclick="openBead('${escapeHtml(node.id)}')">${escapeHtml(node.id)}</span>
+              <a class="tree-id dep-link" href="#" data-bead-id="${hasExternal ? '' : escapeHtml(node.id)}" data-url="${hasExternal ? escapeHtml(node.externalReferenceId!) : ''}" title="${escapeHtml(linkTitle)}" onclick="handleDepLink(event)">${escapeHtml(linkLabel)}</a>
               <span class="tree-title">${escapeHtml(node.title || '')}</span>
               <span class="dep-type dep-${safeType}">${safeType}</span>
               ${node.missing ? `<span class="missing-pill">${escapeHtml(strings.missingDependencyLabel)}</span>` : ''}

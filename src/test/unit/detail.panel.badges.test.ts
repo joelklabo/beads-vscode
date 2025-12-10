@@ -90,7 +90,8 @@ describe('detail panel badges and dependency affordance', () => {
         id: 'BD-12',
         title: 'Downstream follow-up',
         status: 'blocked',
-        raw: { dependencies: [{ id: 'BD-10', dep_type: 'blocks' }] },
+        externalReferenceId: 'https://example.com/BD-12',
+        raw: { dependencies: [{ id: 'BD-10', dep_type: 'blocks' }], external_reference_id: 'https://example.com/BD-12' },
       };
 
       const html = getBeadDetailHtml(
@@ -110,6 +111,8 @@ describe('detail panel badges and dependency affordance', () => {
       assert.ok(html.includes('data-direction="upstream"'), 'upstream branch missing');
       assert.ok(html.includes('data-direction="downstream"'), 'downstream branch missing');
       assert.ok(html.includes('tree-direction-label'), 'dependency section affordance missing');
+      assert.ok(html.includes('data-url="https://example.com/BD-12"'), 'dependency link should carry external url');
+      assert.ok(html.includes('openExternalUrl'), 'external link handler should post openExternalUrl');
     });
   });
 });
