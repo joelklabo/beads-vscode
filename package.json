@@ -820,6 +820,7 @@
     "vscode:prepublish": "npm run typecheck && npm run bundle",
     "typecheck": "tsc --noEmit",
     "compile": "tsc -b packages/platform-vscode/tsconfig.json",
+    "viz:webviews": "npm run compile && node scripts/visual/webviews.js",
     "bundle:types": "npm run build:core && tsc -p packages/platform-vscode/tsconfig.json --emitDeclarationOnly --outDir dist",
     "bundle": "npm run bundle:types && tsx scripts/esbuild.extension.ts",
     "audit:bundle": "npm run bundle && node scripts/audit-bundle.js",
@@ -860,6 +861,7 @@
     "check:vsix-size": "node scripts/check-vsix-size.js"
   },
   "devDependencies": {
+    "playwright": "^1.42.0",
     "@beads/bd": "^0.29.0",
     "@types/glob": "^8.1.0",
     "@types/mocha": "^10.0.6",
