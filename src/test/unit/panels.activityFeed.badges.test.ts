@@ -107,6 +107,15 @@ describe('activity feed panel badges', () => {
             actor: 'Avery',
             createdAt: eventTime,
             issueType: 'feature',
+          }, {
+            issueId: 'b-3',
+            issueTitle: 'Blocked badge',
+            iconName: 'flame',
+            colorClass: 'event-warning',
+            description: 'blocked work',
+            actor: 'Riley',
+            createdAt: eventTime,
+            issueType: 'bug',
           }],
           totalCount: 1,
           hasMore: false,
@@ -121,6 +130,8 @@ describe('activity feed panel badges', () => {
       assert.ok(html.includes('bead-chip status status-in_progress'), 'status chip missing');
       assert.ok(html.includes('bead-chip type type-feature'), 'type chip missing');
       assert.ok(html.includes('timeline-dot pulsing'), 'in_progress pulse class missing');
+      assert.ok(html.includes('bead-chip type type-bug'), 'second event type chip missing');
+      assert.ok(html.match(/timeline-dot/g)?.length === 2, 'should render timeline dots per event');
     });
   });
 });

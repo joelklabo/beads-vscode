@@ -111,6 +111,8 @@ describe('in-progress panel badges', () => {
       assert.ok(html.includes('bead-chip priority priority-1'), 'priority chip missing');
       assert.ok(html.includes('bead-chip type type-feature'), 'type chip missing');
       assert.ok(html.includes('status-in_progress') && html.includes('pulsing'), 'in_progress pulse missing');
+      assert.ok(html.includes('bead-chip assignee'), 'assignee chip missing');
+      assert.ok(html.includes('meta-item subtle'), 'metrics row should include meta items');
     });
   });
 });
