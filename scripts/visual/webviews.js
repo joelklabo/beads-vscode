@@ -63,6 +63,7 @@ Module._load = (request, parent, isMain) => {
 const { getBeadDetailHtml } = require(outPath('views/detail/html.js'));
 const { getInProgressPanelHtml, buildInProgressPanelStrings } = require(outPath('views/inProgress/html.js'));
 const { getActivityFeedPanelHtml } = require(outPath('views/activityFeed/html.js'));
+const { getIssuesHtml } = require(outPath('views/issues/html.js'));
 const { buildSharedStyles } = require(outPath('views/shared/theme.js'));
 const { buildBeadDetailStrings, getStatusLabels } = require(outPath('providers/beads/treeDataProvider.js'));
 const { buildDependencyTrees } = require(outPath('utils/graph.js'));
@@ -164,6 +165,30 @@ function buildActivityFeedHtml() {
   }, 'en');
 }
 
+function buildIssuesHtml() {
+  const config = {
+    showClosed: true,
+    sortMode: 'status',
+  };
+  const payload = {
+    type: 'update',
+    beads: sampleBeads,
+    sortMode: 'status',
+  };
+  const messageJson = JSON.stringify(payload).replace(/"/g, '&quot;');
+  return getIssuesHtml({
+    webview: {
+      asWebviewUri: (u) => u,
+      cspSource: 'http://localhost',
+      onDidReceiveMessage: () => ({ dispose() {} }),
+      postMessage: () => undefined,
+      html: '',
+    },
+    state: config,
+    initialMessageJson: messageJson,
+  });
+}
+
 async function capture(html, name) {
   const browser = await chromium.launch({ headless: true });
   const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
@@ -182,6 +207,7 @@ async function main() {
   await capture(buildDetailHtml(), 'detail');
   await capture(buildInProgressHtml(), 'in-progress');
   await capture(buildActivityFeedHtml(), 'activity-feed');
+  await capture(buildIssuesHtml(), 'issues');
 }
 
 main()

@@ -32,18 +32,33 @@ const vscodeStub = {
   l10n: { t: (message: string, ...args: any[]) => message.replace(/\{(\d+)\}/g, (_m, i) => String(args[Number(i)] ?? `{${i}}`)) },
 };
 
-const originalLoad = (Module as any)._load;
-(Module as any)._load = function (request: string, parent: any) {
-  if (request === 'vscode') return vscodeStub;
-  return originalLoad(request, parent);
-};
-
-import { openInProgressPanel } from '../../views/panels/inProgressPanel';
-import { openActivityFeedPanel } from '../../views/panels/activityFeedPanel';
-import { BeadItemData } from '../../utils';
+let openInProgressPanel: any;
+let openActivityFeedPanel: any;
+let BeadItemData: any;
+let restoreLoad: any;
 
 describe('view panel helpers', () => {
-  after(() => { (Module as any)._load = originalLoad; });
+  beforeEach(() => {
+    const moduleAny = Module as any;
+    restoreLoad = moduleAny._load;
+    moduleAny._load = function (request: string, parent: any) {
+      if (request === 'vscode') return vscodeStub;
+      return restoreLoad(request, parent);
+    };
+
+    delete require.cache[require.resolve('../../views/panels/inProgressPanel')];
+    delete require.cache[require.resolve('../../views/panels/activityFeedPanel')];
+    delete require.cache[require.resolve('../../utils')];
+
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    openInProgressPanel = require('../../views/panels/inProgressPanel').openInProgressPanel;
+    openActivityFeedPanel = require('../../views/panels/activityFeedPanel').openActivityFeedPanel;
+    BeadItemData = require('../../utils').BeadItemData;
+  });
+
+  afterEach(() => {
+    (Module as any)._load = restoreLoad;
+  });
 
   it('openInProgressPanel wires openBead message', async () => {
     webviewHandlers.length = 0;

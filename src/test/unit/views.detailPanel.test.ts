@@ -48,42 +48,49 @@ const vscodeStub = {
   ThemeIcon: class { constructor(public id: string) {} },
 };
 
-const moduleLoad = (Module as any)._load;
-(Module as any)._load = function (request: string, parent: any, isMain: boolean) {
-  if (request === 'vscode') return vscodeStub;
-  if (request.includes('services/cliService')) return { runBdCommand: async () => undefined };
-  if (request.includes('providers/beads/treeDataProvider')) return {
-    BeadsTreeDataProvider: class {},
-    buildBeadDetailStrings: () => ({} as any),
-    getStatusLabels: () => ({} as any),
-  };
-  if (request.includes('views/detail/html')) return { getBeadDetailHtml: () => '<html nonce=\"nonce\"></html>' };
-  if (request.includes('providers/beads/items')) return { BeadTreeItem: class {}, EpicTreeItem: class {} };
-  if (request.includes('commands/dependencies')) return { addDependencyCommand: async () => undefined, removeDependencyCommand: async () => undefined };
-  if (request === '../../commands' || request.endsWith('/commands')) return { editAssignee: async () => undefined };
-  return moduleLoad(request, parent, isMain);
-};
-
-
 let openBeadPanel: any;
 let openBeadFromFeed: any;
 let BeadItemData: any;
+let restoreLoad: any;
 
 describe('detail panel helper', () => {
-  after(() => { (Module as any)._load = moduleLoad; });
-
   beforeEach(() => {
+    const moduleAny = Module as any;
+    restoreLoad = moduleAny._load;
+    moduleAny._load = function (request: string, parent: any, isMain: boolean) {
+      if (request === 'vscode') return vscodeStub;
+      if (request.includes('services/cliService')) return { runBdCommand: async () => undefined };
+      if (request.includes('providers/beads/treeDataProvider')) return {
+        BeadsTreeDataProvider: class {},
+        buildBeadDetailStrings: () => ({} as any),
+        getStatusLabels: () => ({} as any),
+      };
+      if (request.includes('views/detail/html')) return { getBeadDetailHtml: () => '<html nonce="nonce"></html>' };
+      if (request.includes('providers/beads/items')) return { BeadTreeItem: class {}, EpicTreeItem: class {} };
+      if (request.includes('commands/dependencies')) return { addDependencyCommand: async () => undefined, removeDependencyCommand: async () => undefined };
+      if (request === '../../commands') return { editAssignee: async () => undefined };
+      return restoreLoad(request, parent, isMain);
+    };
+
+    // fresh modules for each test
+    delete require.cache[require.resolve('../../views/detail/html')];
+    delete require.cache[require.resolve('../../views/detail/panel')];
+    delete require.cache[require.resolve('../../utils')];
+
     webviewHandlers.length = 0;
     createdPanels.length = 0;
     warnings.length = 0;
-    if (!openBeadPanel) {
-      const htmlPath = require.resolve('../../views/detail/html');
-      require.cache[htmlPath] = { exports: { getBeadDetailHtml: () => '<html nonce="nonce"></html>' } } as any;
-      const panel = require('../../views/detail/panel');
-      openBeadPanel = panel.openBeadPanel;
-      openBeadFromFeed = panel.openBeadFromFeed;
-      BeadItemData = require('../../utils').BeadItemData;
-    }
+
+    const htmlPath = require.resolve('../../views/detail/html');
+    require.cache[htmlPath] = { exports: { getBeadDetailHtml: () => '<html nonce="nonce"></html>' } } as any;
+    const panel = require('../../views/detail/panel');
+    openBeadPanel = panel.openBeadPanel;
+    openBeadFromFeed = panel.openBeadFromFeed;
+    BeadItemData = require('../../utils').BeadItemData;
+  });
+
+  afterEach(() => {
+    (Module as any)._load = restoreLoad;
   });
 
   it('renders detail html with nonce and registers panel', async () => {
