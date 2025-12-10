@@ -1,114 +1,27 @@
 import * as vscode from 'vscode';
-import {
-  BeadItemData,
-  formatError,
-  formatSafeError,
-  sanitizeErrorMessage,
-  sanitizeInlineText,
-  escapeHtml,
-  isStale,
-  validateDependencyAdd,
-  sanitizeDependencyId,
-  collectCliErrorOutput,
-  validateStatusChange,
-  formatStatusLabel,
-  compareStatus,
-  buildBulkSelection,
-  executeBulkStatusUpdate,
-  executeBulkLabelUpdate,
-  summarizeBulkResult,
-  BulkLabelAction,
-  BulkOperationFailure,
-  BulkOperationResult,
-  getFavoriteLabel,
-  getLocalFavorites,
-  saveLocalFavorites,
-  sanitizeFavoriteLabel,
-  isValidFavoriteLabel,
-  validateFavoriteTargets,
-  sanitizeFavoriteError,
-  syncFavoritesState,
-  validateTitleInput,
-  validateLabelInput,
-  validateStatusInput,
-  validateAssigneeInput,
-  collectDependencyEdges,
-  QuickFilterPreset,
-  applyQuickFilter,
-  toggleQuickFilter,
-  normalizeQuickFilter,
-  deriveAssigneeName,
-} from './utils';
-import { ActivityFeedTreeDataProvider, ActivityEventItem } from './activityFeedProvider';
-import { EventType } from './activityFeed';
-import { validateLittleGlenMessage, AllowedLittleGlenCommand } from './littleGlen/validation';
-import {
-  AssigneeSectionItem,
-  BeadTreeItem,
-  BeadDetailItem,
-  EpicTreeItem,
-  StatusSectionItem,
-  SummaryHeaderItem,
-  UngroupedSectionItem,
-  WarningSectionItem,
-  EpicStatusSectionItem,
-  getAssigneeInfo,
-} from './providers/beads/items';
-import {
-  BeadsDocument,
-  BeadsStore,
-  BeadsStoreSnapshot,
-  WorkspaceTarget,
-  WatcherManager,
-  createBeadsStore,
-  createWorkspaceTarget,
-  createVsCodeWatchAdapter,
-  findBdCommand,
-  naturalSort,
-  saveBeadsDocument,
-} from './providers/beads/store';
-import { resolveProjectRoot, getWorkspaceOptions, findWorkspaceById, loadSavedWorkspaceSelection, saveWorkspaceSelection } from './utils/workspace';
-import { computeFeedbackEnablement } from './feedback/enablement';
-import { getBulkActionsConfig } from './utils/config';
-import { registerSendFeedbackCommand } from './commands/sendFeedback';
-import {
-  CommandRegistry,
-  createExportCommands,
-  createQuickFilterCommands,
-  bulkUpdateStatus,
-  bulkUpdateLabel,
-  toggleFavorites,
-  inlineEditTitle,
-  inlineEditLabels,
-  inlineStatusQuickChange,
-  editAssignee,
-  selectWorkspace,
-} from './commands';
-import { DependencyTreeProvider } from './dependencyTreeProvider';
-import { BeadsWebviewProvider } from './providers/beads/webview';
-import { BeadsTreeDataProvider, TreeItemType, getStatusLabels, buildBeadDetailStrings } from './providers/beads/treeDataProvider';
-import { currentWorktreeId } from './worktree';
-import { warnIfDependencyEditingUnsupported } from './services/runtimeEnvironment';
-import { BdCommandOptions, formatBdError, resolveBeadId, runBdCommand } from './services/cliService';
-import { registerChatParticipants } from './chatAgents';
-import { BeadDetailStrings, StatusLabelMap } from './views/detail/types';
+import { ActivityFeedTreeDataProvider } from './activityFeedProvider';
+import { BeadsTreeDataProvider } from './providers/beads/treeDataProvider';
+import { BeadTreeItem, EpicTreeItem, UngroupedSectionItem } from './providers/beads/items';
+import { WatcherManager, createVsCodeWatchAdapter, findBdCommand } from './providers/beads/store';
 import { createDependencyGraphView } from './views/graph';
-import type { GraphEdgeData } from './utils/graph';
 import { openActivityFeedPanel } from './views/panels/activityFeedPanel';
 import { openInProgressPanel } from './views/panels/inProgressPanel';
 import { openBeadPanel, openBeadFromFeed as openBeadFromFeedPanel } from './views/detail/panel';
 import { setupProviders, setupActivityFeed, registerCommands, setupConfigurationWatchers } from './activation';
-
-type DependencyEdge = GraphEdgeData;
+import { addDependencyCommand, removeDependencyCommand } from './commands/dependencies';
+import {
+  bulkUpdateLabel,
+  bulkUpdateStatus,
+  inlineEditLabels,
+  inlineEditTitle,
+  inlineStatusQuickChange,
+  toggleFavorites,
+} from './commands';
+import { currentWorktreeId } from './worktree';
+import { formatBdError, resolveBeadId, runBdCommand } from './services/cliService';
+import { BeadItemData, collectDependencyEdges, deriveAssigneeName, formatSafeError } from './utils';
 
 const t = vscode.l10n.t;
-const INVALID_ID_MESSAGE = t('Issue ids must contain only letters, numbers, ._- and be under 64 characters.');
-
-
-function createNonce(): string {
-  return Math.random().toString(36).slice(2, 15) + Math.random().toString(36).slice(2, 15);
-}
-
 
 function resolveCommandItem(item: any, provider: BeadsTreeDataProvider): BeadItemData | undefined {
   if (!item) { return undefined; }
@@ -197,28 +110,6 @@ const openBeadFromFeed = (
   opener: (item: BeadItemData, provider: BeadsTreeDataProvider) => Promise<void> = openBead
 ): Promise<boolean> => openBeadFromFeedPanel(issueId, beadsProvider, opener);
 
-async function createBead(): Promise<void> {
-  const name = await vscode.window.showInputBox({
-    prompt: t('Enter a title for the new bead'),
-    placeHolder: t('Implement feature X'),
-  });
-
-  if (!name) {
-    return;
-  }
-
-  const config = vscode.workspace.getConfiguration('beady');
-  const projectRoot = resolveProjectRoot(config);
-
-  try {
-    await runBdCommand(['create', name], projectRoot!);
-    void vscode.commands.executeCommand('beady.refresh');
-    void vscode.window.showInformationMessage(t('Created bead: {0}', name));
-  } catch (error) {
-    void vscode.window.showErrorMessage(formatError(t('Failed to create bead'), error));
-  }
-}
-
 async function pickBeadQuick(
   items: BeadItemData[] | undefined,
   placeHolder: string,
@@ -242,128 +133,16 @@ async function pickBeadQuick(
   return selection?.bead;
 }
 
-async function addDependencyCommand(
-  provider: BeadsTreeDataProvider,
-  sourceItem?: BeadItemData,
-  edge?: { sourceId?: string; targetId?: string }
-): Promise<void> {
-  const config = vscode.workspace.getConfiguration('beady');
-  const dependencyEditingEnabled = config.get<boolean>('enableDependencyEditing', false);
-  if (!dependencyEditingEnabled) {
-    void vscode.window.showWarningMessage(t('Enable dependency editing in settings to add dependencies.'));
-    return;
-  }
-
-  const items = (provider as any)['items'] as BeadItemData[] | undefined;
-  const safeEdgeSource = edge?.sourceId ? sanitizeDependencyId(edge.sourceId) : undefined;
-  const safeEdgeTarget = edge?.targetId ? sanitizeDependencyId(edge.targetId) : undefined;
-
-  if ((edge?.sourceId && !safeEdgeSource) || (edge?.targetId && !safeEdgeTarget)) {
-    void vscode.window.showWarningMessage(INVALID_ID_MESSAGE);
-    return;
-  }
-
-  const source =
-    sourceItem ??
-    (safeEdgeSource ? items?.find((i) => i.id === safeEdgeSource) : undefined) ??
-    (await pickBeadQuick(items, t('Select the issue that depends on another item')));
-
-  if (!source) {
-    return;
-  }
-
-  const target = safeEdgeTarget
-    ? items?.find((i) => i.id === safeEdgeTarget)
-    : await pickBeadQuick(items, t('Select the issue {0} depends on', source.id), source.id);
-
-  if (!target) {
-    return;
-  }
-
-  const safeSourceId = sanitizeDependencyId(source.id);
-  const safeTargetId = sanitizeDependencyId(target.id);
-  if (!safeSourceId || !safeTargetId) {
-    void vscode.window.showWarningMessage(INVALID_ID_MESSAGE);
-    return;
-  }
-
-  const validationError = validateDependencyAdd(items ?? [], safeSourceId, safeTargetId);
-  if (validationError) {
-    void vscode.window.showWarningMessage(t(validationError));
-    return;
-  }
-
-  await provider.addDependency(source, safeTargetId);
-}
-
-async function removeDependencyCommand(provider: BeadsTreeDataProvider, edge?: DependencyEdge, options?: { contextId?: string }): Promise<void> {
-  const config = vscode.workspace.getConfiguration('beady');
-  const dependencyEditingEnabled = config.get<boolean>('enableDependencyEditing', false);
-  if (!dependencyEditingEnabled) {
-    void vscode.window.showWarningMessage(t('Enable dependency editing in settings to remove dependencies.'));
-    return;
-  }
-
-  const items = (provider as any)['items'] as BeadItemData[] | undefined;
-  const safeContextId = options?.contextId ? sanitizeDependencyId(options.contextId) : undefined;
-  if (options?.contextId && !safeContextId) {
-    void vscode.window.showWarningMessage(INVALID_ID_MESSAGE);
-    return;
-  }
-
-  const edges = collectDependencyEdges(items);
-  const scopedEdges = safeContextId
-    ? edges.filter((e) => e.sourceId === safeContextId || e.targetId === safeContextId)
-    : edges;
-
-  let selectedEdge = edge;
-  if (selectedEdge) {
-    const safeProvidedSource = sanitizeDependencyId(selectedEdge.sourceId);
-    const safeProvidedTarget = sanitizeDependencyId(selectedEdge.targetId);
-    if (!safeProvidedSource || !safeProvidedTarget) {
-      void vscode.window.showWarningMessage(INVALID_ID_MESSAGE);
-      return;
-    }
-    selectedEdge = { ...selectedEdge, sourceId: safeProvidedSource, targetId: safeProvidedTarget };
-  }
-
-  if (!selectedEdge) {
-    if (scopedEdges.length === 0) {
-      void vscode.window.showWarningMessage(t('No dependencies available to remove.'));
-      return;
-    }
-
-    const picks = scopedEdges.map((e) => ({
-      label: `${e.sourceId} → ${e.targetId}`,
-      description: e.type,
-      detail: [e.sourceTitle, e.targetTitle].filter((v) => v && v.length > 0).join(' → '),
-      edge: e,
-    }));
-
-    const selection = await vscode.window.showQuickPick(picks, { placeHolder: t('Select a dependency to remove') });
-    if (!selection) {
-      return;
-    }
-    selectedEdge = selection.edge;
-  }
-
-  if (!selectedEdge) {
-    return;
-  }
-
-  await provider.removeDependency(selectedEdge.sourceId, selectedEdge.targetId);
-}
-
 async function visualizeDependencies(provider: BeadsTreeDataProvider): Promise<void> {
   createDependencyGraphView({
     getItems: () => provider['items'] as BeadItemData[],
     openBead: async (bead) => openBead(bead, provider),
     addDependency: async (sourceId, targetId) => {
-      await addDependencyCommand(provider, undefined, { sourceId, targetId });
+      await addDependencyCommand(provider as any, undefined, { sourceId, targetId });
     },
     removeDependency: async (sourceId, targetId, contextId) => {
       await removeDependencyCommand(
-        provider,
+        provider as any,
         sourceId && targetId ? { sourceId, targetId } : undefined,
         { contextId }
       );
@@ -385,8 +164,10 @@ export {
   toggleFavorites,
   runBdCommand,
   findBdCommand,
-  collectDependencyEdges,
+  formatBdError,
+  resolveBeadId,
   addDependencyCommand,
+  collectDependencyEdges,
   inlineStatusQuickChange,
   inlineEditTitle,
   inlineEditLabels,
