@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import type { EventData } from '../../activityFeed';
-import { buildSharedStyles, getIssueTypeToken, getStatusToken } from '../shared/theme';
+import { buildSharedStyles, getIssueTypeToken, getStatusToken, PULSE_ANIMATION_NAME } from '../shared/theme';
 import { escapeHtml } from '../../utils';
 
 const t = vscode.l10n.t;
@@ -53,7 +53,7 @@ export function getActivityFeedPanelHtml(events: EventData[], strings: ActivityF
 
     return `
       <div class="event-card" data-issue-id="${escapeHtml(event.issueId)}">
-        <div class="timeline-dot" style="background-color: ${statusToken.color};">
+        <div class="timeline-dot ${statusToken.pulsing ? 'pulsing' : ''}" style="background-color: ${statusToken.color};">
           <span class="codicon ${iconClass}"></span>
         </div>
         <div class="event-content">
@@ -175,6 +175,9 @@ export function getActivityFeedPanelHtml(events: EventData[], strings: ActivityF
             justify-content: center;
             font-size: 12px;
             border: 2px solid var(--vscode-editor-background);
+        }
+        .timeline-dot.pulsing {
+            animation: ${PULSE_ANIMATION_NAME} 1.6s ease-out infinite;
         }
         .timeline-dot .codicon { color: var(--vscode-editor-background); filter: drop-shadow(0 0 4px rgba(0,0,0,0.25)); }
 
