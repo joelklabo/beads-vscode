@@ -66,6 +66,7 @@ const { getActivityFeedPanelHtml } = require(outPath('views/activityFeed/html.js
 const { buildSharedStyles } = require(outPath('views/shared/theme.js'));
 const { buildBeadDetailStrings, getStatusLabels } = require(outPath('providers/beads/treeDataProvider.js'));
 const { buildDependencyTrees } = require(outPath('utils/graph.js'));
+const issuesBundle = fs.readFileSync(outPath('views/issues/index.js'), 'utf8');
 
 // Fixture data
 const sampleBeads = [
@@ -176,12 +177,52 @@ async function capture(html, name) {
   console.log(`Saved ${file}`);
 }
 
+async function captureIssues() {
+  const browser = await chromium.launch({ headless: true });
+  const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  const codicons = 'https://microsoft.github.io/vscode-codicons/dist/codicon.css';
+  const html = `
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="${codicons}">
+    <style>${buildSharedStyles()}</style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script>
+      window.vscode = {
+        postMessage: () => {},
+        getState: () => null,
+        setState: () => {}
+      };
+    </script>
+    <script>${issuesBundle}</script>
+  </body>
+</html>`;
+
+  await page.setContent(html, { waitUntil: 'networkidle' });
+  const payload = { type: 'update', beads: sampleBeads, sortMode: 'status' };
+  await page.evaluate((data) => {
+    window.dispatchEvent(new MessageEvent('message', { data }));
+  }, payload);
+
+  const outDir = path.join(repoRoot, 'tmp', 'webview-visual');
+  fs.mkdirSync(outDir, { recursive: true });
+  const file = path.join(outDir, 'issues.png');
+  await page.screenshot({ path: file, fullPage: true });
+  await browser.close();
+  console.log(`Saved ${file}`);
+}
+
 async function main() {
   // Prime dependency trees (detail HTML needs them)
   buildDependencyTrees(sampleBeads, sampleBeads[0].id);
   await capture(buildDetailHtml(), 'detail');
   await capture(buildInProgressHtml(), 'in-progress');
   await capture(buildActivityFeedHtml(), 'activity-feed');
+  await captureIssues();
 }
 
 main()
