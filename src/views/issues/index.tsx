@@ -17,6 +17,15 @@ declare global {
 
 const vscode = window.vscode;
 
+const formatSortLabel = (mode: string): string => {
+  switch (mode) {
+    case 'status': return 'Status';
+    case 'assignee': return 'Assignee';
+    case 'epic': return 'Epic';
+    default: return 'ID';
+  }
+};
+
 const Section: React.FC<{ 
   title: string; 
   count: number; 
@@ -57,9 +66,14 @@ const Section: React.FC<{
 
 const App: React.FC = () => {
   const [beads, setBeads] = useState<BeadViewModel[]>([]);
-  const [sortMode, setSortMode] = useState<string>('id');
-  const [compact, setCompact] = useState(false);
+  const [sortMode, setSortMode] = useState<string>(() => (vscode.getState?.()?.sortMode ?? 'id'));
+  const [compact, setCompact] = useState<boolean>(() => (vscode.getState?.()?.compact ?? false));
   const [loading, setLoading] = useState(true);
+
+  const persistState = (partial: Partial<{ compact: boolean; sortMode: string }>) => {
+    const current = vscode.getState?.() ?? {};
+    vscode.setState?.({ ...current, ...partial });
+  };
 
   useEffect(() => {
     console.log('Beads Issues View mounted');
@@ -69,7 +83,8 @@ const App: React.FC = () => {
       if (message.type === 'update') {
         setBeads(message.beads);
         if (message.sortMode) {
-          setSortMode(message.sortMode);
+            setSortMode(message.sortMode);
+            persistState({ sortMode: message.sortMode });
         }
         setLoading(false);
       }
@@ -87,6 +102,14 @@ const App: React.FC = () => {
 
   const handleSort = () => {
     vscode.postMessage({ command: 'pickSort' } as any);
+  };
+
+  const handleToggleCompact = () => {
+    setCompact(prev => {
+      const next = !prev;
+      persistState({ compact: next });
+      return next;
+    });
   };
 
   const renderSection = (title: string, items: BeadViewModel[], icon: string, className: string = '', defaultCollapsed = false) => {
@@ -188,11 +211,11 @@ const App: React.FC = () => {
   return (
     <div className="bead-view">
       <div className="bead-view-header">
-        <span className="bead-count">{beads.length} tasks</span>
+        <span className="bead-count">{beads.length} tasks • Sort: {formatSortLabel(sortMode)}</span>
         <div className="bead-actions">
           <button 
             className={`icon-button ${compact ? 'active' : ''}`} 
-            onClick={() => setCompact(!compact)} 
+            onClick={handleToggleCompact} 
             title={compact ? "Switch to Detailed View" : "Switch to Compact View"}
           >
             <span className="codicon codicon-list-flat" />

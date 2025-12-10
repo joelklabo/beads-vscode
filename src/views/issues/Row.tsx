@@ -1,6 +1,6 @@
 import React from 'react';
 import { BeadViewModel } from './types';
-import { getAssigneeToken, getIssueTypeToken, getPriorityToken, getStatusToken } from '../shared/theme';
+import { getAssigneeToken, getIssueTypeToken, getPriorityToken, getStatusToken, chipClass, DensityScale } from '../shared/theme';
 
 interface RowProps {
   bead: BeadViewModel;
@@ -15,11 +15,12 @@ export const Row: React.FC<RowProps> = ({ bead, onClick, compact }) => {
     preventDefaultContextMenuItems: true
   });
 
+  const density: DensityScale = compact ? 'compact' : 'default';
+  const chipBase = chipClass(density);
   const statusToken = getStatusToken(bead.status);
   const priorityToken = getPriorityToken(bead.priority);
   const issueTypeToken = getIssueTypeToken((bead as any)?.issueType);
   const assigneeToken = bead.assignee ? getAssigneeToken(bead.assignee.color) : undefined;
-  const chipSize = compact ? 'sm' : '';
 
   return (
     <div 
@@ -40,19 +41,20 @@ export const Row: React.FC<RowProps> = ({ bead, onClick, compact }) => {
       <div className="bead-content-column">
         <div className="bead-primary-line">
           <span className="bead-title" title={bead.title}>{bead.title}</span>
-          <span className="bead-time" title={new Date(bead.updatedAt).toLocaleString()}>
-            {formatRelativeTime(bead.updatedAt)}
-          </span>
+          <div className="bead-primary-meta">
+            <span className={`${chipBase} id`} aria-label={`Task ${bead.id}`}>
+              <span className="codicon codicon-tag" aria-hidden="true" />
+              <span className="chip-label">{bead.id}</span>
+            </span>
+            <span className="bead-time" title={new Date(bead.updatedAt).toLocaleString()}>
+              {formatRelativeTime(bead.updatedAt)}
+            </span>
+          </div>
         </div>
         
         <div className="bead-secondary-line">
-          <span className={`bead-chip id ${chipSize}`} aria-label={`Task ${bead.id}`}>
-            <span className="codicon codicon-tag" aria-hidden="true" />
-            <span className="chip-label">{bead.id}</span>
-          </span>
-
           <span 
-            className={`bead-chip status status-${statusToken.id} ${statusToken.pulsing ? 'pulsing' : ''} ${chipSize}`} 
+            className={`${chipBase} status status-${statusToken.id} ${statusToken.pulsing ? 'pulsing' : ''}`} 
             aria-label={`Status ${statusToken.label}`}
           >
             <span className={`codicon codicon-${statusToken.icon}`} aria-hidden="true" />
@@ -60,7 +62,7 @@ export const Row: React.FC<RowProps> = ({ bead, onClick, compact }) => {
           </span>
 
           <span 
-            className={`bead-chip type type-${issueTypeToken.id} ${chipSize}`} 
+            className={`${chipBase} type type-${issueTypeToken.id}`} 
             aria-label={`Type ${issueTypeToken.label}`}
           >
             <span className={`codicon codicon-${issueTypeToken.icon}`} aria-hidden="true" />
@@ -68,7 +70,7 @@ export const Row: React.FC<RowProps> = ({ bead, onClick, compact }) => {
           </span>
 
           <span 
-            className={`bead-chip priority priority-${priorityToken.id} ${chipSize}`} 
+            className={`${chipBase} priority priority-${priorityToken.id}`} 
             aria-label={`Priority ${priorityToken.label}`}
           >
             <span className={`codicon codicon-${priorityToken.icon}`} aria-hidden="true" />
@@ -77,7 +79,7 @@ export const Row: React.FC<RowProps> = ({ bead, onClick, compact }) => {
 
           {assigneeToken && (
             <span
-              className={`bead-chip assignee ${chipSize}`}
+              className={`${chipBase} assignee`}
               aria-label={`Assignee ${bead.assignee?.name}`}
               style={
                 {
@@ -92,14 +94,6 @@ export const Row: React.FC<RowProps> = ({ bead, onClick, compact }) => {
             </span>
           )}
         </div>
-
-        {!compact && bead.labels.length > 0 && (
-          <div className="bead-tertiary-line">
-            {bead.labels.map(label => (
-              <span key={label} className="bead-label">{label}</span>
-            ))}
-          </div>
-        )}
       </div>
     </div>
   );

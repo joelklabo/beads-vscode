@@ -16,9 +16,17 @@ body {
   --bead-chip-radius: 999px;
   --bead-chip-font: var(--vscode-font-family);
   --bead-chip-font-size: 11px;
+  --bead-chip-font-size-compact: 10px;
   --bead-chip-padding-y: 2px;
   --bead-chip-padding-x: 8px;
+  --bead-chip-padding-y-compact: 1px;
+  --bead-chip-padding-x-compact: 6px;
   --bead-chip-gap: 6px;
+  --bead-chip-gap-compact: 4px;
+  --bead-chip-height: 22px;
+  --bead-chip-height-compact: 20px;
+  --bead-chip-codicon-size: 12px;
+  --bead-chip-codicon-size-compact: 11px;
   --bead-assignee-color: var(--vscode-charts-blue);
   --bead-assignee-bg: color-mix(in srgb, var(--vscode-charts-blue) 22%, transparent);
 }
@@ -39,7 +47,7 @@ body {
   font-family: var(--bead-chip-font);
   font-size: var(--bead-chip-font-size);
   line-height: 1.2;
-  min-height: 20px;
+  height: var(--bead-chip-height);
   white-space: nowrap;
   user-select: none;
   background: color-mix(in srgb, var(--vscode-foreground) 10%, transparent);
@@ -48,19 +56,22 @@ body {
 }
 
 .bead-chip .codicon {
-  font-size: 12px;
+  font-size: var(--bead-chip-codicon-size);
 }
 
 .bead-chip .chip-label {
   line-height: 1;
 }
 
+.bead-chip.compact,
 .bead-chip.sm {
-  padding: 1px 6px;
-  font-size: 10px;
-  gap: 4px;
-  min-height: 18px;
+  padding: var(--bead-chip-padding-y-compact) var(--bead-chip-padding-x-compact);
+  font-size: var(--bead-chip-font-size-compact);
+  gap: var(--bead-chip-gap-compact);
+  height: var(--bead-chip-height-compact);
 }
+.bead-chip.compact .codicon,
+.bead-chip.sm .codicon { font-size: var(--bead-chip-codicon-size-compact); }
 
 .bead-chip.id {
   color: var(--vscode-charts-blue);
@@ -220,15 +231,17 @@ body {
 /* Row */
 .bead-row {
   display: flex;
-  padding: 8px 12px;
+  padding: 6px 12px;
   border-bottom: 1px solid var(--vscode-tree-tableOddRowsBackground); /* Subtle separator */
   cursor: pointer;
-  transition: background-color 0.1s;
+  transition: background-color 0.1s, transform 0.1s, box-shadow 0.1s;
   gap: 12px;
 }
 
 .bead-row:hover {
   background-color: var(--vscode-list-hoverBackground);
+  transform: translateY(-1px);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.18);
 }
 
 .bead-row:focus {
@@ -257,24 +270,33 @@ body {
   min-width: 0; /* Allow truncation */
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
 }
 
 /* Primary Line: Title & Time */
 .bead-primary-line {
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: center;
   gap: 8px;
+  min-width: 0;
 }
 
 .bead-title {
   font-weight: 600;
   font-size: 13px;
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
   color: var(--vscode-foreground);
+}
+
+.bead-primary-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
 }
 
 .bead-time {
@@ -287,12 +309,18 @@ body {
 .bead-secondary-line {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   font-size: 11px;
   color: var(--vscode-descriptionForeground);
-  flex-wrap: wrap;
-  line-height: 1;
+  flex-wrap: nowrap;
+  line-height: 1.1;
   margin-top: 1px;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.bead-secondary-line > span {
+  flex-shrink: 0;
 }
 
 .bead-id {
@@ -314,50 +342,7 @@ body {
   line-height: 1;
 }
 
-.bead-status .codicon {
-  font-size: 8px; /* Smaller dot */
-}
-
-/* Tertiary Line: Labels */
-.bead-tertiary-line {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 2px;
-}
-
-.bead-label {
-  font-size: 10px;
-  padding: 1px 6px;
-  border-radius: 10px;
-  background-color: var(--vscode-badge-background);
-  color: var(--vscode-badge-foreground);
-  white-space: nowrap;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Compact Mode */
-.bead-row.compact {
-  padding: 4px 12px;
-  align-items: center;
-}
-
-.bead-row.compact .bead-content-column {
-  flex-direction: row;
-  align-items: center;
-  gap: 8px;
-}
-
-.bead-row.compact .bead-primary-line {
-  flex: 1;
-  margin-bottom: 0;
-}
-
-.bead-row.compact .bead-secondary-line {
-  flex-shrink: 0;
-}
+.bead-status .codicon { font-size: 12px; }
 
 .icon-button.active {
   background-color: var(--vscode-button-background);
