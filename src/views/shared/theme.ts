@@ -1,6 +1,7 @@
 export type StatusId = 'open' | 'in_progress' | 'blocked' | 'closed';
 export type PriorityId = 0 | 1 | 2 | 3;
 export type IssueTypeId = 'epic' | 'feature' | 'bug' | 'task' | 'chore';
+export type AssigneeToken = { label: string; color: string; background: string; icon: string };
 
 export interface StatusToken {
   id: StatusId;
@@ -123,6 +124,12 @@ export const ISSUE_TYPE_TOKENS: Record<IssueTypeId, IssueTypeToken> = {
 };
 
 export const PULSE_ANIMATION_NAME = 'beadPulse';
+const ASSIGNEE_DEFAULT: AssigneeToken = {
+  label: 'Assignee',
+  color: 'var(--vscode-charts-blue)',
+  background: 'color-mix(in srgb, var(--vscode-charts-blue) 22%, transparent)',
+  icon: 'account',
+};
 
 /**
  * Returns a base CSS string that can be injected into any Beady webview.
@@ -136,12 +143,20 @@ export function buildSharedStyles(): string {
   --bead-chip-font-size: 11px;
   --bead-chip-padding-y: 2px;
   --bead-chip-padding-x: 8px;
+  --bead-assignee-color: ${ASSIGNEE_DEFAULT.color};
+  --bead-assignee-bg: ${ASSIGNEE_DEFAULT.background};
 }
 
 @keyframes ${PULSE_ANIMATION_NAME} {
-  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--vscode-charts-yellow) 40%, transparent); }
-  60% { box-shadow: 0 0 0 10px color-mix(in srgb, var(--vscode-charts-yellow) 0%, transparent); }
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--vscode-charts-yellow) 46%, transparent); }
+  65% { box-shadow: 0 0 0 10px color-mix(in srgb, var(--vscode-charts-yellow) 0%, transparent); }
   100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--vscode-charts-yellow) 0%, transparent); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bead-chip.status-in_progress.pulsing {
+    animation: none;
+  }
 }
 
 .bead-chip {
@@ -175,7 +190,7 @@ export function buildSharedStyles(): string {
 }
 
 .bead-chip.status-in_progress.pulsing {
-  animation: ${PULSE_ANIMATION_NAME} 1.8s ease-out infinite;
+  animation: ${PULSE_ANIMATION_NAME} 1.6s ease-out infinite;
 }
 
 .bead-chip.status-blocked {
@@ -200,6 +215,13 @@ ${Object.values(ISSUE_TYPE_TOKENS).map((token) => {
   return `.bead-chip.type-${token.id} {\n  color: ${token.color};\n  background: color-mix(in srgb, ${token.color} 18%, transparent);\n  border-color: color-mix(in srgb, ${token.color} 35%, transparent);\n}`;
 }).join('\n')}
 
+/* Assignee chip (color supplied per-item via --bead-assignee-color/bg) */
+.bead-chip.assignee {
+  color: var(--bead-assignee-color);
+  background: var(--bead-assignee-bg);
+  border-color: color-mix(in srgb, var(--bead-assignee-color) 38%, transparent);
+}
+
 `; // end css
 }
 
@@ -223,4 +245,12 @@ export function getIssueTypeToken(id: string | undefined): IssueTypeToken {
     return ISSUE_TYPE_TOKENS[id as IssueTypeId];
   }
   return ISSUE_TYPE_TOKENS.task;
+}
+
+export function getAssigneeToken(color?: string, background?: string): AssigneeToken {
+  return {
+    ...ASSIGNEE_DEFAULT,
+    color: color ?? ASSIGNEE_DEFAULT.color,
+    background: background ?? ASSIGNEE_DEFAULT.background,
+  };
 }
