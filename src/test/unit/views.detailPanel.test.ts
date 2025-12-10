@@ -72,7 +72,6 @@ describe('detail panel helper', () => {
       return restoreLoad(request, parent, isMain);
     };
 
-    // fresh modules for each test
     delete require.cache[require.resolve('../../views/detail/html')];
     delete require.cache[require.resolve('../../views/detail/panel')];
     delete require.cache[require.resolve('../../utils')];
@@ -80,7 +79,6 @@ describe('detail panel helper', () => {
     webviewHandlers.length = 0;
     createdPanels.length = 0;
     warnings.length = 0;
-
     const htmlPath = require.resolve('../../views/detail/html');
     require.cache[htmlPath] = { exports: { getBeadDetailHtml: () => '<html nonce="nonce"></html>' } } as any;
     const panel = require('../../views/detail/panel');

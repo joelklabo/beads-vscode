@@ -116,6 +116,12 @@ function createVscodeStub() {
       workspaceFolders: [] as any[],
       getConfiguration: () => ({ get: (_k: string, fallback: any) => fallback }),
       getWorkspaceFolder: () => ({ uri: { fsPath: '/tmp/project' } }),
+      createFileSystemWatcher: () => ({
+        onDidChange: () => ({ dispose: () => undefined }),
+        onDidCreate: () => ({ dispose: () => undefined }),
+        onDidDelete: () => ({ dispose: () => undefined }),
+        dispose: () => undefined,
+      }),
     },
     window: {
       showInformationMessage: () => undefined,
