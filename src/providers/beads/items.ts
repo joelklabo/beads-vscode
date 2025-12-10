@@ -5,13 +5,14 @@ import { getIssueTypeIcon, getPriorityIcon, getStatusIcon } from '../../views/sh
 const t = vscode.l10n.t;
 
 const ASSIGNEE_COLORS: Array<{ colorId: string; name: string; dot: string }> = [
-  { colorId: 'charts.blue', name: t('Blue'), dot: '🟦' },
-  { colorId: 'charts.green', name: t('Green'), dot: '🟩' },
-  { colorId: 'charts.purple', name: t('Purple'), dot: '🟪' },
-  { colorId: 'charts.orange', name: t('Orange'), dot: '🟧' },
-  { colorId: 'charts.red', name: t('Red'), dot: '🟥' },
-  { colorId: 'charts.yellow', name: t('Yellow'), dot: '🟨' },
-  { colorId: 'foreground', name: t('Neutral'), dot: '⬜' },
+  { colorId: 'charts.blue', name: t('Blue'), dot: '🔵' },
+  { colorId: 'charts.green', name: t('Green'), dot: '🟢' },
+  { colorId: 'charts.purple', name: t('Purple'), dot: '🟣' },
+  { colorId: 'charts.orange', name: t('Orange'), dot: '🟠' },
+  { colorId: 'charts.red', name: t('Red'), dot: '🔴' },
+  { colorId: 'charts.yellow', name: t('Yellow'), dot: '🟡' },
+  { colorId: 'foreground', name: t('Neutral'), dot: '⚫' },
+  { colorId: 'foreground', name: t('Unassigned'), dot: '⚪' },
 ];
 
 function hashString(value: string): number {
@@ -57,9 +58,11 @@ export class SummaryHeaderItem extends vscode.TreeItem {
 export class StatusSectionItem extends vscode.TreeItem {
   constructor(public readonly status: string, public readonly beads: BeadItemData[], isCollapsed: boolean = false) {
     const statusDisplay = status.split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-    super(statusDisplay, isCollapsed ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.Expanded);
+    const chevron = isCollapsed ? '$(chevron-right)' : '$(chevron-down)';
+    const labelWithChevron = `${chevron} ${statusDisplay}`;
+    super(labelWithChevron, isCollapsed ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.Expanded);
     this.contextValue = 'statusSection';
-    this.label = statusDisplay;
+    this.label = labelWithChevron;
     this.description = `${beads.length}`;
     const iconConfig: Record<string, { icon: string; color: string }> = {
       open: { icon: getStatusIcon('open'), color: 'charts.blue' },
@@ -211,13 +214,14 @@ export class BeadTreeItem extends vscode.TreeItem {
     const status = bead.status || 'open';
     const priorityValue = (bead as any).priority ?? 2;
     const priorityIcon = getPriorityIcon(priorityValue);
+    const statusIcon = getStatusIcon(status);
     const typeIcon = getIssueTypeIcon(bead.issueType || 'task');
 
     const descParts: string[] = [
       safeId,
-      `${formatStatusLabel(status)}`,
-      `P${priorityValue}`,
-      `@${safeAssigneeDisplay}`,
+      `$(${statusIcon}) ${formatStatusLabel(status)}`,
+      `$(${priorityIcon}) P${priorityValue}`,
+      `${assigneeInfo.dot} $(person) ${safeAssigneeDisplay}`,
     ];
     if (isTaskStale && staleInfo) {
       descParts.push(`⚠️ ${staleInfo.formattedTime}`);

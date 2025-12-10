@@ -15,11 +15,12 @@ export const PRIORITY_ICONS: Record<PriorityId, string> = {
 };
 
 export const ISSUE_TYPE_ICONS: Record<IssueTypeId, string> = {
-  epic: 'milestone',
+  epic: 'list-tree',
   feature: 'sparkle',
   bug: 'bug',
-  task: 'check',
-  chore: 'tools',
+  task: 'checklist',
+  chore: 'wrench',
+  spike: 'telescope',
 };
 
 export const DEFAULT_ASSIGNEE_ICON = 'account';

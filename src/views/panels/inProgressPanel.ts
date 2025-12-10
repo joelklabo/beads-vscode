@@ -21,10 +21,11 @@ export async function openInProgressPanel(deps: InProgressPanelDeps): Promise<vo
     locale = vscode.env.language || 'en',
   } = deps;
 
+  const viewColumn = (vscode.ViewColumn && vscode.ViewColumn.One) || 1;
   const panel = vscode.window.createWebviewPanel(
     'inProgressSpotlight',
     strings.title,
-    vscode.ViewColumn.One,
+    viewColumn,
     {
       enableScripts: true,
       retainContextWhenHidden: true,

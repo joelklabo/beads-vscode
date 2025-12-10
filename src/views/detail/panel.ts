@@ -21,19 +21,22 @@ export async function openBeadPanel(
   openBead: (item: BeadItemData, provider: BeadsTreeDataProvider) => Promise<void>
 ): Promise<void> {
   const nonce = createNonce();
+  const viewColumn = (vscode.ViewColumn && vscode.ViewColumn.One) || 1;
+  const baseWorkspaceUri = vscode.workspace.workspaceFolders?.[0]?.uri ?? vscode.Uri?.file?.(process.cwd());
+  const extensionUri = provider['context']?.extensionUri ?? vscode.Uri?.file?.(process.cwd());
+  const localResourceRoots = [
+    baseWorkspaceUri && (vscode.Uri?.joinPath ? vscode.Uri.joinPath(baseWorkspaceUri) : baseWorkspaceUri),
+    extensionUri,
+  ].filter(Boolean);
+
   const panel = vscode.window.createWebviewPanel(
     'beadDetail',
     item.id,
-    vscode.ViewColumn.One,
+    viewColumn,
     {
       enableScripts: true,
       retainContextWhenHidden: true,
-      localResourceRoots: [
-        vscode.Uri.joinPath(
-          vscode.workspace.workspaceFolders?.[0]?.uri ?? vscode.Uri.file(process.cwd())
-        ),
-        provider['context']?.extensionUri ?? vscode.Uri.file(process.cwd()),
-      ],
+      localResourceRoots,
     }
   );
 

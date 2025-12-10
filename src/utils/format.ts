@@ -8,8 +8,11 @@ export function formatError(prefix: string, error: unknown): string {
   return prefix;
 }
 
-export function escapeHtml(text: string): string {
-  return text.replace(/[&<>"']/g, (m) => {
+export function escapeHtml(text: string | null | undefined): string {
+  if (text === undefined || text === null) {
+    return '';
+  }
+  return String(text).replace(/[&<>"']/g, (m) => {
     return {
       '&': '&amp;',
       '<': '&lt;',

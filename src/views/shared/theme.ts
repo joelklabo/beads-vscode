@@ -1,6 +1,6 @@
 export type StatusId = 'open' | 'in_progress' | 'blocked' | 'closed';
 export type PriorityId = 0 | 1 | 2 | 3;
-export type IssueTypeId = 'epic' | 'feature' | 'bug' | 'task' | 'chore';
+export type IssueTypeId = 'epic' | 'feature' | 'bug' | 'task' | 'chore' | 'spike';
 export type AssigneeToken = { label: string; color: string; background: string; icon: string };
 
 export interface StatusToken {
@@ -95,7 +95,7 @@ export const ISSUE_TYPE_TOKENS: Record<IssueTypeId, IssueTypeToken> = {
     id: 'epic',
     label: 'Epic',
     color: 'var(--vscode-charts-purple)',
-    icon: 'milestone',
+    icon: 'list-tree',
   },
   feature: {
     id: 'feature',
@@ -113,13 +113,19 @@ export const ISSUE_TYPE_TOKENS: Record<IssueTypeId, IssueTypeToken> = {
     id: 'task',
     label: 'Task',
     color: 'var(--vscode-charts-blue)',
-    icon: 'check',
+    icon: 'checklist',
   },
   chore: {
     id: 'chore',
     label: 'Chore',
     color: 'var(--vscode-charts-yellow)',
-    icon: 'tools',
+    icon: 'wrench',
+  },
+  spike: {
+    id: 'spike',
+    label: 'Spike',
+    color: 'var(--vscode-charts-blue)',
+    icon: 'telescope',
   },
 };
 

@@ -12,6 +12,7 @@ describe('Multi-root bd command resolution', () => {
   before(() => {
     const moduleAny = Module as any;
     restoreLoad = moduleAny._load;
+    try { delete require.cache[require.resolve('vscode')]; } catch { /* ignore */ }
 
     workspaceFolders = [
       { uri: { fsPath: '/workspace/one' }, name: 'one', index: 0 },
@@ -114,6 +115,7 @@ describe('Multi-root bd command resolution', () => {
     delete require.cache[require.resolve('@beads/core/out/cliClient')];
     delete require.cache[require.resolve('../utils')];
     delete require.cache[require.resolve('../utils/cli')];
+    delete require.cache[require.resolve('../services/cliService')];
     delete require.cache[require.resolve('../extension')];
     runBdCommand = require('../extension').runBdCommand;
   });

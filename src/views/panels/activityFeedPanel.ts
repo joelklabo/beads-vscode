@@ -38,11 +38,12 @@ export async function openActivityFeedPanel(deps: ActivityFeedPanelDeps): Promis
   } = deps;
 
   const activityStrings = buildActivityFeedStrings();
+  const viewColumn = (vscode.ViewColumn && vscode.ViewColumn.One) || 1;
 
   const panel = vscode.window.createWebviewPanel(
     'activityFeedPanel',
     activityStrings.title,
-    vscode.ViewColumn.One,
+    viewColumn,
     {
       enableScripts: true,
       retainContextWhenHidden: true,
