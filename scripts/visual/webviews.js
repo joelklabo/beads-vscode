@@ -86,7 +86,6 @@ const { getActivityFeedPanelHtml } = require(outPath('views/activityFeed/html.js
 const { buildSharedStyles } = require(outPath('views/shared/theme.js'));
 const { buildBeadDetailStrings, getStatusLabels } = require(outPath('providers/beads/treeDataProvider.js'));
 const { buildDependencyTrees } = require(outPath('utils/graph.js'));
-const issuesBundle = fs.readFileSync(outPath('views/issues/index.js'), 'utf8');
 
 // Fixture data
 const shift = (ms) => new Date(fixedNow.getTime() + ms).toISOString();
@@ -199,46 +198,6 @@ async function capture(page, html, name, waitForSelector = '.bead-chip') {
   return file;
 }
 
-async function captureIssues() {
-  const browser = await chromium.launch({ headless });
-  const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
-  const codicons = 'https://microsoft.github.io/vscode-codicons/dist/codicon.css';
-  const html = `
-<!doctype html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <link rel="stylesheet" href="${codicons}">
-    <style>${buildSharedStyles()}</style>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script>
-      window.vscode = {
-        postMessage: () => {},
-        getState: () => null,
-        setState: () => {}
-      };
-    </script>
-    <script>${issuesBundle}</script>
-  </body>
-</html>`;
-
-  await page.setContent(html, { waitUntil: 'networkidle' });
-  const payload = { type: 'update', beads: sampleBeads, sortMode: 'status' };
-  await page.evaluate((data) => {
-    window.dispatchEvent(new MessageEvent('message', { data }));
-  }, payload);
-  await page.waitForSelector('.bead-row', { timeout: 2000 }).catch(() => undefined);
-
-  fs.mkdirSync(outDir, { recursive: true });
-  const file = path.join(outDir, 'issues.png');
-  await page.screenshot({ path: file, fullPage: true });
-  await browser.close();
-  console.log(`Saved ${file}`);
-  return file;
-}
-
 async function main() {
   const browser = await chromium.launch({ headless });
   const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
@@ -250,8 +209,6 @@ async function main() {
   captures.push({ name: 'in-progress', file: await capture(page, buildInProgressHtml(), 'in-progress') });
   captures.push({ name: 'activity-feed', file: await capture(page, buildActivityFeedHtml(), 'activity-feed') });
   await browser.close();
-  captures.push({ name: 'issues', file: await captureIssues() });
-
   fs.writeFileSync(
     path.join(outDir, 'manifest.json'),
     JSON.stringify({

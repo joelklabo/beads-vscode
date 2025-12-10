@@ -66,7 +66,7 @@ function isBeadTreeItem(item: unknown): item is BeadTreeItemLike {
  */
 export async function toggleFavorites(
   provider: RefreshableProvider,
-  treeView: vscode.TreeView<unknown>,
+  treeView: vscode.TreeView<unknown> | undefined,
   context: vscode.ExtensionContext,
   runCommand: RunBdCommandFn
 ): Promise<void> {
@@ -88,6 +88,11 @@ export async function toggleFavorites(
   }
 
   const favoriteLabel = sanitizeFavoriteLabel(favoriteLabelRaw);
+
+  if (!treeView) {
+    void vscode.window.showWarningMessage(t('Select one or more beads to toggle favorites.'));
+    return;
+  }
 
   const selection = treeView.selection.filter(isBeadTreeItem);
   if (selection.length === 0) {
@@ -189,7 +194,7 @@ export async function toggleFavorites(
  */
 export function createFavoritesCommands(
   provider: RefreshableProvider,
-  treeView: vscode.TreeView<unknown>,
+  treeView: vscode.TreeView<unknown> | undefined,
   context: vscode.ExtensionContext,
   runCommand: RunBdCommandFn
 ): CommandDefinition[] {

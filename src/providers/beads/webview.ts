@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { BeadItemData, toViewModel } from '../../utils/beads';
-import { WebviewMessage, WebviewCommand } from '../../views/issues/types';
+import { WebviewCommand } from '../../views/issues/types';
 
 export interface BeadsDataSource {
   onDidChangeTreeData: vscode.Event<any>;

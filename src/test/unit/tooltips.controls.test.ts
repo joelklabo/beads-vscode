@@ -183,7 +183,7 @@ describe('Status bar tooltips', () => {
 
     assert.ok(statusItem.tooltip?.includes('3'));
     assert.ok(statusItem.tooltip?.includes('20'));
-    assert.strictEqual(statusItem.command, 'beadyExplorer.focus');
+    assert.strictEqual(statusItem.command, 'beady.issuesView.focus');
   });
 
   it('shows feedback tooltip when no stale tasks', () => {

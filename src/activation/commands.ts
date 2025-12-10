@@ -276,11 +276,16 @@ function registerExternalReferenceCommands(provider: BeadsTreeDataProvider): Com
   ];
 }
 
-function registerDeletionCommands(provider: BeadsTreeDataProvider, treeView: vscode.TreeView<unknown>): CommandDefinition[] {
+function registerDeletionCommands(provider: BeadsTreeDataProvider, treeView: vscode.TreeView<unknown> | undefined): CommandDefinition[] {
   return [
     {
       id: 'beady.deleteBeads',
       handler: async () => {
+        if (!treeView) {
+          void vscode.window.showWarningMessage(t('Select one or more tasks to delete.'));
+          return;
+        }
+
         const selection = treeView.selection;
 
         if (!selection || selection.length === 0) {

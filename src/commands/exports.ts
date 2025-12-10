@@ -44,7 +44,7 @@ function isBeadTreeItem(item: unknown): item is BeadTreeItemLike {
  */
 export async function exportBeadsCsv(
   provider: BeadsProvider,
-  treeView: vscode.TreeView<unknown>
+  treeView: vscode.TreeView<unknown> | undefined
 ): Promise<void> {
   const config = vscode.workspace.getConfiguration('beady');
   const featureEnabled = config.get<boolean>('exportCsv.enabled', false);
@@ -56,9 +56,9 @@ export async function exportBeadsCsv(
     return;
   }
 
-  const selectedBeads = treeView.selection
-    .filter(isBeadTreeItem)
-    .map((item) => item.bead);
+  const selectedBeads = treeView?.selection
+    ?.filter(isBeadTreeItem)
+    .map((item) => item.bead) ?? [];
 
   const beadsToExport = selectedBeads.length > 0 ? selectedBeads : provider.getVisibleBeads();
 
@@ -112,7 +112,7 @@ export async function exportBeadsCsv(
  */
 export async function exportBeadsMarkdown(
   provider: BeadsProvider,
-  treeView: vscode.TreeView<unknown>
+  treeView: vscode.TreeView<unknown> | undefined
 ): Promise<void> {
   const config = vscode.workspace.getConfiguration('beady');
   const featureEnabled = config.get<boolean>('exportMarkdown.enabled', false);
@@ -124,9 +124,9 @@ export async function exportBeadsMarkdown(
     return;
   }
 
-  const selectedBeads = treeView.selection
-    .filter(isBeadTreeItem)
-    .map((item) => item.bead);
+  const selectedBeads = treeView?.selection
+    ?.filter(isBeadTreeItem)
+    .map((item) => item.bead) ?? [];
 
   const beadsToExport = selectedBeads.length > 0 ? selectedBeads : provider.getVisibleBeads();
 
@@ -177,7 +177,7 @@ export async function exportBeadsMarkdown(
  */
 export function createExportCommands(
   provider: BeadsProvider,
-  treeView: vscode.TreeView<unknown>
+  treeView: vscode.TreeView<unknown> | undefined
 ): CommandDefinition[] {
   return [
     {
