@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { BeadItemData, buildDependencyTrees } from './utils';
+import { getIssueTypeIcon, getStatusIcon } from './views/shared/icons';
 
 export type DependencyDirection = 'upstream' | 'downstream';
 
@@ -26,14 +27,23 @@ class DependencyTreeNodeItem extends vscode.TreeItem {
     this.targetId = direction === 'upstream' ? node.id : parentId;
     this.contextValue = direction === 'upstream' ? 'dependencyNodeUpstream' : 'dependencyNodeDownstream';
     const relation = direction === 'upstream' ? vscode.l10n.t('blocks this issue') : vscode.l10n.t('blocked by this issue');
-    this.description = `${node.type}${node.missing ? ' · missing' : ''} · ${relation}`;
+    const statusIcon = bead ? getStatusIcon(bead.status) : undefined;
+    this.description = `${node.type}${statusIcon ? ` · $(${statusIcon}) ${bead?.status}` : ''}${node.missing ? ' · missing' : ''} · ${relation}`;
     this.tooltip = node.missing
       ? `${node.id} (${node.type}) - ${relation}`
       : `${node.id} (${node.type})${bead?.status ? ` · ${bead.status}` : ''} · ${relation}`;
     this.accessibilityInformation = {
       label: `${node.id} ${node.title ?? ''} ${relation}${bead?.status ? ` · ${bead.status}` : ''}`.trim(),
     };
-    this.iconPath = new vscode.ThemeIcon(direction === 'upstream' ? 'arrow-up' : 'arrow-down');
+    const iconName = bead ? getIssueTypeIcon(bead.issueType) : direction === 'upstream' ? 'arrow-up' : 'arrow-down';
+    const iconColor = bead?.status === 'blocked'
+      ? 'errorForeground'
+      : bead?.status === 'closed'
+        ? 'testing.iconPassed'
+        : bead?.status === 'in_progress'
+          ? 'charts.yellow'
+          : 'charts.blue';
+    this.iconPath = new vscode.ThemeIcon(iconName, new vscode.ThemeColor(iconColor));
 
     if (bead) {
       this.command = {
