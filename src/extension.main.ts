@@ -95,8 +95,8 @@ import { getBeadDetailHtml } from './views/detail';
 import { BeadDetailStrings, StatusLabelMap } from './views/detail/types';
 import { createDependencyGraphView } from './views/graph';
 import type { GraphEdgeData } from './utils/graph';
-import { getActivityFeedPanelHtml, ActivityFeedStrings } from './views/activityFeed';
-import { getInProgressPanelHtml, buildInProgressPanelStrings } from './views/inProgress';
+import { openActivityFeedPanel } from './views/panels/activityFeedPanel';
+import { openInProgressPanel } from './views/panels/inProgressPanel';
 import { setupProviders, setupActivityFeed, registerCommands, setupConfigurationWatchers } from './activation';
 
 type DependencyEdge = GraphEdgeData;
@@ -134,104 +134,6 @@ function createNonce(): string {
   return Math.random().toString(36).slice(2, 15) + Math.random().toString(36).slice(2, 15);
 }
 
-
-const buildActivityFeedStrings = (): ActivityFeedStrings => ({
-  title: t('Activity Feed'),
-  emptyTitle: t('No activity yet'),
-  emptyDescription: t('Events will appear here as you work with issues.'),
-  eventsLabel: t('events'),
-});
-
-async function openInProgressPanel(provider: BeadsTreeDataProvider): Promise<void> {
-  const strings = buildInProgressPanelStrings();
-  const locale = vscode.env.language || 'en';
-  const panel = vscode.window.createWebviewPanel(
-    'inProgressSpotlight',
-    strings.title,
-    vscode.ViewColumn.One,
-    {
-      enableScripts: true,
-      retainContextWhenHidden: true,
-    }
-  );
-
-  if (!(provider as any)['items'] || (provider as any)['items'].length === 0) {
-    await provider.refresh();
-  }
-
-  const render = (): void => {
-    const items = (provider as any)['items'] as BeadItemData[] || [];
-    const inProgress = items.filter((item) => item.status === 'in_progress');
-    panel.webview.html = getInProgressPanelHtml(inProgress, strings, locale);
-  };
-
-  render();
-
-  const subscription = provider.onDidChangeTreeData(() => render());
-  panel.onDidDispose(() => subscription.dispose());
-
-  panel.webview.onDidReceiveMessage(async (message) => {
-    const allowed: AllowedLittleGlenCommand[] = ['openBead'];
-    const validated = validateLittleGlenMessage(message, allowed);
-    if (!validated) {
-      console.warn('[Little Glen] Ignoring invalid in-progress panel message');
-      return;
-    }
-
-    if (validated.command === 'openBead') {
-      const items = (provider as any)['items'] as BeadItemData[] || [];
-      const item = items.find((i: BeadItemData) => i.id === validated.beadId);
-      if (item) {
-        await openBead(item, provider);
-      } else {
-        void vscode.window.showWarningMessage(t('Issue {0} not found', validated.beadId));
-      }
-    }
-  });
-}
-
-async function openActivityFeedPanel(activityFeedProvider: ActivityFeedTreeDataProvider, beadsProvider: BeadsTreeDataProvider): Promise<void> {
-  const activityStrings = buildActivityFeedStrings();
-  const locale = vscode.env.language || 'en';
-  const panel = vscode.window.createWebviewPanel(
-    'activityFeedPanel',
-    activityStrings.title,
-    vscode.ViewColumn.One,
-    {
-      enableScripts: true,
-      retainContextWhenHidden: true,
-    }
-  );
-
-  // Get events from the provider
-  const projectRoot = vscode.workspace.getConfiguration('beady').get<string>('projectRoot') ||
-    (vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? '');
-  
-  const { fetchEvents } = await import('./activityFeed');
-  const result = await fetchEvents(projectRoot, { limit: 100 });
-
-  panel.webview.html = getActivityFeedPanelHtml(result.events, activityStrings, locale);
-
-  // Handle messages from the webview
-  panel.webview.onDidReceiveMessage(async (message) => {
-    const allowed: AllowedLittleGlenCommand[] = ['openBead'];
-    const validated = validateLittleGlenMessage(message, allowed);
-    if (!validated) {
-      console.warn('[Little Glen] Ignoring invalid activity feed message');
-      return;
-    }
-    if (validated.command === 'openBead') {
-      const items = beadsProvider['items'] as BeadItemData[];
-      const item = items.find((i: BeadItemData) => i.id === validated.beadId);
-      if (item) {
-        await openBead(item, beadsProvider);
-      } else {
-        // If item not found in current view, just show a message
-        void vscode.window.showInformationMessage(t('Opening issue {0}', validated.beadId));
-      }
-    }
-  });
-}
 
 function resolveCommandItem(item: any, provider: BeadsTreeDataProvider): BeadItemData | undefined {
   if (!item) { return undefined; }
@@ -283,7 +185,18 @@ export function activate(context: vscode.ExtensionContext): void {
 
     // Register all commands
     const activationContext = { provider, treeView, dependencyTreeProvider, dependencyTreeView, activityFeedProvider, activityFeedView };
-    registerCommands(context, activationContext, resolveCommandItem, openBead, openBeadFromFeed, openActivityFeedPanel, openInProgressPanel, pickBeadQuick, visualizeDependencies);
+    registerCommands(
+      context,
+      activationContext,
+      resolveCommandItem,
+      openBead,
+      openBeadFromFeed,
+      (activityFeedProvider, beadsProvider) =>
+        openActivityFeedPanel({ activityFeedProvider, beadsProvider, openBead: (item) => openBead(item, beadsProvider) }),
+      (provider) => openInProgressPanel({ provider, openBead: (item) => openBead(item, provider) }),
+      pickBeadQuick,
+      visualizeDependencies
+    );
 
     // Set up configuration watchers
     setupConfigurationWatchers(context, provider);
