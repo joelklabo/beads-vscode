@@ -1,6 +1,7 @@
 export type StatusId = 'open' | 'in_progress' | 'blocked' | 'closed';
 export type PriorityId = 0 | 1 | 2 | 3;
 export type IssueTypeId = 'epic' | 'feature' | 'bug' | 'task' | 'chore' | 'spike';
+export type DensityScale = 'default' | 'compact';
 export type AssigneeToken = { label: string; color: string; background: string; icon: string };
 
 export interface StatusToken {
@@ -137,6 +138,29 @@ const ASSIGNEE_DEFAULT: AssigneeToken = {
   icon: 'account',
 };
 
+type ChipDensitySpec = {
+  gap: number;
+  paddingY: number;
+  paddingX: number;
+  height: number;
+  fontSize: number;
+  codiconSize: number;
+};
+
+export const CHIP_DENSITY: Record<DensityScale, ChipDensitySpec> = {
+  default: { gap: 6, paddingY: 2, paddingX: 8, height: 22, fontSize: 11, codiconSize: 12 },
+  compact: { gap: 4, paddingY: 1, paddingX: 6, height: 20, fontSize: 10, codiconSize: 11 },
+};
+
+export const CHIP_CLASS_BY_DENSITY: Record<DensityScale, string> = {
+  default: 'bead-chip',
+  compact: 'bead-chip compact',
+};
+
+export function chipClass(density: DensityScale = 'default'): string {
+  return CHIP_CLASS_BY_DENSITY[density] ?? CHIP_CLASS_BY_DENSITY.default;
+}
+
 /**
  * Returns a base CSS string that can be injected into any Beady webview.
  * It defines chip styles, status/priority/type variants, and the in-progress pulse animation.
@@ -146,9 +170,18 @@ export function buildSharedStyles(): string {
 :root {
   --bead-chip-radius: 999px;
   --bead-chip-font: var(--vscode-font-family);
-  --bead-chip-font-size: 11px;
-  --bead-chip-padding-y: 2px;
-  --bead-chip-padding-x: 8px;
+  --bead-chip-gap: ${CHIP_DENSITY.default.gap}px;
+  --bead-chip-gap-compact: ${CHIP_DENSITY.compact.gap}px;
+  --bead-chip-font-size: ${CHIP_DENSITY.default.fontSize}px;
+  --bead-chip-font-size-compact: ${CHIP_DENSITY.compact.fontSize}px;
+  --bead-chip-padding-y: ${CHIP_DENSITY.default.paddingY}px;
+  --bead-chip-padding-x: ${CHIP_DENSITY.default.paddingX}px;
+  --bead-chip-padding-y-compact: ${CHIP_DENSITY.compact.paddingY}px;
+  --bead-chip-padding-x-compact: ${CHIP_DENSITY.compact.paddingX}px;
+  --bead-chip-height: ${CHIP_DENSITY.default.height}px;
+  --bead-chip-height-compact: ${CHIP_DENSITY.compact.height}px;
+  --bead-chip-codicon-size: ${CHIP_DENSITY.default.codiconSize}px;
+  --bead-chip-codicon-size-compact: ${CHIP_DENSITY.compact.codiconSize}px;
   --bead-assignee-color: ${ASSIGNEE_DEFAULT.color};
   --bead-assignee-bg: ${ASSIGNEE_DEFAULT.background};
 }
@@ -168,19 +201,30 @@ export function buildSharedStyles(): string {
 .bead-chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--bead-chip-gap);
   padding: var(--bead-chip-padding-y) var(--bead-chip-padding-x);
   border-radius: var(--bead-chip-radius);
   border: 1px solid transparent;
   font-family: var(--bead-chip-font);
   font-size: var(--bead-chip-font-size);
   line-height: 1.2;
+  height: var(--bead-chip-height);
   white-space: nowrap;
   user-select: none;
 }
 
-.bead-chip .codicon { font-size: 12px; }
-.bead-chip.sm { padding: 1px 6px; font-size: 10px; gap: 4px; }
+.bead-chip .codicon { font-size: var(--bead-chip-codicon-size); }
+.bead-chip.compact,
+.bead-chip.sm {
+  gap: var(--bead-chip-gap-compact);
+  padding: var(--bead-chip-padding-y-compact) var(--bead-chip-padding-x-compact);
+  font-size: var(--bead-chip-font-size-compact);
+  height: var(--bead-chip-height-compact);
+}
+.bead-chip.compact .codicon,
+.bead-chip.sm .codicon {
+  font-size: var(--bead-chip-codicon-size-compact);
+}
 
 /* Status chips */
 .bead-chip.status-open {
