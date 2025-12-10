@@ -1871,6 +1871,18 @@ export class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemTy
       return;
     }
 
+    if (element instanceof StatusSectionItem) {
+      if (isCollapsed) {
+        this.collapsedSections.add(element.status);
+      } else {
+        this.collapsedSections.delete(element.status);
+      }
+      this.saveCollapsedSections();
+      element.applyCollapseState(isCollapsed);
+      this.onDidChangeTreeDataEmitter.fire(element);
+      return;
+    }
+
     if (element instanceof EpicTreeItem && element.epic) {
       this.collapsedEpics.set(element.epic.id, isCollapsed);
       this.saveCollapsedSections();

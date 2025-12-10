@@ -105,4 +105,17 @@ describe('tree badges and affordances', () => {
       assert.ok(String(sectionExpanded.label).startsWith('$(chevron-down)'), 'expanded section should use chevron-down');
     });
   });
+
+  it('updates chevron icon when a status section collapses or expands', async () => {
+    await withVscodeStub(() => {
+      const { StatusSectionItem } = require('../../providers/beads/items');
+      const section = new StatusSectionItem('blocked', [], false);
+
+      section.applyCollapseState(true);
+      assert.ok(String(section.label).startsWith('$(chevron-right)'), 'collapse should switch to chevron-right');
+
+      section.applyCollapseState(false);
+      assert.ok(String(section.label).startsWith('$(chevron-down)'), 'expand should switch to chevron-down');
+    });
+  });
 });

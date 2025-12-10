@@ -24,6 +24,11 @@ function hashString(value: string): number {
   return hash;
 }
 
+function buildSectionLabel(label: string, isCollapsed: boolean): string {
+  const chevron = isCollapsed ? '$(chevron-right)' : '$(chevron-down)';
+  return `${chevron} ${label}`;
+}
+
 export function getAssigneeInfo(bead: BeadItemData): { name: string; display: string; dot: string; colorName: string; colorId: string } {
   const fallback = t('Unassigned');
   const raw = (bead.assignee ?? '').trim();
@@ -57,11 +62,13 @@ export class SummaryHeaderItem extends vscode.TreeItem {
 }
 
 export class StatusSectionItem extends vscode.TreeItem {
+  private readonly statusLabel: string;
+
   constructor(public readonly status: string, public readonly beads: BeadItemData[], isCollapsed: boolean = false) {
     const statusDisplay = status.split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-    const chevron = isCollapsed ? '$(chevron-right)' : '$(chevron-down)';
-    const labelWithChevron = `${chevron} ${statusDisplay}`;
+    const labelWithChevron = buildSectionLabel(statusDisplay, isCollapsed);
     super(labelWithChevron, isCollapsed ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.Expanded);
+    this.statusLabel = statusDisplay;
     this.contextValue = 'statusSection';
     this.label = labelWithChevron;
     this.description = `${beads.length}`;
@@ -74,6 +81,11 @@ export class StatusSectionItem extends vscode.TreeItem {
     const config = iconConfig[status] || { icon: 'folder', color: 'foreground' };
     this.iconPath = new vscode.ThemeIcon(config.icon, new vscode.ThemeColor(config.color));
     this.tooltip = `${statusDisplay}: ${beads.length} issue${beads.length !== 1 ? 's' : ''}`;
+  }
+
+  applyCollapseState(isCollapsed: boolean): void {
+    this.collapsibleState = isCollapsed ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.Expanded;
+    this.label = buildSectionLabel(this.statusLabel, isCollapsed);
   }
 }
 
@@ -227,7 +239,7 @@ export class BeadTreeItem extends vscode.TreeItem {
       `${assigneeInfo.dot} $(person) ${safeAssigneeDisplay}`,
     ];
     if (relTime) {
-      descParts.push(relTime);
+      descParts.push(`$(history) ${relTime}`);
     }
     if (isTaskStale && staleInfo) {
       descParts.push(`⚠️ ${staleInfo.formattedTime}`);
