@@ -85,12 +85,13 @@ describe('tree badges and affordances', () => {
         raw: { priority: 1 },
       } as any;
 
-      const item = new BeadTreeItem(bead, false);
+      const item = new BeadTreeItem(bead, false, 'compact');
 
       assert.ok((item.description || '').includes('$(play)'), 'missing status codicon');
       assert.ok((item.description || '').includes('$(arrow-up)'), 'missing priority codicon');
       assert.ok((item.description || '').includes('$(person)'), 'missing assignee codicon');
       assert.strictEqual((item.iconPath as any)?.id, 'sparkle', 'item icon should follow issue type');
+      assert.ok((item.description || '').includes('$(history)'), 'missing recency token');
     });
   });
 
