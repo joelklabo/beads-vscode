@@ -17,8 +17,8 @@ body {
   --bead-chip-font: var(--vscode-font-family);
   --bead-chip-font-size: 11px;
   --bead-chip-padding-y: 2px;
-  --bead-chip-padding-x: 8px;
-  --bead-chip-gap: 6px;
+  --bead-chip-padding-x: 7px;
+  --bead-chip-gap: 5px;
   --bead-assignee-color: var(--vscode-charts-blue);
   --bead-assignee-bg: color-mix(in srgb, var(--vscode-charts-blue) 22%, transparent);
 }
@@ -26,10 +26,16 @@ body {
 body.compact {
   --bead-chip-font-size: 10px;
   --bead-chip-padding-y: 1px;
-  --bead-chip-padding-x: 6px;
+  --bead-chip-padding-x: 5px;
   --bead-chip-gap: 4px;
+  --bead-row-padding-y: 6px;
+  --bead-row-gap: 9px;
 }
 
+.bead-chip {
+  line-height: 1.1;
+  align-items: center;
+}
 
 @keyframes beadPulse {
   0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--vscode-charts-yellow) 42%, transparent); }
@@ -228,16 +234,17 @@ body.compact {
 /* Row */
 .bead-row {
   display: flex;
-  padding: 8px 12px;
+  padding: var(--bead-row-padding-y, 8px) 12px;
   border-bottom: 1px solid var(--vscode-tree-tableOddRowsBackground); /* Subtle separator */
   cursor: pointer;
   transition: background-color 0.1s;
-  gap: 12px;
+  gap: var(--bead-row-gap, 12px);
+  min-height: 38px;
 }
 
 body.compact .bead-row {
-  padding: 6px 10px;
-  gap: 8px;
+  padding: var(--bead-row-padding-y, 8px) 10px;
+  gap: var(--bead-row-gap, 9px);
 }
 
 body.compact .bead-primary-line {
@@ -282,7 +289,7 @@ body.compact .bead-primary-line {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  gap: 8px;
+  gap: 6px;
 }
 
 .bead-title {
@@ -313,7 +320,8 @@ body.compact .bead-primary-line {
 }
 
 body.compact .bead-secondary-line {
-  gap: 6px;
+  gap: 5px;
+  font-size: 10.5px;
 }
 
 .bead-id {
@@ -343,8 +351,8 @@ body.compact .bead-secondary-line {
 .bead-tertiary-line {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 2px;
+  gap: 3px;
+  margin-top: 1px;
 }
 
 .bead-label {

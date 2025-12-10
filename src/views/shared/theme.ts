@@ -148,9 +148,17 @@ export function buildSharedStyles(): string {
   --bead-chip-font: var(--vscode-font-family);
   --bead-chip-font-size: 11px;
   --bead-chip-padding-y: 2px;
-  --bead-chip-padding-x: 8px;
+  --bead-chip-padding-x: 7px;
   --bead-assignee-color: ${ASSIGNEE_DEFAULT.color};
   --bead-assignee-bg: ${ASSIGNEE_DEFAULT.background};
+  --bead-chip-gap: 5px;
+}
+
+body.compact {
+  --bead-chip-font-size: 10px;
+  --bead-chip-padding-y: 1px;
+  --bead-chip-padding-x: 5px;
+  --bead-chip-gap: 4px;
 }
 
 @keyframes ${PULSE_ANIMATION_NAME} {
@@ -168,13 +176,13 @@ export function buildSharedStyles(): string {
 .bead-chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--bead-chip-gap, 6px);
   padding: var(--bead-chip-padding-y) var(--bead-chip-padding-x);
   border-radius: var(--bead-chip-radius);
   border: 1px solid transparent;
   font-family: var(--bead-chip-font);
   font-size: var(--bead-chip-font-size);
-  line-height: 1.2;
+  line-height: 1.1;
   white-space: nowrap;
   user-select: none;
 }
