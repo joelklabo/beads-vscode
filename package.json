@@ -660,7 +660,7 @@
     ]
   },
   "scripts": {
-    "vscode:prepublish": "node -e \"if (process.env.SKIP_VSCODE_PREPUBLISH==='1'){process.exit(0)}\" || (npm run typecheck && npm run bundle && npm run audit:bundle && npm run check:size && npm run check:perf)",
+    "vscode:prepublish": "node -e \"if (process.env.SKIP_VSCODE_PREPUBLISH==='1'){process.exit(0)}\" || (npm run typecheck && npm run bundle && npm run audit:bundle && npm run check:size && npm run check:perf && npm run check:manifest)",
     "typecheck": "tsc --noEmit",
     "compile": "tsc -b packages/platform-vscode/tsconfig.json",
     "viz:webviews": "npm run compile && node scripts/visual/webviews.js",
@@ -703,7 +703,8 @@
     "recommend:add": "tsx scripts/add-vscode-recommendation.ts",
     "test:bundle": "npm run compile && npm run bundle && node ./out/test/bundle.smoke.test.js",
     "check:vsix-size": "node scripts/check-vsix-size.js",
-    "check:perf": "npm run bundle && tsx scripts/perf/measure-activation.ts"
+    "check:perf": "npm run bundle && tsx scripts/perf/measure-activation.ts",
+    "check:manifest": "npm run bundle && npx vsce package --no-dependencies --yarn --out tmp/manifest-check.vsix"
   },
   "devDependencies": {
     "playwright": "^1.42.0",
@@ -738,12 +739,5 @@
     "@octokit/rest": "^22.0.1",
     "sanitize-html": "^2.17.0",
     "zod": "^3.23.8"
-  },
-  "files": [
-    "dist",
-    "package.json",
-    "README.md",
-    "CHANGELOG.md",
-    "LICENSE.txt"
-  ]
+  }
 }
