@@ -26,11 +26,11 @@ export function toViewModel(item: BeadItemData): BeadViewModel {
   const viewModel: BeadViewModel = {
     id: item.id,
     title: item.title,
-    description: raw?.description,
+    description: item.description ?? raw?.description,
     status: item.status || 'open',
     priority: typeof raw?.priority === 'number' ? raw.priority : 2,
     issueType: item.issueType || raw?.issue_type || raw?.issueType || raw?.type,
-    labels: Array.isArray(raw?.labels) ? raw.labels : [],
+    labels: Array.isArray(raw?.labels) ? raw.labels : (Array.isArray(item.tags) ? item.tags : []),
     updatedAt: item.updatedAt || new Date().toISOString(),
     isStale: false, // TODO: Pass in stale threshold logic
     icon: (() => {
