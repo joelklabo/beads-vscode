@@ -56,11 +56,16 @@ export async function openActivityFeedPanel(deps: ActivityFeedPanelDeps): Promis
   panel.webview.html = getActivityFeedPanelHtml(result.events, activityStrings, locale)
     .replace('<style>', `<style>\n${buildSharedStyles()}\n`);
 
+  let invalidLogged = false;
   panel.webview.onDidReceiveMessage(async (message) => {
     const allowed: AllowedLittleGlenCommand[] = ['openBead'];
     const validated = validateLittleGlenMessage(message, allowed);
     if (!validated) {
-      console.warn('[activityFeedPanel] Ignoring invalid message');
+      if (!invalidLogged) {
+        console.warn('[activityFeedPanel] Ignoring invalid message');
+        void vscode.window.showWarningMessage(t('Ignored invalid request from Activity Feed panel.'));
+        invalidLogged = true;
+      }
       return;
     }
     if (validated.command === 'openBead') {
