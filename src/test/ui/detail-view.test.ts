@@ -1,5 +1,4 @@
-import { VSBrowser, WebDriver, Workbench, EditorView, WebView } from 'vscode-extension-tester';
-import * as assert from 'assert';
+import { VSBrowser, WebDriver, Workbench, EditorView } from 'vscode-extension-tester';
 
 describe('Detail View UI Tests', function () {
     this.timeout(150000);

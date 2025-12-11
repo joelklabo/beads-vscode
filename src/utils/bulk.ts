@@ -44,7 +44,7 @@ export function buildBulkSelection(beads: BeadItemData[], maxSelection: number):
 
 export async function executeBulkStatusUpdate(
   ids: string[],
-  status: string,
+  _status: string,
   runner: (id: string) => Promise<void>,
   onProgress?: (completed: number, total: number) => void
 ): Promise<BulkOperationResult> {

@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { BeadItemData, buildDependencyTrees, sanitizeInlineText, escapeHtml, deriveAssigneeName, linkifyText } from '../../utils';
+import { BeadItemData, buildDependencyTrees, sanitizeInlineText, escapeHtml, deriveAssigneeName } from '../../utils';
 import { BeadDetailStrings } from './types';
 import { getStatusLabel, renderBranchSection } from './utils';
 import { buildSharedStyles, getIssueTypeToken, getPriorityToken, getStatusToken } from '../shared/theme';

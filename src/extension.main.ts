@@ -1,97 +1,19 @@
 import * as vscode from 'vscode';
 import {
   BeadItemData,
-  formatError,
-  formatSafeError,
-  sanitizeErrorMessage,
-  sanitizeInlineText,
-  escapeHtml,
-  isStale,
-  validateDependencyAdd,
-  sanitizeDependencyId,
-  collectCliErrorOutput,
-  validateStatusChange,
-  formatStatusLabel,
-  compareStatus,
-  buildBulkSelection,
-  executeBulkStatusUpdate,
-  executeBulkLabelUpdate,
-  summarizeBulkResult,
-  BulkLabelAction,
-  BulkOperationFailure,
-  BulkOperationResult,
-  getFavoriteLabel,
-  getLocalFavorites,
-  saveLocalFavorites,
-  sanitizeFavoriteLabel,
-  isValidFavoriteLabel,
-  validateFavoriteTargets,
-  sanitizeFavoriteError,
-  syncFavoritesState,
-  validateTitleInput,
-  validateLabelInput,
-  validateStatusInput,
-  validateAssigneeInput,
   collectDependencyEdges,
-  QuickFilterPreset,
-  applyQuickFilter,
-  toggleQuickFilter,
-  normalizeQuickFilter,
   deriveAssigneeName,
+  formatSafeError,
+  sanitizeDependencyId,
+  validateDependencyAdd,
 } from './utils';
-import { ActivityFeedTreeDataProvider, ActivityEventItem } from './activityFeedProvider';
-import { EventType } from './activityFeed';
-import { validateLittleGlenMessage, AllowedLittleGlenCommand } from './littleGlen/validation';
-import {
-  AssigneeSectionItem,
-  BeadTreeItem,
-  BeadDetailItem,
-  EpicTreeItem,
-  StatusSectionItem,
-  SummaryHeaderItem,
-  UngroupedSectionItem,
-  WarningSectionItem,
-  EpicStatusSectionItem,
-  getAssigneeInfo,
-} from './providers/beads/items';
-import {
-  BeadsDocument,
-  BeadsStore,
-  BeadsStoreSnapshot,
-  WorkspaceTarget,
-  WatcherManager,
-  createBeadsStore,
-  createWorkspaceTarget,
-  createVsCodeWatchAdapter,
-  findBdCommand,
-  naturalSort,
-  saveBeadsDocument,
-} from './providers/beads/store';
-import { resolveProjectRoot, getWorkspaceOptions, findWorkspaceById, loadSavedWorkspaceSelection, saveWorkspaceSelection } from './utils/workspace';
-import { computeFeedbackEnablement } from './feedback/enablement';
-import { getBulkActionsConfig } from './utils/config';
-import { registerSendFeedbackCommand } from './commands/sendFeedback';
-import {
-  CommandRegistry,
-  createExportCommands,
-  createQuickFilterCommands,
-  bulkUpdateStatus,
-  bulkUpdateLabel,
-  toggleFavorites,
-  inlineEditTitle,
-  inlineEditLabels,
-  inlineStatusQuickChange,
-  editAssignee,
-  selectWorkspace,
-} from './commands';
-import { DependencyTreeProvider } from './dependencyTreeProvider';
-import { BeadsWebviewProvider } from './providers/beads/webview';
-import { BeadsTreeDataProvider, TreeItemType, getStatusLabels, buildBeadDetailStrings } from './providers/beads/treeDataProvider';
+import { ActivityFeedTreeDataProvider } from './activityFeedProvider';
+import { WatcherManager, createVsCodeWatchAdapter, findBdCommand } from './providers/beads/store';
+import { bulkUpdateLabel, bulkUpdateStatus, inlineEditLabels, inlineEditTitle, inlineStatusQuickChange, toggleFavorites } from './commands';
+import { BeadsTreeDataProvider } from './providers/beads/treeDataProvider';
+import { BeadTreeItem, EpicTreeItem, UngroupedSectionItem } from './providers/beads/items';
 import { currentWorktreeId } from './worktree';
-import { warnIfDependencyEditingUnsupported } from './services/runtimeEnvironment';
-import { BdCommandOptions, formatBdError, resolveBeadId, runBdCommand } from './services/cliService';
-import { registerChatParticipants } from './chatAgents';
-import { BeadDetailStrings, StatusLabelMap } from './views/detail/types';
+import { runBdCommand } from './services/cliService';
 import { createDependencyGraphView } from './views/graph';
 import type { GraphEdgeData } from './utils/graph';
 import { openActivityFeedPanel } from './views/panels/activityFeedPanel';
@@ -103,11 +25,6 @@ type DependencyEdge = GraphEdgeData;
 
 const t = vscode.l10n.t;
 const INVALID_ID_MESSAGE = t('Issue ids must contain only letters, numbers, ._- and be under 64 characters.');
-
-
-function createNonce(): string {
-  return Math.random().toString(36).slice(2, 15) + Math.random().toString(36).slice(2, 15);
-}
 
 
 function resolveCommandItem(item: any, provider: BeadsTreeDataProvider): BeadItemData | undefined {
@@ -197,28 +114,6 @@ const openBeadFromFeed = (
   beadsProvider: BeadsTreeDataProvider,
   opener: (item: BeadItemData, provider: BeadsTreeDataProvider) => Promise<void> = openBead
 ): Promise<boolean> => openBeadFromFeedPanel(issueId, beadsProvider, opener);
-
-async function createBead(): Promise<void> {
-  const name = await vscode.window.showInputBox({
-    prompt: t('Enter a title for the new bead'),
-    placeHolder: t('Implement feature X'),
-  });
-
-  if (!name) {
-    return;
-  }
-
-  const config = vscode.workspace.getConfiguration('beady');
-  const projectRoot = resolveProjectRoot(config);
-
-  try {
-    await runBdCommand(['create', name], projectRoot!);
-    void vscode.commands.executeCommand('beady.refresh');
-    void vscode.window.showInformationMessage(t('Created bead: {0}', name));
-  } catch (error) {
-    void vscode.window.showErrorMessage(formatError(t('Failed to create bead'), error));
-  }
-}
 
 async function pickBeadQuick(
   items: BeadItemData[] | undefined,
