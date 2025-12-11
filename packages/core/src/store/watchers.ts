@@ -91,7 +91,7 @@ export class WatcherManager {
     }
 
     entry.timer = setTimeout(() => {
-      entry.timer = undefined;
+      delete entry.timer;
       for (const listener of entry.listeners) {
         try {
           listener(event, targetPath);

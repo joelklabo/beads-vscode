@@ -1,6 +1,6 @@
 import { promises as fs } from 'fs';
 import * as path from 'path';
-import { BdCliClient } from '../cliClient';
+import { BdCliClient, BdCliClientOptions } from '../cliClient';
 import { CliExecutionPolicy, DEFAULT_CLI_POLICY, mergeCliPolicy } from '../config';
 import { BeadItemData, extractBeads, normalizeBead } from '../beads';
 import { WatchAdapter, WatcherManager, WatchSubscription } from './watchers';
@@ -114,8 +114,8 @@ export function naturalSort(a: BeadItemData, b: BeadItemData): number {
   const bParts = b.id.split(/(\d+)/);
 
   for (let i = 0; i < Math.min(aParts.length, bParts.length); i++) {
-    const aPart = aParts[i];
-    const bPart = bParts[i];
+    const aPart = aParts[i] ?? '';
+    const bPart = bParts[i] ?? '';
 
     const aNum = parseInt(aPart, 10);
     const bNum = parseInt(bPart, 10);
@@ -224,10 +224,10 @@ export class BeadsStore {
       this.watchManager = options.watchManager;
       this.ownsWatchManager = false;
     } else if (options.watchAdapter) {
-      this.watchManager = new WatcherManager(options.watchAdapter, { debounceMs: options.watchDebounceMs });
+      const watchOptions = options.watchDebounceMs !== undefined ? { debounceMs: options.watchDebounceMs } : undefined;
+      this.watchManager = new WatcherManager(options.watchAdapter, watchOptions);
       this.ownsWatchManager = true;
     } else {
-      this.watchManager = undefined;
       this.ownsWatchManager = false;
     }
 
@@ -302,7 +302,7 @@ export class BeadsStore {
       this.configureWatchers(state);
     } catch (error) {
       state.items = [];
-      state.document = undefined;
+      delete state.document;
       this.options.onError?.(error);
     }
 
@@ -328,7 +328,6 @@ export class BeadsStore {
     const state: WorkspaceState = {
       target,
       items: [],
-      document: undefined,
       refreshInProgress: false,
       pendingRefresh: false,
       watchers: [],
@@ -381,15 +380,24 @@ export class BeadsStore {
   private async loadFromCli(target: WorkspaceTarget): Promise<LoadResult> {
     const config = target.config ?? {};
     const policy = mergeCliPolicy(config.policy, DEFAULT_CLI_POLICY);
-    const client = new BdCliClient({
-      commandPath: config.commandPath,
+    const clientOptions: BdCliClientOptions = {
       cwd: target.root,
       policy,
       workspacePaths: config.workspacePaths ?? [target.root],
-      maxBufferBytes: config.maxBufferBytes ?? policy.maxBufferBytes,
-    });
+    };
+    if (config.commandPath) {
+      clientOptions.commandPath = config.commandPath;
+    }
+    if (config.maxBufferBytes !== undefined) {
+      clientOptions.maxBufferBytes = config.maxBufferBytes;
+    } else if (policy.maxBufferBytes !== undefined) {
+      clientOptions.maxBufferBytes = policy.maxBufferBytes;
+    }
 
-    const { stdout } = await client.export({ maxBufferBytes: config.maxBufferBytes ?? policy.maxBufferBytes });
+    const client = new BdCliClient(clientOptions);
+
+    const maxBuffer = config.maxBufferBytes ?? policy.maxBufferBytes;
+    const { stdout } = await client.export(maxBuffer !== undefined ? { maxBufferBytes: maxBuffer } : {});
     const beads = parseJsonLines(stdout);
     const items = beads.map((entry, index) => normalizeBead(entry, index));
     items.sort(naturalSort);

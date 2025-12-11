@@ -67,12 +67,13 @@ export function collectDependencyEdges(items: BeadItemData[] | undefined): Graph
   items.forEach((item) => {
     const deps = extractDependencyLinks(item.raw);
     deps.forEach((dep) => {
+      const targetTitle = nodeTitles.get(dep.id) ?? dep.id;
       edges.push({
         sourceId: item.id,
         targetId: dep.id,
         type: dep.type,
         sourceTitle: item.title,
-        targetTitle: nodeTitles.get(dep.id),
+        targetTitle,
       });
     });
   });
@@ -140,16 +141,17 @@ function linksToNeighbors(
     seen.add(link.id);
 
     const match = index.itemById.get(link.id);
-    neighbors.push({
+    const neighbor: DependencyNeighbor = {
       id: link.id,
-      title: match?.title,
-      status: match?.status,
+      title: match?.title ?? link.id,
       type: link.type,
       direction,
       missing: !match,
-      externalReferenceId: match?.externalReferenceId,
-      externalReferenceDescription: match?.externalReferenceDescription,
-    });
+    };
+    if (match?.status) neighbor.status = match.status;
+    if (match?.externalReferenceId) neighbor.externalReferenceId = match.externalReferenceId;
+    if (match?.externalReferenceDescription) neighbor.externalReferenceDescription = match.externalReferenceDescription;
+    neighbors.push(neighbor);
   }
 
   return neighbors;
@@ -186,15 +188,15 @@ function buildBranch(
     const match = index.itemById.get(link.id);
     const node: DependencyTreeNode = {
       id: link.id,
-      title: match?.title,
-      status: match?.status,
+      title: match?.title ?? link.id,
       type: link.type,
       direction,
       missing: !match,
-      externalReferenceId: match?.externalReferenceId,
-      externalReferenceDescription: match?.externalReferenceDescription,
       children: [],
     };
+    if (match?.status) node.status = match.status;
+    if (match?.externalReferenceId) node.externalReferenceId = match.externalReferenceId;
+    if (match?.externalReferenceDescription) node.externalReferenceDescription = match.externalReferenceDescription;
 
     if (!visited.has(link.id)) {
       const nextVisited = new Set(visited);
