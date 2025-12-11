@@ -40,8 +40,12 @@ export async function openInProgressPanel(deps: InProgressPanelDeps): Promise<vo
     const normalizeStatus = (value: string | undefined): string | undefined =>
       value?.toLowerCase().replace(/\s+/g, '_').replace(/-/g, '_');
 
-    const items = (provider as any)['items'] as BeadItemData[] || [];
-    const inProgress = items.filter((item) => normalizeStatus(item.status) === 'in_progress');
+    const sourceItems =
+      typeof (provider as any).getVisibleBeads === 'function'
+        ? (provider as any).getVisibleBeads() as BeadItemData[]
+        : ((provider as any)['items'] as BeadItemData[] || []);
+
+    const inProgress = sourceItems.filter((item) => normalizeStatus(item.status) === 'in_progress');
     panel.webview.html = getInProgressPanelHtml(inProgress, strings, locale)
       .replace('<style>', `<style>\n${buildSharedStyles()}\n`);
   };
