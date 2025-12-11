@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-const { mkdtempSync, rmSync, statSync, existsSync } = require("fs");
+const { mkdtempSync, rmSync, statSync, existsSync, mkdirSync, writeFileSync } = require("fs");
 const { tmpdir } = require("os");
 const { join } = require("path");
 const { spawnSync } = require("child_process");
@@ -12,6 +12,9 @@ const warnBytes = parseInt(
   process.env.VSIX_WARN_BYTES || `${2.7 * 1024 * 1024}`,
   10,
 );
+const resultPath =
+  process.env.VSIX_RESULT_PATH ||
+  join(__dirname, "..", "tmp", "perf", "vsix-size.json");
 const tempDir = mkdtempSync(join(tmpdir(), "beady-vsix-"));
 const packagePath = join(tempDir, "beady.vsix");
 
@@ -35,6 +38,15 @@ function cleanup() {
   }
 }
 
+function writeResult(result) {
+  try {
+    mkdirSync(join(__dirname, "..", "tmp", "perf"), { recursive: true });
+    writeFileSync(resultPath, JSON.stringify(result, null, 2));
+  } catch (err) {
+    console.warn("Warning: unable to write VSIX size result", err);
+  }
+}
+
 if (!existsSync("dist/extension.js")) {
   fail("dist/extension.js missing. Run `npm run bundle` first.");
 }
@@ -55,6 +67,14 @@ if (result.status !== 0) {
 
 const { size } = statSync(packagePath);
 const sizeMb = (size / (1024 * 1024)).toFixed(2);
+const result = {
+  sizeBytes: size,
+  sizeMB: Number(sizeMb),
+  budgetBytes,
+  warnBytes,
+  ok: size <= budgetBytes,
+  warning: size > warnBytes && size <= budgetBytes,
+};
 log(
   `VSIX size: ${sizeMb} MB (budget ${(budgetBytes / (1024 * 1024)).toFixed(2)} MB)`,
 );
@@ -63,6 +83,7 @@ cleanup();
 
 if (size > budgetBytes) {
   const overMb = ((size - budgetBytes) / (1024 * 1024)).toFixed(2);
+  writeResult({ ...result, ok: false, warning: false });
   fail(`VSIX exceeds budget by ${overMb} MB`);
 }
 
@@ -72,4 +93,5 @@ if (size > warnBytes) {
   );
 }
 
+writeResult(result);
 log("VSIX size within budget.");
