@@ -52,7 +52,7 @@ if (!existsSync("dist/extension.js")) {
 }
 
 const cmd = process.platform === "win32" ? "npx.cmd" : "npx";
-const result = spawnSync(
+const spawnResult = spawnSync(
   cmd,
   ["vsce", "package", "--follow-symlinks", "--out", packagePath],
   {
@@ -61,7 +61,7 @@ const result = spawnSync(
   },
 );
 
-if (result.status !== 0) {
+if (spawnResult.status !== 0) {
   fail("vsce package failed");
 }
 

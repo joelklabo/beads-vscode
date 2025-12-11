@@ -18,6 +18,7 @@ export interface MeasureActivationOptions {
   extensionId?: string;
   distPath?: string;
   now?: () => number;
+  allowHeadless?: boolean;
 }
 
 async function ensureDistExists(distPath: string): Promise<void> {
@@ -95,6 +96,7 @@ export async function measureActivation(
   const runTestsImpl = options.runTestsImpl ?? runTestsBase;
   const now = options.now ?? Date.now;
   const distPath = options.distPath ?? path.resolve(__dirname, "../../dist/extension.js");
+  const allowHeadless = options.allowHeadless ?? true;
 
   await ensureDistExists(distPath);
 
@@ -112,6 +114,7 @@ export async function measureActivation(
         "--disable-gpu",
         "--disable-dev-shm-usage",
         "--log=error",
+        allowHeadless ? "--disable-renderer-backgrounding" : "",
         `--user-data-dir=${env.userDataDir}`,
         `--extensions-dir=${env.extensionsDir}`,
         ...env.extraLaunchArgs,

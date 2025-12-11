@@ -2,7 +2,8 @@ import fs from 'node:fs';
 import { build, context } from 'esbuild';
 
 const watch = process.argv.includes('--watch');
-const minify = process.env.BUNDLE_MINIFY === '1';
+const minify = process.env.BUNDLE_MINIFY !== '0';
+const dropConsole = process.env.BUNDLE_DROP_CONSOLE === '1';
 
 const extensionOptions = {
   entryPoints: {
@@ -18,6 +19,10 @@ const extensionOptions = {
   external: ['vscode', '@vscode/test-electron'],
   tsconfig: 'tsconfig.base.json',
   metafile: true,
+  treeShaking: true,
+  minifyIdentifiers: minify,
+  minifyWhitespace: minify,
+  minifySyntax: minify,
   logLevel: 'info' as const,
 };
 
@@ -36,6 +41,11 @@ const webviewOptions = {
   external: ['vscode'], // vscode API is global
   tsconfig: 'tsconfig.base.json',
   metafile: true,
+  treeShaking: true,
+  minifyIdentifiers: minify,
+  minifyWhitespace: minify,
+  minifySyntax: minify,
+  drop: dropConsole ? ['console', 'debugger'] : undefined,
   logLevel: 'info' as const,
 };
 
