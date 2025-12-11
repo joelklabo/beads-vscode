@@ -1,0 +1,12 @@
+node_modules
+out
+dist
+tmp
+coverage
+.vscode-test
+**/package-lock.json
+**/yarn.lock
+**/pnpm-lock.yaml
+*.vsix
+
+.eslintrc.*

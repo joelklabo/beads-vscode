@@ -6,9 +6,7 @@
     "outDir": "./out",
     "declaration": true,
     "declarationMap": true,
-    "tsBuildInfoFile": "../../tmp/core.tsbuildinfo",
-    "exactOptionalPropertyTypes": true,
-    "noUncheckedIndexedAccess": true
+    "tsBuildInfoFile": "../../tmp/core.tsbuildinfo"
   },
   "include": ["./src/**/*"],
   "exclude": ["./out", "../../node_modules", "../../tmp"]

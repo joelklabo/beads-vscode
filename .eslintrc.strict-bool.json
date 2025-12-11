@@ -1,0 +1,26 @@
+{
+  "extends": "./.eslintrc.json",
+  "parserOptions": {
+    "project": [
+      "./tsconfig.json",
+      "./packages/core/tsconfig.json",
+      "./packages/platform-vscode/tsconfig.json"
+    ],
+    "tsconfigRootDir": "."
+  },
+  "rules": {
+    "@typescript-eslint/strict-boolean-expressions": [
+      "warn",
+      {
+        "allowAny": true,
+        "allowString": true,
+        "allowNumber": true,
+        "allowNullableBoolean": false,
+        "allowNullableString": true,
+        "allowNullableNumber": true,
+        "allowNullableObject": true,
+        "allowNullableEnum": true
+      }
+    ]
+  }
+}
