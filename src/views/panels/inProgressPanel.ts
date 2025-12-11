@@ -11,6 +11,7 @@ export interface InProgressPanelDeps {
   openBead: (item: BeadItemData) => Promise<void>;
   strings?: InProgressPanelStrings;
   locale?: string;
+  density?: 'default' | 'compact';
 }
 
 export async function openInProgressPanel(deps: InProgressPanelDeps): Promise<void> {
@@ -21,6 +22,7 @@ export async function openInProgressPanel(deps: InProgressPanelDeps): Promise<vo
     locale = vscode.env.language || 'en',
   } = deps;
 
+  const canRefresh = typeof (provider as any).refresh === 'function';
   const viewColumn = (vscode.ViewColumn && vscode.ViewColumn.One) || 1;
   const panel = vscode.window.createWebviewPanel(
     'inProgressSpotlight',
@@ -32,8 +34,18 @@ export async function openInProgressPanel(deps: InProgressPanelDeps): Promise<vo
     }
   );
 
-  if (!(provider as any)['items'] || (provider as any)['items'].length === 0) {
-    await provider.refresh();
+  const itemsMaybe = (provider as any)['items'];
+  if ((!Array.isArray(itemsMaybe) || itemsMaybe.length === 0) && canRefresh) {
+    try {
+      await (provider as any).refresh();
+    } catch (error) {
+      console.warn('[inProgressPanel] Failed to refresh provider:', error);
+      void vscode.window.showWarningMessage(
+        t('Issues are still loading. Try again after refreshing the explorer.')
+      );
+    }
+  } else if ((!Array.isArray(itemsMaybe) || itemsMaybe.length === 0) && !canRefresh) {
+    void vscode.window.showWarningMessage(t('Issues are still loading. Try again after refreshing the explorer.'));
   }
 
   const render = (): void => {
@@ -42,8 +54,8 @@ export async function openInProgressPanel(deps: InProgressPanelDeps): Promise<vo
 
     const sourceItems =
       typeof (provider as any).getVisibleBeads === 'function'
-        ? (provider as any).getVisibleBeads() as BeadItemData[]
-        : ((provider as any)['items'] as BeadItemData[] || []);
+        ? ((provider as any).getVisibleBeads() as BeadItemData[] | undefined) ?? []
+        : (Array.isArray((provider as any)['items']) ? (provider as any)['items'] as BeadItemData[] : []);
 
     const inProgress = sourceItems.filter((item) => normalizeStatus(item.status) === 'in_progress');
     panel.webview.html = getInProgressPanelHtml(inProgress, strings, locale)
@@ -69,13 +81,17 @@ export async function openInProgressPanel(deps: InProgressPanelDeps): Promise<vo
     }
 
     if (validated.command === 'openBead') {
+      if (typeof openBead !== 'function') {
+        void vscode.window.showWarningMessage(t('Unable to open issues right now. Please refresh and try again.'));
+        return;
+      }
       const items = (provider as any)['items'] as BeadItemData[] || [];
       const item = items.find((i: BeadItemData) => i.id === validated.beadId);
-      if (item) {
-        await openBead(item);
-      } else {
+      if (!item) {
         void vscode.window.showWarningMessage(t('Issue {0} not found', validated.beadId));
+        return;
       }
+      await openBead(item);
     }
   });
 }

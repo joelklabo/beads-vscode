@@ -4,6 +4,9 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
+# Resolve extension identifier (publisher.name) from package.json.
+EXT_ID="$(node -p "const p=require('./package.json'); p.publisher + '.' + p.name" )"
+
 # Find the newest VSIX produced by `npm run package`.
 VSIX_FILE=${VSIX_FILE:-$(ls -t beady-*.vsix 2>/dev/null | head -n 1 || true)}
 if [[ -z "${VSIX_FILE}" ]]; then
@@ -33,6 +36,18 @@ if [[ -z "${CLI_BIN}" ]]; then
   echo "[install-local] Warning: VS Code CLI not found (code/code-insiders). Skipping install + reload." >&2
   exit 0
 fi
+
+# Always remove any previously installed copy to avoid stale bundles.
+echo "[install-local] Removing previous installs of ${EXT_ID} (insiders + stable)..."
+"$CLI_BIN" --uninstall-extension "${EXT_ID}" --force >/dev/null 2>&1 || true
+for dir in \
+  "$HOME/.vscode-insiders/extensions/${EXT_ID}-"* \
+  "$HOME/.vscode/extensions/${EXT_ID}-"*; do
+  if [[ -d "${dir}" ]]; then
+    echo "[install-local] Deleting ${dir}"
+    rm -rf "${dir}"
+  fi
+done
 
 # Install the extension; fail if install fails.
 if ! "$CLI_BIN" --install-extension "${VSIX_FILE}" --force; then

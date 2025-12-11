@@ -122,7 +122,7 @@ export function activate(context: vscode.ExtensionContext): void {
       },
       (activityFeedProvider: ActivityFeedTreeDataProvider, beadsProvider: BeadsTreeDataProvider) =>
         openActivityFeedPanel({ activityFeedProvider, beadsProvider, openBead: async (item) => { await ensureData(); return openBead(item, beadsProvider); } }),
-      (provider: BeadsTreeDataProvider) => openInProgressPanel({ provider, openBead: async (item) => { await ensureData(); return openBead(item, provider); } }),
+      openInProgressPanel,
       pickBeadQuick,
       visualizeDependencies
     );
