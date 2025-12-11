@@ -42,7 +42,7 @@ let selectedEdge: { from?: string | null; to?: string | null } | null = null;
 let linkSourceId: string | null = null;
 let draggedNode: HTMLDivElement | null = null;
 let draggedNodeId: string | null = null;
-let dragOffset = { x: 0, y: 0 };
+const dragOffset = { x: 0, y: 0 };
 let isDragging = false;
 let mouseDownPos: { x: number; y: number } | null = null;
 

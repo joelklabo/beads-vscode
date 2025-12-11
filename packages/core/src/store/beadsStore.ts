@@ -304,16 +304,18 @@ export class BeadsStore {
       state.items = [];
       state.document = undefined;
       this.options.onError?.(error);
-    } finally {
-      state.refreshInProgress = false;
-      if (state.pendingRefresh) {
-        state.pendingRefresh = false;
-        await this.refreshWorkspace(state.target);
-        return;
-      }
-
-      this.notify(this.getSnapshot());
     }
+
+    const hadPendingRefresh = state.pendingRefresh;
+    state.pendingRefresh = false;
+    state.refreshInProgress = false;
+
+    if (hadPendingRefresh) {
+      await this.refreshWorkspace(state.target);
+      return;
+    }
+
+    this.notify(this.getSnapshot());
   }
 
   private ensureWorkspaceState(target: WorkspaceTarget): WorkspaceState {
