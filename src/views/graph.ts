@@ -97,17 +97,6 @@ export function getStatusLabels(): StatusLabelMap {
 /**
  * Render the dependency graph HTML with current state.
  */
-function renderGraphHtml(
-  items: BeadItemData[],
-  dependencyStrings: DependencyTreeStrings,
-  locale: string,
-  dependencyEditingEnabled: boolean
-): string {
-  const nodes: GraphNodeData[] = mapBeadsToGraphNodes(items);
-  const edges: GraphEdgeData[] = collectDependencyEdges(items);
-  return buildDependencyGraphHtml(nodes, edges, dependencyStrings, locale, dependencyEditingEnabled);
-}
-
 /**
  * Create and show the dependency graph webview.
  *
@@ -123,6 +112,7 @@ export function createDependencyGraphView(deps: GraphViewDependencies): GraphVie
   const dependencyStrings = buildDependencyTreeStrings(statusLabels);
   const locale = vscode.env.language || 'en';
   const dependencyEditingEnabled = vscode.workspace.getConfiguration('beady').get<boolean>('enableDependencyEditing', false);
+  const extensionUri = vscode.extensions.getExtension('klabo.beady')?.extensionUri ?? vscode.Uri.file('');
 
   const panel = vscode.window.createWebviewPanel(
     'beadDependencyTree',
@@ -131,18 +121,42 @@ export function createDependencyGraphView(deps: GraphViewDependencies): GraphVie
     {
       enableScripts: true,
       retainContextWhenHidden: true,
+      localResourceRoots: [extensionUri],
     }
   );
 
   // Initial render
-  const items = deps.getItems();
-  panel.webview.html = renderGraphHtml(items, dependencyStrings, locale, dependencyEditingEnabled);
+  panel.webview.html = buildDependencyGraphHtml(panel.webview, dependencyStrings, locale, dependencyEditingEnabled, extensionUri);
+
+  const sendGraphData = () => {
+    const items = deps.getItems();
+    const nodes: GraphNodeData[] = mapBeadsToGraphNodes(items);
+    const edges: GraphEdgeData[] = collectDependencyEdges(items);
+    panel.webview.postMessage({
+      type: 'init',
+      payload: {
+        nodes,
+        edges,
+        dependencyEditingEnabled,
+        localized: {
+          emptyTitle: dependencyStrings.emptyTitle,
+          emptyDescription: dependencyStrings.emptyDescription,
+          renderErrorTitle: dependencyStrings.renderErrorTitle,
+        }
+      }
+    });
+  };
 
   // Handle messages from the webview
   panel.webview.onDidReceiveMessage(async (message: unknown) => {
     const allowed: AllowedLittleGlenCommand[] = ['openBead', 'addDependency', 'removeDependency'];
+
+    if ((message as any)?.command === 'ready') {
+      sendGraphData();
+      return;
+    }
+
     const validated = validateLittleGlenMessage(message, allowed);
-    
     if (!validated) {
       console.warn('[Little Glen] Ignoring invalid visualizeDependencies message');
       return;
@@ -159,17 +173,42 @@ export function createDependencyGraphView(deps: GraphViewDependencies): GraphVie
     } else if (validated.command === 'addDependency') {
       if (validated.sourceId && validated.targetId) {
         await deps.addDependency(validated.sourceId, validated.targetId);
-        // Refresh the graph after dependency change
-        const refreshed = deps.getItems();
-        panel.webview.html = renderGraphHtml(refreshed, dependencyStrings, locale, dependencyEditingEnabled);
+        const items = deps.getItems();
+        panel.webview.postMessage({
+          type: 'update',
+          payload: {
+            nodes: mapBeadsToGraphNodes(items),
+            edges: collectDependencyEdges(items),
+            dependencyEditingEnabled,
+            localized: {
+              emptyTitle: dependencyStrings.emptyTitle,
+              emptyDescription: dependencyStrings.emptyDescription,
+              renderErrorTitle: dependencyStrings.renderErrorTitle,
+            }
+          }
+        });
       }
     } else if (validated.command === 'removeDependency') {
       await deps.removeDependency(validated.sourceId, validated.targetId, validated.contextId);
-      // Refresh the graph after dependency change
-      const refreshed = deps.getItems();
-      panel.webview.html = renderGraphHtml(refreshed, dependencyStrings, locale, dependencyEditingEnabled);
+      const items = deps.getItems();
+      panel.webview.postMessage({
+        type: 'update',
+        payload: {
+          nodes: mapBeadsToGraphNodes(items),
+          edges: collectDependencyEdges(items),
+          dependencyEditingEnabled,
+          localized: {
+            emptyTitle: dependencyStrings.emptyTitle,
+            emptyDescription: dependencyStrings.emptyDescription,
+            renderErrorTitle: dependencyStrings.renderErrorTitle,
+          }
+        }
+      });
     }
   });
+
+  // Kick off handshake
+  sendGraphData();
 
   return { panel };
 }
@@ -186,8 +225,19 @@ export function refreshDependencyGraphView(
 ): void {
   const statusLabels = getStatusLabels();
   const dependencyStrings = buildDependencyTreeStrings(statusLabels);
-  const locale = vscode.env.language || 'en';
   const dependencyEditingEnabled = vscode.workspace.getConfiguration('beady').get<boolean>('enableDependencyEditing', false);
 
-  panel.webview.html = renderGraphHtml(items, dependencyStrings, locale, dependencyEditingEnabled);
+  panel.webview.postMessage({
+    type: 'update',
+    payload: {
+      nodes: mapBeadsToGraphNodes(items),
+      edges: collectDependencyEdges(items),
+      dependencyEditingEnabled,
+      localized: {
+        emptyTitle: dependencyStrings.emptyTitle,
+        emptyDescription: dependencyStrings.emptyDescription,
+        renderErrorTitle: dependencyStrings.renderErrorTitle,
+      }
+    }
+  });
 }

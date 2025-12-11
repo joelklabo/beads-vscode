@@ -23,7 +23,8 @@ const extensionOptions = {
 
 const webviewOptions = {
   entryPoints: {
-    'views/issues': 'src/views/issues/index.tsx'
+    'views/issues': 'src/views/issues/index.tsx',
+    'views/graph': 'src/views/graph/runtime.ts'
   },
   outdir: 'dist',
   bundle: true,
