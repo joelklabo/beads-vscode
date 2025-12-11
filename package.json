@@ -374,6 +374,23 @@
           "default": true,
           "markdownDescription": "Allow attaching anonymized logs/metadata when sending feedback. Users are prompted before logs are included."
         },
+        "beady.activityFeed.enabled": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Enable the activity feed. When disabled, the feed view shows a disabled status."
+        },
+        "beady.activityFeed.allowRemote": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Allow activity feed queries on remote workspaces. Disabled by default to avoid sqlite incompatibilities."
+        },
+        "beady.activityFeed.queryTimeoutMs": {
+          "type": "number",
+          "default": 5000,
+          "minimum": 500,
+          "maximum": 30000,
+          "description": "Timeout in milliseconds for sqlite activity feed queries (default 5000)."
+        },
         "beady.enableDependencyEditing": {
           "type": "boolean",
           "default": false,

@@ -3,6 +3,7 @@ import * as path from 'path';
 import { WatcherManager } from '@beads/core';
 import { currentWorktreeId } from '../../worktree';
 import { formatError } from '../../utils';
+import { ActivityFeedUnavailable } from '../../activityFeed';
 import {
   ActivityEventItem,
   ActivityTreeItem,
@@ -46,6 +47,7 @@ export class ActivityFeedTreeDataProvider implements vscode.TreeDataProvider<Act
   private lastNewestTimestamp = 0;
   private autoRefreshEnabled: boolean;
   private readonly watchManager?: WatcherManager;
+  private statusMessage: string | undefined;
 
   constructor(private readonly context: vscode.ExtensionContext, options: ActivityFeedProviderOptions = {}) {
     this.baseIntervalMs = options.baseIntervalMs ?? 30000;
@@ -85,6 +87,14 @@ export class ActivityFeedTreeDataProvider implements vscode.TreeDataProvider<Act
     const items: ActivityTreeItem[] = [];
     const events = this.store.getEvents();
 
+    if (events.length === 0 && this.statusMessage) {
+      const statusItem = new vscode.TreeItem(this.statusMessage, vscode.TreeItemCollapsibleState.None);
+      statusItem.iconPath = new vscode.ThemeIcon('info');
+      statusItem.contextValue = 'activityFeedStatus';
+      items.push(statusItem);
+      return items;
+    }
+
     if (events.length > 0) {
       items.push(new StatisticsSectionItem(this.store.getStatistics()));
     }
@@ -101,8 +111,22 @@ export class ActivityFeedTreeDataProvider implements vscode.TreeDataProvider<Act
         this.currentIntervalMs = this.baseIntervalMs;
       }
 
+      const config = vscode.workspace.getConfiguration('beady');
+      const enabled = config.get<boolean>('activityFeed.enabled', true);
+      const allowRemote = config.get<boolean>('activityFeed.allowRemote', false);
+      const timeoutMs = this.getTimeoutMs();
+      const isRemote = !!vscode.env.remoteName;
+
+      if (!enabled) {
+        throw new ActivityFeedUnavailable('Activity feed is disabled in settings.', 'NO_DB');
+      }
+
+      if (isRemote && !allowRemote) {
+        throw new ActivityFeedUnavailable('Activity feed disabled on remote workspace (set beady.activityFeed.allowRemote to true to enable).', 'REMOTE');
+      }
+
       this.store.setWorktreeId(currentWorktreeId(projectRoot || ''));
-      await this.store.refresh(projectRoot);
+      await this.store.refresh(projectRoot, { timeoutMs });
 
       const events = this.store.getEvents();
       const newest = events[0]?.createdAt?.getTime() ?? 0;
@@ -110,6 +134,7 @@ export class ActivityFeedTreeDataProvider implements vscode.TreeDataProvider<Act
 
       this.lastEventCount = events.length;
       this.lastNewestTimestamp = newest;
+      this.statusMessage = undefined;
 
       this.onDidChangeTreeDataEmitter.fire();
       this.handleRefreshSuccess(eventsChanged);
@@ -158,7 +183,7 @@ export class ActivityFeedTreeDataProvider implements vscode.TreeDataProvider<Act
 
   async loadMoreEvents(): Promise<void> {
     const projectRoot = this.resolveProjectRoot();
-    await this.store.loadMore(projectRoot);
+    await this.store.loadMore(projectRoot, { timeoutMs: this.getTimeoutMs() });
     this.onDidChangeTreeDataEmitter.fire();
   }
 
@@ -212,6 +237,19 @@ export class ActivityFeedTreeDataProvider implements vscode.TreeDataProvider<Act
   }
 
   private handleRefreshFailure(error: unknown): void {
+    if (error instanceof ActivityFeedUnavailable) {
+      this.autoRefreshEnabled = false;
+      this.statusMessage = error.message;
+      this.store.clear();
+      this.onHealthChangedEmitter.fire({
+        state: 'error',
+        intervalMs: this.currentIntervalMs,
+        message: error.message,
+      });
+      this.onDidChangeTreeDataEmitter.fire();
+      return;
+    }
+
     this.currentIntervalMs = Math.min(this.maxIntervalMs, Math.max(this.baseIntervalMs, this.currentIntervalMs * 2));
     const message = formatError('Failed to load activity feed', error);
     console.warn(message);
@@ -221,6 +259,15 @@ export class ActivityFeedTreeDataProvider implements vscode.TreeDataProvider<Act
       message,
     });
     void vscode.window.setStatusBarMessage(message, 5000);
+  }
+
+  private getTimeoutMs(): number {
+    const config = vscode.workspace.getConfiguration('beady');
+    const timeout = config.get<number>('activityFeed.queryTimeoutMs', 5000);
+    if (!timeout || Number.isNaN(timeout)) {
+      return 5000;
+    }
+    return Math.max(500, Math.min(timeout, 30000));
   }
 
   private setupFileWatcher(): void {
