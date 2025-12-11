@@ -56,7 +56,7 @@ describe('issues webview CSP', () => {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const { BeadsWebviewProvider } = require('../../providers/beads/webview');
     const dataSource = {
-      onDidChangeTreeData: (fn: any) => ({ dispose: () => undefined }),
+      onDidChangeTreeData: (_fn: any) => ({ dispose: () => undefined }),
       getVisibleBeads: () => [],
       getSortMode: () => 'id',
     };

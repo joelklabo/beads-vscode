@@ -33,7 +33,7 @@ describe('cliService', () => {
         isTrusted: true,
         workspaceFolders: [{ uri: { fsPath: '/test/workspace' } }],
         getConfiguration: () => ({
-          get: (key: string, fallback: any) => fallback,
+        get: (_key: string, fallback: any) => fallback,
         }),
         getWorkspaceFolder: () => ({ uri: { fsPath: '/test/workspace' } }),
       },

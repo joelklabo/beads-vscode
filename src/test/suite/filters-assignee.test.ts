@@ -7,7 +7,6 @@ suite('Filter & assignee flows', () => {
   let restoreLoad: any;
   let vscodeStub: any;
   let BeadsTreeDataProvider: any;
-  let BeadTreeItem: any;
 
   setup(() => {
     const moduleAny = Module as any;
@@ -33,7 +32,6 @@ suite('Filter & assignee flows', () => {
     const extension = require('../../extension');
     BeadsTreeDataProvider = extension.BeadsTreeDataProvider;
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    BeadTreeItem = require('../../providers/beads/items').BeadTreeItem;
   });
 
   teardown(() => {

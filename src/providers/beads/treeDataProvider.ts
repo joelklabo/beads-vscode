@@ -3,9 +3,7 @@ import {
   BeadItemData,
   formatError,
   formatSafeError,
-  sanitizeErrorMessage,
   sanitizeInlineText,
-  escapeHtml,
   isStale,
   validateDependencyAdd,
   sanitizeDependencyId,
@@ -13,26 +11,12 @@ import {
   validateStatusChange,
   formatStatusLabel,
   compareStatus,
-  buildBulkSelection,
-  executeBulkStatusUpdate,
-  executeBulkLabelUpdate,
-  summarizeBulkResult,
-  BulkLabelAction,
-  BulkOperationFailure,
-  BulkOperationResult,
   getFavoriteLabel,
-  getLocalFavorites,
-  saveLocalFavorites,
-  sanitizeFavoriteLabel,
-  isValidFavoriteLabel,
-  validateFavoriteTargets,
-  sanitizeFavoriteError,
   syncFavoritesState,
   validateTitleInput,
   validateLabelInput,
   validateStatusInput,
   validateAssigneeInput,
-  collectDependencyEdges,
   QuickFilterPreset,
   applyQuickFilter,
   toggleQuickFilter,
@@ -40,9 +24,6 @@ import {
   deriveAssigneeName,
 } from '../../utils';
 import { DensityMode, loadDensity, saveDensity } from '../../utils/density';
-import { ActivityFeedTreeDataProvider, ActivityEventItem } from '../../activityFeedProvider';
-import { EventType } from '../../activityFeed';
-import { validateLittleGlenMessage, AllowedLittleGlenCommand } from '../../littleGlen/validation';
 import {
   AssigneeSectionItem,
   BeadTreeItem,
@@ -64,21 +45,11 @@ import {
   createBeadsStore,
   createWorkspaceTarget,
   createVsCodeWatchAdapter,
-  findBdCommand,
   naturalSort,
   saveBeadsDocument,
 } from './store';
-import { resolveProjectRoot, getWorkspaceOptions, findWorkspaceById, loadSavedWorkspaceSelection, saveWorkspaceSelection } from '../../utils/workspace';
-import { computeFeedbackEnablement } from '../../feedback/enablement';
-import { getBulkActionsConfig } from '../../utils/config';
-import { registerSendFeedbackCommand } from '../../commands/sendFeedback';
-import { CommandRegistry, createExportCommands, createQuickFilterCommands } from '../../commands';
-import { DependencyTreeProvider } from '../../dependencyTreeProvider';
-import { BeadsWebviewProvider } from './webview';
-import { currentWorktreeId } from '../../worktree';
-import { warnIfDependencyEditingUnsupported } from '../../services/runtimeEnvironment';
-import { BdCommandOptions, formatBdError, resolveBeadId, runBdCommand } from '../../services/cliService';
-import { registerChatParticipants } from '../../chatAgents';
+import { resolveProjectRoot, findWorkspaceById, loadSavedWorkspaceSelection, saveWorkspaceSelection } from '../../utils/workspace';
+import { formatBdError, resolveBeadId, runBdCommand } from '../../services/cliService';
 import { getBeadDetailHtml } from '../../views/detail';
 import { BeadDetailStrings, StatusLabelMap } from '../../views/detail/types';
 

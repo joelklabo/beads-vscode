@@ -533,7 +533,7 @@ Run \`npx bd --no-daemon ready --json\` and begin working. Do not respond to thi
 `;
 
 export function registerChatParticipants(context: vscode.ExtensionContext) {
-  const taskCreator = vscode.chat.createChatParticipant('beady.task-creator', async (request, context, response, token) => {
+  const taskCreator = vscode.chat.createChatParticipant('beady.task-creator', async (request, _context, response, token) => {
     try {
         // Try to find gpt5-codex, then gpt-4, but fall back to any available model
         const allModels = await vscode.lm.selectChatModels({});
@@ -556,7 +556,7 @@ export function registerChatParticipants(context: vscode.ExtensionContext) {
     }
   });
 
-  const taskWorker = vscode.chat.createChatParticipant('beady.task-worker', async (request, context, response, token) => {
+  const taskWorker = vscode.chat.createChatParticipant('beady.task-worker', async (request, _context, response, token) => {
      try {
         // Try to find gpt5-codex, then gpt-4, but fall back to any available model
         const allModels = await vscode.lm.selectChatModels({});

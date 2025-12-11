@@ -50,7 +50,6 @@ const vscodeStub = {
 
 let openBeadPanel: any;
 let openBeadFromFeed: any;
-let BeadItemData: any;
 let restoreLoad: any;
 
 describe('detail panel helper', () => {
@@ -84,7 +83,6 @@ describe('detail panel helper', () => {
     const panel = require('../../views/detail/panel');
     openBeadPanel = panel.openBeadPanel;
     openBeadFromFeed = panel.openBeadFromFeed;
-    BeadItemData = require('../../utils').BeadItemData;
   });
 
   afterEach(() => {

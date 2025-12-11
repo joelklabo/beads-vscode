@@ -15,7 +15,6 @@ const originalLoad = (Module as any)._load;
 };
 
 import { getBeadDetailHtml } from '../views/detail/html';
-import { buildDependencyTrees } from '../utils';
 
 const fakeWebview = { cspSource: 'vscode-resource', asWebviewUri: () => '' } as any;
 
