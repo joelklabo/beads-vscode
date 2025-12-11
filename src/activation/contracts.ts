@@ -27,13 +27,15 @@ export interface ActivityFeedRegistryResult
 
 export type ViewRegistryFactory = (
   context: vscode.ExtensionContext,
-  watchManager: WatcherManager
+  watchManager: WatcherManager,
+  options?: { onDataRequested?: () => void }
 ) => ViewRegistryResult;
 
 export type ActivityFeedRegistryFactory = (
   context: vscode.ExtensionContext,
   watchManager: WatcherManager,
-  beadsProvider: BeadsTreeDataProvider
+  beadsProvider: BeadsTreeDataProvider,
+  options?: { onDataRequested?: () => void; autoRefresh?: boolean }
 ) => ActivityFeedRegistryResult;
 
 export type CommandResolver = (item: unknown, provider: BeadsTreeDataProvider) => BeadItemData | undefined;

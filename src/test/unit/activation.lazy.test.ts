@@ -37,7 +37,7 @@ describe('activation configuration', () => {
 });
 
 describe('lazy activation lifecycle', () => {
-  const createVscodeStub = (counters: { webview: number; tree: number; commands: number }) => {
+  const createVscodeStub = (counters: { webview: number; tree: number; commands: number; refreshes: number; treeViews: any[] }) => {
     class EventEmitter<T> {
       private listeners: Array<(e: T) => void> = [];
       public event = (listener: (e: T) => void) => {
@@ -105,7 +105,19 @@ describe('lazy activation lifecycle', () => {
         showInformationMessage: () => undefined,
         showErrorMessage: () => undefined,
         showWarningMessage: () => undefined,
-        createTreeView: () => { counters.tree += 1; return { onDidDispose: () => ({ dispose: () => undefined }), dispose: () => undefined, message: undefined }; },
+        createTreeView: () => {
+          counters.tree += 1;
+          const visibility = new EventEmitter<{ visible: boolean }>();
+          const view = {
+            onDidChangeVisibility: visibility.event,
+            __fireVisibility: (v: boolean) => visibility.fire({ visible: v }),
+            onDidDispose: () => ({ dispose: () => undefined }),
+            dispose: () => undefined,
+            message: undefined
+          };
+          counters.treeViews.push(view);
+          return view;
+        },
         registerWebviewViewProvider: () => { counters.webview += 1; return { dispose: () => undefined }; },
         createStatusBarItem: () => ({ show: () => undefined, hide: () => undefined, dispose: () => undefined }),
         createWebviewPanel: () => ({ webview: { html: '' }, onDidDispose: () => ({ dispose: () => undefined }), reveal: () => undefined, dispose: () => undefined }),
@@ -160,17 +172,17 @@ describe('lazy activation lifecycle', () => {
   });
 
   it('defers provider setup until activation', () => {
-    const counters = { webview: 0, tree: 0, commands: 0 };
+    const counters = { webview: 0, tree: 0, commands: 0, refreshes: 0, treeViews: [] as any[] };
     const moduleAny = Module as any;
     restoreLoad = moduleAny._load;
 
     const stubModules: Record<string, any> = {
-      '../../activityFeedProvider': { ActivityFeedTreeDataProvider: class { onHealthChanged() { return { dispose: () => undefined }; } }, ActivityEventItem: class {} },
-      '../../providers/activityFeed/provider': { ActivityFeedTreeDataProvider: class { onHealthChanged() { return { dispose: () => undefined }; } } },
+      '../../activityFeedProvider': { ActivityFeedTreeDataProvider: class { onHealthChanged() { return { dispose: () => undefined }; } enableAutoRefresh() {} refresh() {} }, ActivityEventItem: class {} },
+      '../../providers/activityFeed/provider': { ActivityFeedTreeDataProvider: class { onHealthChanged() { return { dispose: () => undefined }; } enableAutoRefresh() {} refresh() {} } },
       '../../providers/beads/treeDataProvider': {
         BeadsTreeDataProvider: class {
           onDidChangeTreeData = () => ({ dispose: () => undefined });
-          refresh() { return undefined; }
+          refresh() { counters.refreshes += 1; return undefined; }
           setStatusBarItem() { return undefined; }
           setFeedbackEnabled() { return undefined; }
           setSortPickerEnabled() { return undefined; }
@@ -211,6 +223,12 @@ describe('lazy activation lifecycle', () => {
     assert.strictEqual(counters.webview, 1, 'webview should register once');
     assert.strictEqual(counters.tree, 2, 'tree views should register once each');
     assert.ok(counters.commands > 0, 'commands should register on activation');
+    assert.strictEqual(counters.refreshes, 0, 'no data refresh should run during cold activation');
+
+    // Simulate first visibility of a tree view to trigger lazy refresh
+    const firstTreeView = counters.treeViews[0];
+    firstTreeView?.__fireVisibility?.(true);
+    assert.strictEqual(counters.refreshes, 1, 'data refresh should run when a view becomes visible');
   });
 
   it('emits JSON results with budget and timing', async () => {

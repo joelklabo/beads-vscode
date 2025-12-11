@@ -261,6 +261,14 @@ export class ActivityFeedTreeDataProvider implements vscode.TreeDataProvider<Act
     void vscode.window.setStatusBarMessage(message, 5000);
   }
 
+  enableAutoRefresh(): void {
+    if (this.autoRefreshEnabled) {
+      return;
+    }
+    this.autoRefreshEnabled = true;
+    this.scheduleNextRefresh(0);
+  }
+
   private getTimeoutMs(): number {
     const config = vscode.workspace.getConfiguration('beady');
     const timeout = config.get<number>('activityFeed.queryTimeoutMs', 5000);
