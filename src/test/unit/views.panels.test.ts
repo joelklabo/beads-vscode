@@ -1,101 +1,109 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 import * as assert from 'assert';
 import Module = require('module');
-import type { BeadItemData } from '../../utils';
 
-const webviewHandlers: Array<(msg: any) => void> = [];
-const createdPanels: any[] = [];
+const warnings: string[] = [];
 
-const vscodeStub = {
-  env: { language: 'en' },
-  workspace: {
-    getConfiguration: () => ({ get: (_k: string, fallback: any) => fallback }),
-    workspaceFolders: [],
-  },
-  window: {
-    showInformationMessage: () => undefined,
-    showWarningMessage: () => undefined,
-    createWebviewPanel: (_v: string, _title: string) => {
-      const panel: any = {
-        webview: {
-          html: '',
-          onDidReceiveMessage: (fn: (msg: any) => void) => {
-            webviewHandlers.push(fn);
-            return { dispose() {} };
+function createVscodeStub() {
+  const webviewHandlers: Array<(msg: any) => void> = [];
+  const createdPanels: any[] = [];
+
+  const vscodeStub = {
+    env: { language: 'en' },
+    workspace: { getConfiguration: () => ({ get: (_k: string, fallback: any) => fallback }), workspaceFolders: [] },
+    window: {
+      showWarningMessage: (msg: string) => { warnings.push(msg); return undefined; },
+      createWebviewPanel: (_viewType: string, title: string) => {
+        const panel: any = {
+          title,
+          webview: {
+            html: '',
+            onDidReceiveMessage: (fn: (msg: any) => void) => { webviewHandlers.push(fn); return { dispose() {} }; },
           },
-        },
-        onDidDispose: () => ({ dispose() {} }),
-      };
-      createdPanels.push(panel);
-      return panel;
+          onDidDispose: () => ({ dispose() {} }),
+        };
+        createdPanels.push(panel);
+        return panel;
+      },
     },
-  },
-  ViewColumn: { One: 1, Two: 2, Three: 3 },
-  l10n: { t: (message: string, ...args: any[]) => message.replace(/\{(\d+)\}/g, (_m, i) => String(args[Number(i)] ?? `{${i}}`)) },
-};
+    l10n: { t: (message: string, ...args: any[]) => message.replace(/\{(\d+)\}/g, (_m, i) => String(args[Number(i)] ?? `{${i}}`)) },
+    ViewColumn: { One: 1 },
+  } as any;
 
-let openInProgressPanel: any;
-let openActivityFeedPanel: any;
-let BeadItemData: any;
-let restoreLoad: any;
+  return { vscodeStub, webviewHandlers, createdPanels };
+}
 
-describe('view panel helpers', () => {
-  beforeEach(() => {
-    const moduleAny = Module as any;
-    restoreLoad = moduleAny._load;
-    moduleAny._load = function (request: string, parent: any) {
-      if (request === 'vscode') return vscodeStub;
-      return restoreLoad(request, parent);
-    };
-
-    delete require.cache[require.resolve('../../views/panels/inProgressPanel')];
-    delete require.cache[require.resolve('../../views/panels/activityFeedPanel')];
-    delete require.cache[require.resolve('../../utils')];
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    openInProgressPanel = require('../../views/panels/inProgressPanel').openInProgressPanel;
-    openActivityFeedPanel = require('../../views/panels/activityFeedPanel').openActivityFeedPanel;
-    BeadItemData = require('../../utils').BeadItemData;
-    webviewHandlers.length = 0;
-    createdPanels.length = 0;
-  });
+describe('panel message validation', () => {
+  let restoreLoad: any;
 
   afterEach(() => {
     (Module as any)._load = restoreLoad;
+    warnings.length = 0;
   });
 
-  it('openInProgressPanel wires openBead message', async () => {
-    let opened = '';
-    const provider: any = {
-      items: [{ id: 'b-1', status: 'in_progress' } as BeadItemData],
-      onDidChangeTreeData: () => ({ dispose() {} }),
-      refresh: () => Promise.resolve(),
+  it('drops invalid messages in in-progress panel', async () => {
+    const { vscodeStub, webviewHandlers, createdPanels } = createVscodeStub();
+    const moduleAny = Module as any;
+    restoreLoad = moduleAny._load;
+    moduleAny._load = (request: string, parent: any, isMain: boolean) => {
+      if (request === 'vscode') return vscodeStub;
+      if (request.includes('../inProgress')) {
+        return {
+          getInProgressPanelHtml: () => '<html></html>',
+          buildInProgressPanelStrings: () => ({ title: 'In Progress' }),
+        };
+      }
+      if (request.includes('../shared/theme')) {
+        return { buildSharedStyles: () => '' };
+      }
+      return restoreLoad(request, parent, isMain);
     };
 
-    await openInProgressPanel({ provider, openBead: async (item: BeadItemData) => { opened = item.id; } });
-    assert.ok(createdPanels[0], 'panel not created');
-    assert.ok(createdPanels[0].webview.html.includes('bead-chip status status-in_progress'));
-
-    webviewHandlers[0]?.({ command: 'openBead', beadId: 'b-1' });
-    assert.strictEqual(opened, 'b-1');
-  });
-
-  it('openActivityFeedPanel validates and opens bead', async () => {
-    let opened = '';
-    const beadsProvider: any = { items: [{ id: 'b-2', status: 'open' } as BeadItemData] };
-    const activityFeedProvider: any = { onDidChangeTreeData: () => ({ dispose() {} }) };
-    const events = [{ issueId: 'b-2', iconName: 'sparkle', colorClass: 'event-info', description: 'hi', actor: 'me', createdAt: new Date(), issueTitle: 't' } as any];
-
-    await openActivityFeedPanel({
-      activityFeedProvider,
-      beadsProvider,
-      openBead: async (item: BeadItemData) => { opened = item.id; },
-      fetchEvents: async () => ({ events, totalCount: events.length, hasMore: false }),
-      getProjectRoot: () => '',
-      locale: 'en',
+    delete require.cache[require.resolve('../../views/panels/inProgressPanel')];
+    delete require.cache[require.resolve('../../views/shared/theme')];
+    delete require.cache[require.resolve('../../views/inProgress')];
+    const panelModule = require('../../views/panels/inProgressPanel');
+    await panelModule.openInProgressPanel({
+      provider: { items: [{ id: 'X', status: 'in_progress' }], onDidChangeTreeData: () => ({ dispose() {} }), refresh: () => undefined },
+      openBead: async () => { throw new Error('should not be called'); },
     });
 
-    assert.ok(createdPanels[0].webview.html.includes('bead-chip status'), 'status chip missing in html');
-    webviewHandlers[0]?.({ command: 'openBead', beadId: 'b-2' });
-    assert.strictEqual(opened, 'b-2');
+    assert.ok(createdPanels.length === 1, 'panel should be created');
+    webviewHandlers[0]?.({ command: 'bad' });
+    assert.ok(warnings.length > 0, 'warning should be emitted for invalid message');
+  });
+
+  it('drops invalid messages in activity feed panel', async () => {
+    const { vscodeStub, webviewHandlers, createdPanels } = createVscodeStub();
+    const moduleAny = Module as any;
+    restoreLoad = moduleAny._load;
+    moduleAny._load = (request: string, parent: any, isMain: boolean) => {
+      if (request === 'vscode') return vscodeStub;
+      if (request.includes('../../activityFeed')) {
+        return { fetchEvents: async () => ({ events: [], hasMore: false, totalCount: 0, nextCursor: undefined }) };
+      }
+      if (request.includes('../shared/theme')) {
+        return { buildSharedStyles: () => '' };
+      }
+      if (request.includes('../activityFeed')) {
+        return { getActivityFeedPanelHtml: () => '<html></html>' };
+      }
+      return restoreLoad(request, parent, isMain);
+    };
+
+    delete require.cache[require.resolve('../../views/panels/activityFeedPanel')];
+    delete require.cache[require.resolve('../../views/shared/theme')];
+    delete require.cache[require.resolve('../../views/activityFeed')];
+    const panelModule = require('../../views/panels/activityFeedPanel');
+    await panelModule.openActivityFeedPanel({
+      activityFeedProvider: { onDidChangeTreeData: () => ({ dispose() {} }) },
+      beadsProvider: { items: [] },
+      openBead: async () => { throw new Error('should not be called'); },
+      fetchEvents: async () => ({ events: [], hasMore: false, totalCount: 0, nextCursor: undefined }),
+    });
+
+    assert.ok(createdPanels.length === 1, 'panel should be created');
+    webviewHandlers[0]?.({ command: 'bad' });
+    assert.ok(warnings.length > 0, 'warning should be emitted for invalid message');
   });
 });

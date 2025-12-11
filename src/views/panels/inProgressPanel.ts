@@ -48,11 +48,16 @@ export async function openInProgressPanel(deps: InProgressPanelDeps): Promise<vo
   const subscription = provider.onDidChangeTreeData(() => render());
   panel.onDidDispose(() => subscription.dispose());
 
+  let invalidLogged = false;
   panel.webview.onDidReceiveMessage(async (message) => {
     const allowed: AllowedLittleGlenCommand[] = ['openBead'];
     const validated = validateLittleGlenMessage(message, allowed);
     if (!validated) {
-      console.warn('[inProgressPanel] Ignoring invalid message');
+      if (!invalidLogged) {
+        console.warn('[inProgressPanel] Ignoring invalid message');
+        void vscode.window.showWarningMessage(t('Ignored invalid request from In Progress panel.'));
+        invalidLogged = true;
+      }
       return;
     }
 
