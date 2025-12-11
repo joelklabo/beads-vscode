@@ -294,11 +294,19 @@ function createNode(node: GraphNode): HTMLDivElement {
   chipsRow.className = 'node-chips';
   const statusChip = document.createElement('div');
   statusChip.className = 'bead-chip status status-' + (node.status || 'open') + (node.status === 'in_progress' ? ' pulsing' : '');
-  statusChip.innerHTML = '<span class="codicon codicon-circle-filled"></span>' + (node.status || 'open');
+  const statusIcon = document.createElement('span');
+  statusIcon.className = 'codicon codicon-circle-filled';
+  const statusTextNode = document.createTextNode(node.status || 'open');
+  statusChip.appendChild(statusIcon);
+  statusChip.appendChild(statusTextNode);
   const typeKey = node.issueType || 'task';
   const typeChip = document.createElement('div');
   typeChip.className = 'bead-chip type type-' + typeKey;
-  typeChip.innerHTML = '<span class="codicon ' + (typeIconMap[typeKey] || 'codicon-check') + '"></span>' + typeKey;
+  const typeIcon = document.createElement('span');
+  typeIcon.className = 'codicon ' + (typeIconMap[typeKey] || 'codicon-check');
+  const typeTextNode = document.createTextNode(typeKey);
+  typeChip.appendChild(typeIcon);
+  typeChip.appendChild(typeTextNode);
   chipsRow.appendChild(statusChip);
   chipsRow.appendChild(typeChip);
   div.appendChild(chipsRow);
@@ -493,11 +501,15 @@ function render() {
   if (!canvasEl || !svgEl || !containerEl) return;
 
   if (!nodes.length) {
-    containerEl.innerHTML = `<div class="empty-state">${localized.emptyTitle}</div>`;
+    containerEl.replaceChildren();
+    const empty = document.createElement('div');
+    empty.className = 'empty-state';
+    empty.textContent = localized.emptyTitle;
+    containerEl.appendChild(empty);
     return;
   }
 
-  canvasEl.innerHTML = '';
+  canvasEl.replaceChildren();
   nodeElements.clear();
   calculateLayout();
 
@@ -647,7 +659,12 @@ function handleMessage(event: MessageEvent<GraphMessage>) {
     applyPayload(payload);
   } catch (err: any) {
     if (containerEl) {
-      containerEl.innerHTML = `<div class="empty-state error">${localized.renderErrorTitle}: ${err?.message ?? err}</div>`;
+      containerEl.replaceChildren();
+      const errorDiv = document.createElement('div');
+      errorDiv.className = 'empty-state error';
+      const message = `${localized.renderErrorTitle}: ${err?.message ?? err}`;
+      errorDiv.textContent = message;
+      containerEl.appendChild(errorDiv);
     }
   }
 }
