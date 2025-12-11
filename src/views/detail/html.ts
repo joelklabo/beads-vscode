@@ -453,13 +453,13 @@ export function getBeadDetailHtml(
         </div>
 
         <div class="section">
-            <div class="section-title">${strings.designLabel}</div>
-            <textarea class="editable-field" id="design" placeholder="Add design notes...">${escapeHtml(design)}</textarea>
+            <div class="section-title">${strings.acceptanceLabel}</div>
+            <textarea class="editable-field" id="acceptanceCriteria" placeholder="List clear acceptance checks (Given/When/Then or bullet list)...">${escapeHtml(acceptanceCriteria)}</textarea>
         </div>
 
         <div class="section">
-            <div class="section-title">${strings.acceptanceLabel}</div>
-            <textarea class="editable-field" id="acceptanceCriteria" placeholder="Add acceptance criteria...">${escapeHtml(acceptanceCriteria)}</textarea>
+            <div class="section-title">${strings.designLabel}</div>
+            <textarea class="editable-field" id="design" placeholder="Capture design rationale: flows, states, constraints, open questions...">${escapeHtml(design)}</textarea>
         </div>
 
         <div class="section">
@@ -595,34 +595,6 @@ export function getBeadDetailHtml(
 
         addLabelButton.addEventListener('click', () => {
             vscode.postMessage({ command: 'addLabel' });
-        });
-
-        if (document.getElementById('addUpstreamButton')) {
-            document.getElementById('addUpstreamButton').addEventListener('click', () => {
-                // sourceId is the current item (it depends on the target)
-                // targetId will be selected via Quick Pick in the extension
-                vscode.postMessage({ command: 'addDependency', sourceId: '${item.id}' });
-            });
-        }
-
-        if (document.getElementById('addDownstreamButton')) {
-            document.getElementById('addDownstreamButton').addEventListener('click', () => {
-                // targetId is the current item (the selected item will depend on it)
-                // sourceId will be selected via Quick Pick in the extension
-                vscode.postMessage({ command: 'addDependency', targetId: '${item.id}' });
-            });
-        }
-
-        // Handle dependency removal buttons
-        document.addEventListener('click', (e) => {
-            const target = e.target;
-            if (target.classList.contains('dependency-remove')) {
-                const sourceId = target.getAttribute('data-source-id');
-                const targetId = target.getAttribute('data-target-id');
-                if (sourceId && targetId) {
-                    vscode.postMessage({ command: 'removeDependency', sourceId, targetId });
-                }
-            }
         });
 
         // Status Dropdown Logic

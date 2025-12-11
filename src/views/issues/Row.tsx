@@ -20,6 +20,9 @@ export const Row: React.FC<RowProps> = ({ bead, onClick, compact }) => {
   const issueTypeToken = getIssueTypeToken((bead as any)?.issueType);
   const assigneeToken = bead.assignee ? getAssigneeToken(bead.assignee.color) : undefined;
   const chipSize = compact ? 'sm' : '';
+  const descriptionPreview = !compact && bead.description
+    ? truncateMultiline(bead.description, 200)
+    : undefined;
 
   return (
     <div 
@@ -93,6 +96,12 @@ export const Row: React.FC<RowProps> = ({ bead, onClick, compact }) => {
             ))}
           </div>
         )}
+
+        {descriptionPreview && (
+          <div className="bead-description" title={bead.description}>
+            {descriptionPreview}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -116,4 +125,11 @@ function formatRelativeTime(dateStr: string): string {
   } catch (e) {
     return '';
   }
+}
+
+function truncateMultiline(text: string, maxLength: number): string {
+  if (!text) return '';
+  const normalized = text.replace(/\r?\n/g, ' ').replace(/\s+/g, ' ').trim();
+  if (normalized.length <= maxLength) return normalized;
+  return `${normalized.slice(0, maxLength - 1)}…`;
 }
