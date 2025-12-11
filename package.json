@@ -640,7 +640,7 @@
     ]
   },
   "scripts": {
-    "vscode:prepublish": "npm run typecheck && npm run bundle",
+    "vscode:prepublish": "node -e \"if (process.env.SKIP_VSCODE_PREPUBLISH==='1'){process.exit(0)}\" || (npm run typecheck && npm run bundle && npm run audit:bundle && npm run check:perf)",
     "typecheck": "tsc --noEmit",
     "compile": "tsc -b packages/platform-vscode/tsconfig.json",
     "viz:webviews": "npm run compile && node scripts/visual/webviews.js",
@@ -667,7 +667,7 @@
     "publish": "vsce publish --follow-symlinks",
     "install-local": "npm run package && ./scripts/install-local.sh",
     "test:harness": "bash ./scripts/agent-harness/run-placeholder.sh",
-    "check:size": "node scripts/size-check.js",
+    "check:size": "node scripts/check-vsix-size.js",
     "test:integration:stable": "node -e \"const {spawnSync}=require('child_process'); const env={...process.env, VSCODE_TEST_CHANNEL:'stable', VSCODE_TEST_INSTANCE_ID:process.env.VSCODE_TEST_INSTANCE_ID||require('crypto').randomUUID()}; const cmd=process.platform==='win32'?'npm.cmd':'npm'; const r=spawnSync(cmd,['run','test:integration'],{stdio:'inherit',env}); process.exit(r.status ?? 1);\"",
     "test:integration:insiders": "node -e \"const {spawnSync}=require('child_process'); const env={...process.env, VSCODE_TEST_CHANNEL:'insiders', VSCODE_TEST_INSTANCE_ID:process.env.VSCODE_TEST_INSTANCE_ID||require('crypto').randomUUID()}; const cmd=process.platform==='win32'?'npm.cmd':'npm'; const r=spawnSync(cmd,['run','test:integration'],{stdio:'inherit',env}); process.exit(r.status ?? 1);\"",
     "test:integration:headless": "node -e \"const {spawnSync}=require('child_process'); const env={...process.env, VSCODE_TEST_CHANNEL:process.env.VSCODE_TEST_CHANNEL||'stable', VSCODE_TEST_INSTANCE_ID:process.env.VSCODE_TEST_INSTANCE_ID||require('crypto').randomUUID()}; const isLinux=process.platform==='linux'; const cmd=isLinux?'xvfb-run':(process.platform==='win32'?'npm.cmd':'npm'); const args=isLinux?['-a','npm','run','test:integration']:['run','test:integration']; const r=spawnSync(cmd,args,{stdio:'inherit',env}); process.exit(r.status ?? 1);\"",
@@ -677,12 +677,13 @@
     "ci:integration": "npm run test:integration:headless",
     "ci:core": "npm run --if-present build:core && npm run --if-present test:core",
     "ci:workspace": "npm run ci:core",
-    "ci:verify": "npm run ci:lint && npm run compile && npm run test:unit && npm run test:integration:headless",
+    "ci:verify": "npm run ci:lint && npm run compile && npm run test:unit && npm run test:integration:headless && npm run audit:bundle && npm run check:size && npm run check:perf",
     "ci:coverage": "npm run compile && c8 --reporter=text --reporter=lcov npm run test:unit:run",
     "test:core": "npm run -w @beads/core test",
     "recommend:add": "tsx scripts/add-vscode-recommendation.ts",
     "test:bundle": "npm run compile && npm run bundle && node ./out/test/bundle.smoke.test.js",
-    "check:vsix-size": "node scripts/check-vsix-size.js"
+    "check:vsix-size": "node scripts/check-vsix-size.js",
+    "check:perf": "npm run bundle && tsx scripts/perf/measure-activation.ts"
   },
   "devDependencies": {
     "playwright": "^1.42.0",
