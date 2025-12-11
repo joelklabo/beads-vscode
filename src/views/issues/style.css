@@ -21,8 +21,8 @@ body {
   --bead-chip-gap: 5px;
   --bead-assignee-color: var(--vscode-charts-blue);
   --bead-assignee-bg: color-mix(in srgb, var(--vscode-charts-blue) 22%, transparent);
-  --bead-row-padding-y: 10px;
-  --bead-row-gap: 12px;
+  --bead-row-padding-y: 12px;
+  --bead-row-gap: 14px;
 }
 
 body.compact {
@@ -242,6 +242,7 @@ body.compact {
   transition: background-color 0.1s;
   gap: var(--bead-row-gap, 12px);
   min-height: 38px;
+  border-radius: 6px;
 }
 
 body.compact .bead-row {
@@ -254,7 +255,7 @@ body.compact .bead-primary-line {
 }
 
 .bead-row:hover {
-  background-color: var(--vscode-list-hoverBackground);
+  background-color: color-mix(in srgb, var(--vscode-list-hoverBackground) 60%, transparent);
 }
 
 .bead-row:focus {
@@ -283,7 +284,7 @@ body.compact .bead-primary-line {
   min-width: 0; /* Allow truncation */
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
 /* Primary Line: Title & Time */
