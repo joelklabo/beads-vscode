@@ -18,9 +18,12 @@ export function mergeCliPolicy(
   overrides?: Partial<CliExecutionPolicy>,
   defaults: CliExecutionPolicy = DEFAULT_CLI_POLICY
 ): CliExecutionPolicy {
-  return {
-    ...defaults,
-    ...(overrides ?? {}),
-    maxBufferBytes: overrides?.maxBufferBytes ?? defaults.maxBufferBytes,
-  };
+  const mergedBase = { ...defaults, ...(overrides ?? {}) };
+  const maxBufferBytes = overrides?.maxBufferBytes ?? defaults.maxBufferBytes;
+  if (maxBufferBytes !== undefined) {
+    mergedBase.maxBufferBytes = maxBufferBytes;
+  } else {
+    delete mergedBase.maxBufferBytes;
+  }
+  return mergedBase;
 }

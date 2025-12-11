@@ -147,25 +147,27 @@ export function normalizeBead(entry: any, index = 0): BeadItemData {
 
   const inProgressSince = status === 'in_progress' ? updatedAt : undefined;
 
-  return {
+  const bead: BeadItemData = {
     id: id ?? `bead-${index}`,
-    idKey,
     title,
-    description,
-    filePath,
-    status,
-    tags,
-    assignee,
-    updatedAt,
-    externalReferenceId,
-    externalReferenceDescription,
-    externalReferenceKey,
     raw: entry,
     blockingDepsCount,
-    inProgressSince,
-    issueType,
-    parentId
   };
+  if (idKey) bead.idKey = idKey;
+  if (description !== undefined) bead.description = description;
+  if (filePath !== undefined) bead.filePath = filePath;
+  if (status !== undefined) bead.status = status;
+  if (tags !== undefined) bead.tags = tags;
+  if (assignee !== undefined) bead.assignee = assignee;
+  if (updatedAt !== undefined) bead.updatedAt = updatedAt;
+  if (externalReferenceId !== undefined) bead.externalReferenceId = externalReferenceId;
+  if (externalReferenceDescription !== undefined) bead.externalReferenceDescription = externalReferenceDescription;
+  if (externalReferenceKey !== undefined) bead.externalReferenceKey = externalReferenceKey;
+  if (inProgressSince !== undefined) bead.inProgressSince = inProgressSince;
+  if (issueType !== undefined) bead.issueType = issueType;
+  if (parentId !== undefined) bead.parentId = parentId;
+
+  return bead;
 }
 
 export function extractBeads(root: unknown): any[] | undefined {
