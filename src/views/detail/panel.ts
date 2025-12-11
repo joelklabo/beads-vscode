@@ -46,7 +46,7 @@ export async function openBeadPanel(
   const beadStrings = buildBeadDetailStrings(statusLabels);
   const locale = vscode.env.language || 'en';
   panel.webview.html = getBeadDetailHtml(item, allItems, panel.webview, nonce, beadStrings, locale)
-    .replace('<body', `<body data-density="${density}"${density === 'compact' ? ' class=\"compact\"' : ''}`);
+    .replace('<body', `<body data-density="${density}"${density === 'compact' ? ' class="compact"' : ''}`);
 
   provider.registerPanel(item.id, panel);
 

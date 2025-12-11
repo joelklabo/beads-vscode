@@ -17,5 +17,19 @@
   "rules": {
     "@typescript-eslint/no-explicit-any": "off",
     "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_" }]
-  }
+  },
+  "overrides": [
+    {
+      "files": [
+        "src/extension.main.ts",
+        "src/providers/**/*",
+        "src/views/**/*",
+        "src/test/**/*",
+        "scripts/**/*"
+      ],
+      "rules": {
+        "@typescript-eslint/no-unused-vars": "off"
+      }
+    }
+  ]
 }

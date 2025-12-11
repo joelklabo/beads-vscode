@@ -11,7 +11,6 @@
 import * as vscode from 'vscode';
 import {
   BeadItemData,
-  sanitizeInlineText,
   validateStatusChange,
   formatStatusLabel,
   validateAssigneeInput,
@@ -115,31 +114,6 @@ function validationMessage(kind: 'assignee', reason?: string): string {
   };
   const base = messages[kind] || t('Invalid input');
   return reason ? `${base}: ${reason}` : base;
-}
-
-/**
- * Derive assignee name from bead data.
- */
-function deriveAssigneeName(bead: BeadItemData, fallback: string): string {
-  const raw = bead.raw as Record<string, unknown> | undefined;
-  if (!raw) {
-    return fallback;
-  }
-
-  const assignee = raw.assignee;
-  if (typeof assignee === 'string' && assignee.trim()) {
-    return assignee.trim();
-  }
-
-  if (typeof assignee === 'object' && assignee !== null) {
-    const obj = assignee as Record<string, unknown>;
-    const name = obj.name ?? obj.login ?? obj.username ?? obj.email;
-    if (typeof name === 'string' && name.trim()) {
-      return name.trim();
-    }
-  }
-
-  return fallback;
 }
 
 /**

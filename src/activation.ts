@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { BeadsTreeDataProvider } from './providers/beads/treeDataProvider';
 import { WatcherManager } from './providers/beads/store';
-import { getWorkspaceOptions, resolveProjectRoot } from './utils/workspace';
+import { getWorkspaceOptions } from './utils/workspace';
 import { getBulkActionsConfig } from './utils/config';
 import { computeFeedbackEnablement } from './feedback/enablement';
 import { DependencyTreeProvider } from './dependencyTreeProvider';
