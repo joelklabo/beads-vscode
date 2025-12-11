@@ -16,7 +16,7 @@ const execFileAsync = promisify(execFile);
 const DEFAULT_QUERY_TIMEOUT_MS = 5000;
 
 export class ActivityFeedUnavailable extends Error {
-  constructor(message: string, public readonly code: 'NO_DB' | 'NO_SQLITE' | 'REMOTE') {
+  constructor(message: string, public readonly code: 'NO_DB' | 'NO_SQLITE' | 'REMOTE' | 'NO_ACCESS') {
     super(message);
     this.name = 'ActivityFeedUnavailable';
   }
@@ -568,8 +568,16 @@ export async function fetchEvents(
       hasMore: offset + limit < totalCount,
     };
   } catch (error) {
-    if ((error as any)?.code === 'ENOENT') {
+    const err: any = error;
+    if (err?.code === 'ENOENT') {
       throw new ActivityFeedUnavailable('sqlite3 binary not found', 'NO_SQLITE');
+    }
+    if (err?.code === 'EACCES') {
+      throw new ActivityFeedUnavailable('Activity feed database is not readable (permissions)', 'NO_ACCESS');
+    }
+    const stderr = String(err?.stderr ?? err?.message ?? '');
+    if (/unable to open database file/i.test(stderr) || /no such file or directory/i.test(stderr)) {
+      throw new ActivityFeedUnavailable('Activity feed database not found', 'NO_DB');
     }
     throw error;
   }

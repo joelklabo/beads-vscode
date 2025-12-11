@@ -21,12 +21,12 @@ export const statusColors: Record<string, string> = {
   closed: '#73c991',
 };
 
-export const getStatusLabel = (status: string | undefined, strings: BeadDetailStrings): string => {
+export const getStatusLabel = (status: string | undefined, strings: BeadDetailStrings | undefined): string => {
   if (!status) {
     return '';
   }
   const key = status as keyof StatusLabelMap;
-  return strings.statusLabels[key] ?? status;
+  return strings?.statusLabels?.[key] ?? status;
 };
 
 export const renderBranch = (

@@ -31,6 +31,12 @@ export function getBeadDetailHtml(
   const statusToken = getStatusToken(item.status);
   const priorityToken = getPriorityToken(priority);
   const assigneeColor = colorFromName(assigneeRaw || strings.assigneeFallback);
+  const statusLabels = strings.statusLabels ?? {
+    open: t('Open'),
+    in_progress: t('In Progress'),
+    blocked: t('Blocked'),
+    closed: t('Closed'),
+  };
 
   // Build dependency trees for visualization
   const treeData = allItems && allItems.length > 0 ? buildDependencyTrees(allItems, item.id) : { upstream: [], downstream: [] };
@@ -38,7 +44,7 @@ export function getBeadDetailHtml(
   const hasDownstream = treeData.downstream.length > 0;
   const hasAnyDeps = hasUpstream || hasDownstream;
 
-  const statusDisplay = getStatusLabel(item.status, strings) || strings.statusLabels.open;
+  const statusDisplay = getStatusLabel(item.status, { ...strings, statusLabels }) || statusLabels.open;
 
   const codiconHost = 'https://microsoft.github.io';
   const codiconCss = `${codiconHost}/vscode-codicons/dist/codicon.css`;
@@ -365,10 +371,10 @@ export function getBeadDetailHtml(
                                 <span class="codicon codicon-chevron-down caret"></span>
                             </div>
                             <div class="status-dropdown" id="statusDropdown">
-                                <div class="status-option" data-status="open">${strings.statusLabels.open}</div>
-                                <div class="status-option" data-status="in_progress">${strings.statusLabels.in_progress}</div>
-                                <div class="status-option" data-status="blocked">${strings.statusLabels.blocked}</div>
-                                <div class="status-option" data-status="closed">${strings.statusLabels.closed}</div>
+                                <div class="status-option" data-status="open">${statusLabels.open}</div>
+                                <div class="status-option" data-status="in_progress">${statusLabels.in_progress}</div>
+                                <div class="status-option" data-status="blocked">${statusLabels.blocked}</div>
+                                <div class="status-option" data-status="closed">${statusLabels.closed}</div>
                             </div>
                         </div>
                         <div class="status-wrapper">
@@ -409,7 +415,7 @@ export function getBeadDetailHtml(
                             border-color: color-mix(in srgb, ${assigneeColor} 35%, transparent);
                           "
                         >
-                          <span class="assignee-initials">${escapeHtml((assignee || strings.assigneeFallback).slice(0,2).toUpperCase())}</span>
+                          <span class="assignee-initials">${escapeHtml((assignee || strings.assigneeFallback || '').slice(0,2).toUpperCase())}</span>
                           <span class="assignee-name">${escapeHtml(assignee)}</span>
                         </div>
                     </div>
@@ -681,7 +687,10 @@ export function getBeadDetailHtml(
 </html>`;
 }
 
-function colorFromName(name: string): string {
+function colorFromName(name: string | undefined): string {
+  if (!name || name.length === 0) {
+    return 'hsl(210, 10%, 60%)';
+  }
   let hash = 0;
   for (let i = 0; i < name.length; i++) {
     hash = (hash * 31 + name.charCodeAt(i)) >>> 0;

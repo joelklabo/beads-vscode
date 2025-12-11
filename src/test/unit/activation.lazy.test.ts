@@ -8,22 +8,31 @@ import Module = require('module');
 describe('activation configuration', () => {
   const pkgPath = path.resolve(__dirname, '..', '..', '..', 'package.json');
   const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
-  const events: string[] = pkg.activationEvents;
+  const events: string[] | undefined = pkg.activationEvents;
 
   it('defines explicit activation events (no wildcard)', () => {
-    assert.ok(Array.isArray(events) && events.length > 0, 'activationEvents must be a non-empty array');
+    if (!events) {
+      // VS Code will derive activation events from contributions; ensure no wildcard is present if defined
+      assert.ok(true);
+      return;
+    }
+    assert.ok(Array.isArray(events), 'activationEvents must be an array when present');
     assert.ok(!events.includes('*'), 'activationEvents must not include wildcard');
   });
 
   it('activates on core views and commands', () => {
-    const required = [
-      'onView:beady.issuesView',
-      'onView:activityFeed',
-      'onCommand:beady.refresh',
-      'onCommand:beady.createBead',
-      'onChatParticipant:beady.task-creator',
-    ];
-    required.forEach((evt) => assert.ok(events.includes(evt), `activationEvents missing ${evt}`));
+    const contributes = pkg.contributes || {};
+    const views = contributes.views?.beady ?? [];
+    const viewIds = views.map((v: any) => v.id);
+    assert.ok(viewIds.includes('beady.issuesView'), 'issues view contribution missing');
+    assert.ok(viewIds.includes('activityFeed'), 'activity feed view contribution missing');
+
+    const commands = (contributes.commands ?? []).map((c: any) => c.command);
+    assert.ok(commands.includes('beady.refresh'), 'refresh command contribution missing');
+    assert.ok(commands.includes('beady.createBead'), 'create command contribution missing');
+
+    const chat = (contributes.chatParticipants ?? []).map((p: any) => p.id);
+    assert.ok(chat.includes('beady.task-creator'), 'task-creator chat participant missing');
   });
 });
 

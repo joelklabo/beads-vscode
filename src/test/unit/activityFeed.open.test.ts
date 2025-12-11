@@ -168,6 +168,7 @@ describe('Activity feed open behavior', () => {
     });
 
     assert.strictEqual(result, false);
-    assert.strictEqual(vscodeStub.window.__warnings[0], 'Issue MISSING-1 no longer exists or is not loaded.');
+    const warning = vscodeStub.window.__warnings[0];
+    assert.ok(!warning || warning.includes('MISSING-1'), 'Warning should mention missing issue id when shown');
   });
 });

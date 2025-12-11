@@ -69,7 +69,16 @@ export async function openBeadPanel(
     'openExternalUrl',
   ];
 
-  panel.webview.onDidReceiveMessage(async (message) => {
+  const registerMessageHandler = typeof panel.webview?.onDidReceiveMessage === 'function'
+    ? panel.webview.onDidReceiveMessage.bind(panel.webview)
+    : undefined;
+
+  if (!registerMessageHandler) {
+    console.warn('[DetailPanel] webview.onDidReceiveMessage missing; detail panel will be read-only');
+    return;
+  }
+
+  registerMessageHandler(async (message) => {
     const validated = validateLittleGlenMessage(message, allowedCommands);
     if (!validated) {
       console.warn('[Little Glen] Ignoring invalid panel message');

@@ -45,6 +45,28 @@ describe('Activity feed resilience', () => {
     );
   });
 
+  it('throws ActivityFeedUnavailable when database file is missing', async () => {
+    const moduleAny = Module as any;
+    moduleAny._load = (request: string, parent: any, isMain: boolean) => {
+      if (request === 'child_process') {
+        return {
+          execFile: (_cmd: string, _args: string[], _opts: any, cb: (err: any, stdout?: string) => void) => {
+            cb(null, '{"count":0}');
+          },
+        };
+      }
+      return restoreLoad(request, parent, isMain);
+    };
+
+    const { fetchEvents, ActivityFeedUnavailable } = require('../../activityFeed') as any;
+    const missingRoot = path.join(tmpDir, 'missing');
+
+    await assert.rejects(
+      () => fetchEvents(missingRoot),
+      (err: any) => err instanceof ActivityFeedUnavailable && err.code === 'NO_DB'
+    );
+  });
+
   it('surfaces status item when remote feed disabled', async () => {
     const moduleAny = Module as any;
     moduleAny._load = (request: string, parent: any, isMain: boolean) => {
