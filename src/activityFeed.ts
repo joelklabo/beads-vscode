@@ -7,11 +7,20 @@
  */
 
 import * as path from 'path';
+import * as fs from 'fs';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { parseUtcDate } from './utils/format';
 
 const execFileAsync = promisify(execFile);
+const DEFAULT_QUERY_TIMEOUT_MS = 5000;
+
+export class ActivityFeedUnavailable extends Error {
+  constructor(message: string, public readonly code: 'NO_DB' | 'NO_SQLITE' | 'REMOTE') {
+    super(message);
+    this.name = 'ActivityFeedUnavailable';
+  }
+}
 
 /**
  * Raw event data as stored in the SQLite events table
@@ -458,7 +467,8 @@ export function normalizeEvent(
  */
 export async function fetchEvents(
   projectRoot: string,
-  options: FetchEventsOptions = {}
+  options: FetchEventsOptions = {},
+  env: { timeoutMs?: number } = {}
 ): Promise<FetchEventsResult> {
   const {
     limit = 50,
@@ -471,6 +481,11 @@ export async function fetchEvents(
   } = options;
 
   const dbPath = path.join(projectRoot, '.beads', 'beads.db');
+  const timeoutMs = env.timeoutMs ?? DEFAULT_QUERY_TIMEOUT_MS;
+
+  if (!fs.existsSync(dbPath)) {
+    throw new ActivityFeedUnavailable('Activity feed database not found', 'NO_DB');
+  }
   
   // Build WHERE clauses
   const whereClauses: string[] = [];
@@ -517,19 +532,22 @@ export async function fetchEvents(
   `;
   
   try {
+    // Ensure sqlite3 is available early
+    await execFileAsync('sqlite3', ['-version'], { timeout: timeoutMs });
+
     // Execute events query
     const { stdout: eventsOutput } = await execFileAsync('sqlite3', [
       '-json',
       dbPath,
       eventsQuery
-    ]);
+    ], { timeout: timeoutMs });
     
     // Execute count query
     const { stdout: countOutput } = await execFileAsync('sqlite3', [
       '-json',
       dbPath,
       countQuery
-    ]);
+    ], { timeout: timeoutMs });
     
     const rawEvents: RawEventData[] = eventsOutput.trim() ? JSON.parse(eventsOutput) : [];
     const countResult = countOutput.trim() ? JSON.parse(countOutput) : [{ count: 0 }];
@@ -548,13 +566,10 @@ export async function fetchEvents(
       hasMore: offset + limit < totalCount,
     };
   } catch (error) {
-    console.error('Failed to fetch events:', error);
-    // Return empty result on error
-    return {
-      events: [],
-      totalCount: 0,
-      hasMore: false,
-    };
+    if ((error as any)?.code === 'ENOENT') {
+      throw new ActivityFeedUnavailable('sqlite3 binary not found', 'NO_SQLITE');
+    }
+    throw error;
   }
 }
 
@@ -579,7 +594,7 @@ async function fetchIssueInfo(
   `;
   
   try {
-    const { stdout } = await execFileAsync('sqlite3', ['-json', dbPath, query]);
+    const { stdout } = await execFileAsync('sqlite3', ['-json', dbPath, query], { timeout: DEFAULT_QUERY_TIMEOUT_MS });
     const issues: Array<{ id: string; title: string; status: string }> = 
       stdout.trim() ? JSON.parse(stdout) : [];
     

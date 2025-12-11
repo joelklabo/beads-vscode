@@ -65,7 +65,7 @@ export class ActivityFeedStore {
     this.desiredLimit = this.pageSize * 5;
   }
 
-  async loadMore(projectRoot: string | undefined): Promise<void> {
+  async loadMore(projectRoot: string | undefined, env?: { timeoutMs?: number }): Promise<void> {
     if (!projectRoot) {
       return;
     }
@@ -76,10 +76,10 @@ export class ActivityFeedStore {
 
     this.desiredLimit = Math.min(this.totalEvents, this.desiredLimit + this.pageSize);
     this.currentPage++;
-    await this.refresh(projectRoot);
+    await this.refresh(projectRoot, env);
   }
 
-  async refresh(projectRoot: string | undefined): Promise<void> {
+  async refresh(projectRoot: string | undefined, env?: { timeoutMs?: number }): Promise<void> {
     if (this.refreshInProgress) {
       this.pendingRefresh = true;
       return;
@@ -118,7 +118,7 @@ export class ActivityFeedStore {
         }
       }
 
-      const result = await fetchEvents(projectRoot, options);
+      const result = await fetchEvents(projectRoot, options, env);
       const unique = new Map<number, EventData>();
       result.events.forEach((event) => {
         if (!unique.has(event.id)) {
@@ -135,6 +135,11 @@ export class ActivityFeedStore {
         await this.refresh(projectRoot);
       }
     }
+  }
+
+  clear(): void {
+    this.events = [];
+    this.totalEvents = 0;
   }
 
   getEvents(): EventData[] {
