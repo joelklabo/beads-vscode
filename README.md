@@ -1,272 +1,218 @@
-# Beady VS Code Extension
-[![CI](https://github.com/joelklabo/beady/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/joelklabo/beady/actions/workflows/test.yml) [![VS Code Channels](https://img.shields.io/badge/vscode%20channels-stable%20%7C%20insiders-blue)](docs/testing-headless.md) [![Coverage](https://img.shields.io/badge/coverage-pending-lightgrey)](#testing)
+# Beady Project Manager
 
-![Beady VS Code Extension](beady-visual.png)
+[![VS Code Marketplace Version](https://img.shields.io/visual-studio-marketplace/v/klabo.beady?style=flat-square&label=VS%20Code%20Marketplace&logo=visual-studio-code)](https://marketplace.visualstudio.com/items?itemName=klabo.beady)
+[![VS Code Installs](https://img.shields.io/visual-studio-marketplace/i/klabo.beady?style=flat-square&label=Installs&logo=visual-studio-code)](https://marketplace.visualstudio.com/items?itemName=klabo.beady)
+[![VS Code Rating](https://img.shields.io/visual-studio-marketplace/r/klabo.beady?style=flat-square&label=Rating&logo=visual-studio-code)](https://marketplace.visualstudio.com/items?itemName=klabo.beady)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/kris-hansen/beads-vscode/ci.yml?branch=main&style=flat-square&logo=github)](https://github.com/kris-hansen/beads-vscode/actions)
 
-[![Test status](https://github.com/joelklabo/beady/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/joelklabo/beady/actions/workflows/test.yml)
-[![Coverage](https://codecov.io/gh/joelklabo/beady/branch/main/graph/badge.svg)](https://codecov.io/gh/joelklabo/beady)
+> Worktree-friendly issue tracker for VS Code — browse issues, dependencies, and activity from your [Beads](https://github.com/steveyegge/beads) database.
 
-This Visual Studio Code extension provides a simple explorer view for [Beads](https://github.com/steveyegge/beads) projects so that you can manage your beads without leaving the editor.
+<p align="center">
+  <a href="https://marketplace.visualstudio.com/items?itemName=klabo.beady">
+    <img src="https://img.shields.io/badge/Install%20in-VS%20Code-007ACC?style=for-the-badge&logo=visual-studio-code&logoColor=white" alt="Install in VS Code">
+  </a>
+  &nbsp;
+  <a href="https://insiders.vscode.dev/redirect?extensionId=klabo.beady">
+    <img src="https://img.shields.io/badge/Install%20in-VS%20Code%20Insiders-24BFA5?style=for-the-badge&logo=visual-studio-code&logoColor=white" alt="Install in VS Code Insiders">
+  </a>
+</p>
 
-## Architecture (high level)
-
-The project is consolidating to a VS Code-only layout with a thin activation layer and modular services/commands/views:
-```
-             bd CLI (--no-daemon)
-                    |
-              @beads/core (models, store, CLI client, sanitizers)
-                    |
-        @beads/platform-vscode
-          • services/runtimeEnvironment (trust, guard, root resolution)
-          • services/cliService (BdCliClient factory)
-          • providers/beads/lifecycle (store + watchers)
-          • commands/* (domain modules)
-          • views/* (explorer, activity, dependency tree, graph webview)
-                    |
-             VS Code UI (commands, trees, webviews)
-```
-
-See `docs/architecture.md` and `docs/adr/2025-12-vscode-architecture.md` for details. `extension.ts` stays lean while orchestration lives in `extension.main` and modules under `src/services`, `src/commands`, `src/views`, and `src/providers/beads`.
-
-### Workspace layout & commands
-- Bundle entrypoint: `npm run bundle` (outputs `dist/extension.js` used by VS Code); `npm run watch` runs bundle:watch + typecheck for F5.
-- Build helpers: `npm run build:core`, `npm run build:vscode`
-- Tests: `npm run test:unit` (VS Code), `npm run test:bundle` (bundle smoke), `npm run test:core`
-- Size gate: `npm run check:vsix-size` (packages a VSIX and fails if the bundled VSIX exceeds the ADR budget)
-- Full sweep: `npm run test:all` or `npm run ci:verify` (mirrors the CI **Test** workflow)
-- All bd calls enforce `--no-daemon`; do not write directly to `.beads` DB files—go through the CLI/shared store
+---
 
 ## Features
 
-- **Dedicated Activity Bar**: Beads has its own dedicated view in the VS Code activity bar for easy access.
-- **Tree View**: Explorer view that lists all beads for the current workspace with status-based icons.
-- **Issue Type Icons**: Each issue type displays with a distinctive icon - epics (📦), tasks (☑️), bugs (🐛), features (💡), spikes (🧪), and chores (🔧) - making it easy to identify different work types at a glance.
-- **Epic Grouping**: Group tasks by their parent epic using the sort picker. Epics appear as expandable sections containing their child tasks, with ungrouped items shown in a separate section. Choose between ID sort, status grouping, epic grouping, and assignee grouping modes.
-- **Live Data Sync**: Automatically watches the Beads database for changes and refreshes the view in real-time.
-- **Stale Task Warning**: Automatically detects and highlights in-progress tasks that have been stale for too long. A warning section at the top of the tree view shows tasks that exceed the configurable threshold, helping identify potentially stuck work or forgotten tasks. Closed items are never shown in this bucket.
-- **Search**: Search across beads by ID, title, description, labels, status, assignee, and more.
-- **Drag and Drop Sorting**: Manually reorder beads in the tree view with drag-and-drop support.
-- **Dependency Visualization**: Interactive dependency graph showing relationships between beads with draggable nodes.
-- **Rich Bead Details**: Click any bead to view a detailed panel with:
-  - Full description, design notes, and acceptance criteria
-  - Status, priority, issue type, and timestamps
-  - Labels with quick add/remove functionality
-  - External reference tracking
-  - Dependency information
-- **Hide/Show Closed Toggle**: Toggle visibility of closed issues with a toolbar button. State persists across sessions and works with search and quick filters.
-- **Assignee Edit**: Edit assignees from the Issues list context menu or detail panel. Input is validated and sanitized.
-- **Inline Editing**: Edit bead status and labels directly from the detail view.
-- **Quick Label Management**:
-  - Add/remove custom labels
-  - Quick "In Review" toggle button
-- **Clickable URLs**: URLs in bead descriptions and notes are automatically converted to clickable links.
-- **Delete Beads**: Remove beads with keyboard shortcuts (`Cmd+Backspace` on Mac, `Delete` on Windows/Linux) or via context menu.
-- **CLI Integration**: Create new beads directly from VS Code using the `bd` CLI.
-- **Natural Sorting**: Beads are sorted naturally by ID (handles numeric parts correctly).
-- **Feedback entry points**: When the feedback feature flag is enabled and configured, submit feedback from the command palette, the Beads explorer toolbar, bead context menu, or the status bar (when no stale warning is showing).
+### 📋 Task Management
+- **Browse issues** directly in the VS Code sidebar
+- **Create, update, and close** issues without leaving your editor
+- **Drag-and-drop** to reorder and organize tasks
+- **Quick filters** for status, priority, assignee, and labels
+- **Search** across all issues instantly
 
-The extension integrates with the Beads CLI (`bd`) and reads from the Beads database (`.beads/*.db`). Changes are automatically reflected in the UI through file system watchers.
+### 🔗 Dependency Visualization
+- **Interactive dependency graph** to visualize relationships
+- **Dependency tree view** showing upstream/downstream links
+- **Cycle detection** to prevent circular dependencies
 
-### Stale / Warning bucket
-- Shows tasks marked `in_progress` whose `inProgressSince` exceeds `beady.staleThresholdMinutes` (default 10 minutes).
-- Highlights empty epics that are not closed so they can be filled or closed intentionally.
-- Closed tasks and epics never appear in the Warning bucket, even if they still have an old in-progress timestamp.
-- The Warning bucket sits above other sections; blocked/open items stay in their usual sections unless they become in progress and stale.
+### 📊 Activity Feed
+- **Real-time activity tracking** for all issue changes
+- **Filter by event type** (created, updated, closed)
+- **Quick navigation** to related issues
 
+### 🤖 AI-Powered Workflows
+- **@task-creator** — Turn feature requests into complete epic + task trees
+- **@task-worker** — Continuously work through issues until none remain
 
+### 🌳 Worktree Support
+- **Multi-agent friendly** — designed for parallel development with git worktrees
+- **Worktree guard** prevents duplicate work and unsafe mutations
+- **Branch-aware** status indicators
 
-## CI & Testing
-- CI: see the Test workflow badge above (runs lint, unit, integration on Ubuntu/macOS/Windows, Node 18/20).
-- Headless/channel scripts: `npm run test:integration:stable`, `npm run test:integration:insiders`, `npm run test:integration:headless` (Linux wraps `xvfb-run -a`).
-- Env: set `VSCODE_TEST_CHANNEL` and optional `VSCODE_TEST_INSTANCE_ID` to isolate parallel runs; temp dirs live under `tmp/` in the repo and are auto-cleaned after runs.
-- Cleanup: remove stale temp dirs with `npm run test:clean-temp`.
-- Details: see [docs/testing-headless.md](docs/testing-headless.md) and [TESTING.md](TESTING.md).
+---
+
+## Installation
+
+### From VS Code Marketplace
+
+1. Open VS Code
+2. Press `Ctrl+Shift+X` (Windows/Linux) or `Cmd+Shift+X` (macOS)
+3. Search for "Beady"
+4. Click **Install**
+
+Or use the quick install links:
+
+<p>
+  <a href="vscode:extension/klabo.beady">
+    <img src="https://img.shields.io/badge/Open%20in-VS%20Code-007ACC?style=flat-square&logo=visual-studio-code&logoColor=white" alt="Open in VS Code">
+  </a>
+  &nbsp;
+  <a href="vscode-insiders:extension/klabo.beady">
+    <img src="https://img.shields.io/badge/Open%20in-VS%20Code%20Insiders-24BFA5?style=flat-square&logo=visual-studio-code&logoColor=white" alt="Open in VS Code Insiders">
+  </a>
+</p>
+
+### Prerequisites
+
+- **VS Code** 1.90.0 or later
+- **[Beads CLI](https://github.com/steveyegge/beads)** (`bd`) installed and available in your PATH
+
+```bash
+# Install the Beads CLI
+npm install -g @beads/bd
+```
+
+---
+
+## Quick Start
+
+1. **Initialize a Beads database** in your project:
+   ```bash
+   bd init
+   ```
+
+2. **Open the Beady sidebar** by clicking the Beady icon in the Activity Bar
+
+3. **Create your first issue**:
+   - Click the `+` button in the toolbar, or
+   - Run `Beady: Create Issue` from the Command Palette (`Ctrl+Shift+P`)
+
+4. **Browse and manage** your issues directly in VS Code!
+
+---
+
+## Configuration
+
+Configure Beady in your VS Code settings (`settings.json`):
+
+```jsonc
+{
+  // Path to the bd CLI (default: "bd")
+  "beady.commandPath": "bd",
+
+  // Override the project root for bd commands
+  "beady.projectRoot": "",
+
+  // Path to the Beads data file (relative or absolute)
+  "beady.dataFile": ".beads/issues.jsonl",
+
+  // Highlight in-progress tasks after this many minutes
+  "beady.staleThresholdMinutes": 10,
+
+  // Enable worktree guard for multi-agent safety
+  "beady.enableWorktreeGuard": true
+}
+```
+
+<details>
+<summary><strong>All Configuration Options</strong></summary>
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `beady.commandPath` | `"bd"` | Path to the bd CLI executable |
+| `beady.projectRoot` | `""` | Override project root for bd commands |
+| `beady.dataFile` | `".beads/issues.jsonl"` | Path to the Beads data file |
+| `beady.staleThresholdMinutes` | `10` | Minutes before in-progress tasks are flagged as stale |
+| `beady.enableWorktreeGuard` | `true` | Run worktree guard before mutations |
+| `beady.enableDependencyEditing` | `false` | Enable experimental dependency editing UI |
+| `beady.activityFeed.enabled` | `true` | Enable the activity feed view |
+| `beady.quickFilters.enabled` | `false` | Enable quick filter presets |
+| `beady.bulkActions.enabled` | `false` | Enable bulk status/label actions |
+| `beady.favorites.enabled` | `false` | Enable favorites toggling |
+| `beady.cli.timeoutMs` | `15000` | Timeout for bd CLI commands |
+| `beady.cli.retryCount` | `1` | Retry count for failed commands |
+
+</details>
+
+---
 
 ## Commands
 
+Access commands via the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`):
+
 | Command | Description |
-| --- | --- |
-| `Beady: Refresh` | Manually reload bead data from the database. |
-| `Beady: Search` | Search beads by ID, title, description, labels, status, and more. |
-| `Beady: Clear Search` | Clear the current search filter and show all beads. |
-| `Beady: Open` | Open a detailed view panel for the selected bead with full information and editing capabilities. |
-| `Beady: Edit External Reference` | Update the external reference identifier stored for the bead. |
-| `Beady: Create` | Create a new bead by prompting for a title and invoking `bd create`. |
-| `Beady: Visualize Dependencies` | Open an interactive dependency graph showing relationships between beads. |
-| `Beady: Send Feedback` | Open the configured feedback flow (command palette, Beads toolbar, bead context menu, or status bar when enabled). |
-| `Beady: Choose Sort Mode` | Choose between view modes: ID sort, Status grouping, Epic grouping, and Assignee grouping. |
-| `Beady: Clear Manual Sort Order` | Reset manual drag-and-drop sorting and return to natural ID-based sorting. |
-| `Beady: Delete` | Delete selected bead(s) from the project. |
+|---------|-------------|
+| `Beady: Refresh` | Refresh the issues view |
+| `Beady: Create Issue` | Create a new issue |
+| `Beady: Search` | Search issues by title, ID, or content |
+| `Beady: Visualize Dependencies` | Open the dependency graph |
+| `Beady: Toggle Sort Mode` | Cycle through sort modes |
+| `Beady: Export to CSV` | Export issues to CSV (experimental) |
+| `Beady: Export to Markdown` | Export issues to Markdown (experimental) |
 
-## Keyboard Shortcuts
+---
 
-| Shortcut | Platform | Action |
-| --- | --- | --- |
-| `Cmd+Backspace` | macOS | Delete selected bead(s) |
-| `Delete` | Windows/Linux | Delete selected bead(s) |
-| `Backspace` | All | Delete selected bead(s) (when tree view is focused) |
+## For AI Coding Agents
 
-## Settings
+Beady is designed to work seamlessly with AI coding agents in multi-worktree environments. Key points:
 
-- `beady.commandPath`: Path to the Beads CLI executable. Defaults to `bd`.
-- `beady.projectRoot`: Optional override for the working directory used when invoking the CLI or resolving relative data file paths.
-- `beady.dataFile`: Path to the Beads data file. Defaults to `.beads/issues.jsonl` (supports both JSONL and JSON formats).
-- `beady.cli.timeoutMs`: Per-command timeout (ms) for bd invocations; defaults to `15000`.
-- `beady.cli.retryCount`: Number of retry attempts after a timeout; defaults to `1` (set `0` to disable).
-- `beady.cli.retryBackoffMs`: Delay in milliseconds before each retry; defaults to `500`.
-- `beady.offlineDetection.thresholdMs`: Total elapsed time across attempts before treating bd as offline; defaults to `30000`.
-- `beady.staleThresholdMinutes`: Number of minutes after which an in-progress task is highlighted as stale. Defaults to `10` minutes. Tasks in progress longer than this threshold will appear in a "⚠️ Stale Tasks" warning section at the top of the tree view, helping identify potentially stuck work or forgotten tasks.
-- `beady.feedback.enabled`: Opt-in flag for the feedback flow. When off (default) all feedback commands/UI stay hidden.
-- `beady.feedback.repository`: GitHub target in `owner/repo` form. Required when enabling feedback.
-- `beady.feedback.labels`: Map feedback types (bug, feature, question, other) to GitHub labels. Defaults to `bug`, `enhancement`, `question`, and `feedback`.
-- `beady.feedback.useGitHubCli`: Prefer the `gh` CLI for submissions when available. Defaults to `false`.
-- `beady.feedback.includeAnonymizedLogs`: Allow attaching sanitized logs/metadata when sending feedback (default: `true`).
-- `beady.enableDependencyEditing`: Experimental flag (default: `false`) to show dependency add/remove UI. Requires `bd` CLI version `>= 0.29.0`; the extension will warn if the CLI is too old.
-- `beady.bulkActions.enabled`: Experimental flag (default: `false`) to surface bulk status/label commands. When off, bulk commands and menus stay hidden.
-- `beady.bulkActions.maxSelection`: Maximum number of items allowed in a single bulk action (default: `50`, valid range `1-200`). Invalid values fall back to the default.
+- **Always use `--no-daemon`** with bd CLI commands in worktrees
+- Use `bd ready --json` to find unblocked work
+- Check for file conflicts before starting tasks
+- Run `bd sync` at the end of agent sessions
 
-## How to Use
+See [AGENTS.md](AGENTS.md) for the complete agent workflow guide.
 
-### Basic Workflow
-
-1. **View Beads**: Click the Beads icon in the activity bar to see all your issues
-2. **Search**: Click the search icon to filter beads by any field
-3. **View Details**: Click any bead to open a detailed view with full information
-4. **Edit Status/Labels**: Click "Edit" in the detail view to modify status and labels
-5. **Visualize**: Click the graph icon to see dependency relationships
-6. **Reorder**: Drag and drop beads to customize the order (persisted per workspace)
-
-### View Modes
-
-The extension supports four view modes accessible via the sort picker:
-
-1. **ID Sort** (default): Beads are sorted naturally by ID
-2. **Status Grouping**: Beads are grouped into collapsible sections by status (Open, In Progress, Blocked, Closed)
-3. **Epic Grouping**: Beads are grouped under their parent epics.
-4. **Assignee Grouping**: Beads are grouped by assignee with Unassigned at bottom.
-
-### Filters and badges
-
-- Use the explorer toolbar chip labeled `Filter: <mode>` (Issues, Epics, Favorites, Recent, Blockers, etc.). Click it or run `Beady: Switch Filter Mode…` (Cmd/Ctrl+Shift+P) to open the same quick pick with scope hints; the active label stays visible in high-contrast themes.
-- Every row shows an assignee pill plus a colored status badge even when collapsed. In **assignee grouping** (use the sort picker), names sort case-insensitively with **Unassigned** pinned to the bottom.
-- Press **Space/Enter** or click the chevron to expand a row for labels, priority, external reference, and updated time without leaving the list. Focus order and `aria-expanded` stay in sync, and user-provided text is HTML-escaped in tooltips/markdown for safety.
-- See [docs/filters-assignee.md](docs/filters-assignee.md) for deeper UX/accessibility notes.
-
-### Dependency tree editing (preview)
-
-1. Turn on the `beady.enableDependencyEditing` setting (requires `bd` ≥ 0.29.0); commands always run with `--no-daemon`.
-2. Open the **Dependency Tree** view in the Beads sidebar—selecting an issue in the main tree syncs the upstream/downstream branches shown here.
-3. Use the view toolbar actions **Add Upstream** and **Add Downstream** to link issues; the quick pick blocks self-links, duplicates, and cycles before calling `bd dep add`.
-4. Remove a link via the command palette (`Beady: Dependency Tree: Remove`) or the remove buttons in the issue detail panel; failures surface as warnings without breaking focus.
-5. See [docs/dependency-tree.md](docs/dependency-tree.md) for keyboard/a11y notes and troubleshooting.
-
-### Issue Type Icons
-
-Each issue type displays with a distinctive icon based on status color:
-
-- 📦 **Epic**: Large initiatives (icon: `symbol-package`)
-- ☑️ **Task**: Actionable work items (icon: `checklist`)
-- 🐛 **Bug**: Issues to fix (icon: `bug`)
-- 💡 **Feature**: New capabilities (icon: `lightbulb`)
-- 🧪 **Spike**: Research or investigation (icon: `beaker`)
-- 🔧 **Chore**: Maintenance work (icon: `tools`)
-
-Closed items always show a green checkmark (✅) regardless of type.
-
-### Status Icons
-
-- 🟢 **Green checkmark**: Closed
-- 🟡 **Yellow clock**: In Progress
-- 🔴 **Red error**: Blocked
-- 🔵 **Blue circle**: Open
-- ⚠️ **Warning section**: Stale tasks (in-progress tasks that have exceeded the configured time threshold)
+---
 
 ## Development
 
-Install dependencies and compile the extension:
-
 ```bash
+# Install dependencies
 npm install
+
+# Compile TypeScript
 npm run compile
+
+# Watch mode for development
+npm run watch
+
+# Run tests
+npm run test:unit
+
+# Bundle for production
+npm run bundle
+
+# Package as VSIX
+npm run package
 ```
 
-### Testing
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed contribution guidelines.
 
-Run the test suite:
+---
 
-```bash
-# Run unit tests (default, fast, no VSCode required)
-npm test
+## Related Projects
 
-# Run integration tests (headless; set VSCODE_TEST_CHANNEL=stable|insiders as needed)
-npm run test:integration:headless
+- **[Beads](https://github.com/steveyegge/beads)** — The lightweight issue tracker for AI coding agents
+- **[@beads/bd](https://www.npmjs.com/package/@beads/bd)** — The Beads CLI tool
 
-# Run linter
-npm run lint
-```
-
-See [TESTING.md](TESTING.md) for more information about the test infrastructure.
-
-### Accessibility & security
-- Accessibility checklist: [docs/accessibility.md](docs/accessibility.md)
-- Tooltip sanitization/security notes: [docs/tooltips/hover-rules.md](docs/tooltips/hover-rules.md)
-
-### CI & coverage parity
-
-- `npm run ci:verify` mirrors the GitHub Actions **Test** workflow (lint + localization + unit + headless integration). Use `VSCODE_TEST_CHANNEL` / `VSCODE_TEST_INSTANCE_ID` to match the matrix locally.
-- `npm run ci:integration` runs a single headless integration pass; use `ci:unit` for just the compiled unit suite.
-- `npm run ci:coverage` generates text and LCOV coverage reports in `coverage/` (open `coverage/lcov-report/index.html`).
-- Workflow details and badges: [docs/ci.md](docs/ci.md).
-
-### Bundling & size budget
-
-- Runtime entrypoint lives in `dist/extension.js`; build it with `npm run bundle` (or keep it live with `npm run watch`).
-- Smoke the bundle with `npm run test:bundle` (requires `npm run compile` + bundle and ensures the bundled module loads with a stubbed VS Code host).
-- Enforce the VSIX budget from the [bundling ADR](docs/adr/2025-12-vscode-bundling.md) via `npm run check:vsix-size` (packs a VSIX to a temp path and fails if it exceeds the budget; override with `VSIX_MAX_BYTES`).
-- Publishing/packaging will reuse the bundle; see the `.vscodeignore` rationale in the ADR for what ships vs. gets trimmed.
-
-### Install local build (auto-reload)
-
-Use the built-in helper to package, install, and reload the active VS Code window in one step:
-
-```bash
-npm run install-local
-```
-
-- Prefers `code-insiders` if available, otherwise falls back to `code` (override with `VSCODE_BIN`).
-- Skips the reload when `NO_RELOAD_AFTER_INSTALL_LOCAL=1` is set; otherwise it runs `workbench.action.reloadWindow` after install so the new VSIX is active immediately.
-- If no VS Code CLI is found, the script leaves the VSIX on disk and prints a warning so you can install manually.
-
-### Multi-Agent Workflow
-
-For the hardened worktree-based multi-agent flow (atomic claims, merge queue, heartbeats, WAL), see [docs/MULTI_AGENT_ORCHESTRATION.md](docs/MULTI_AGENT_ORCHESTRATION.md).
-
-### Security
-
-Little Glen webviews/hovers are being hardened with strict CSP and HTML sanitization. See [docs/security/little-glen-csp.md](docs/security/little-glen-csp.md) and [docs/security/little-glen-sanitization.md](docs/security/little-glen-sanitization.md) for the current plan.
-
-### Running the Extension
-
-Launch the extension using the **Run > Start Debugging** command in VS Code. This will open a new Extension Development Host window with the Beads explorer view.
-
-## Contributing
-
-Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
-## Distribution
-
-See [DISTRIBUTION.md](DISTRIBUTION.md) for information on:
-
-- Publishing to VS Code Marketplace
-- Creating GitHub releases
-- Local installation methods
-- Setting up continuous deployment
+---
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+[MIT](LICENSE) © Beady Contributors
 
-## Resources
+---
 
-- [Beads CLI](https://github.com/steveyegge/beads) - The core Beads project management tool
-- [VS Code Extension API](https://code.visualstudio.com/api) - For contributing to this extension
+<p align="center">
+  Made with ❤️ for AI-assisted development
+</p>

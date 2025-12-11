@@ -231,15 +231,13 @@ function registerActivityFeedCommands(
 
 function registerPanelCommands(
   provider: BeadsTreeDataProvider,
-  openInProgressPanel: any,
-  openBead: PanelOpeners['openBead']
+  openInProgressPanel: PanelOpeners['openInProgressPanel']
 ): CommandDefinition[] {
   return [
     {
       id: 'beady.openInProgressPanel',
       handler: () => {
-        const density = (provider as any).getDensity ? (provider as any).getDensity() : 'default';
-        return openInProgressPanel({ provider, openBead: (item: BeadItemData) => openBead(item, provider), density });
+        return openInProgressPanel(provider);
       },
     },
   ];
@@ -380,7 +378,7 @@ export const registerCommands: CommandRegistrar = (
     ...createFavoritesCommands(provider, treeView, context, runBdCommand),
     ...registerDependencyTreeCommands({ provider, dependencyTreeProvider, pickBeadQuick, visualizeDependencies }),
     ...registerActivityFeedCommands(activityFeedProvider, activityFeedView, openBead, openBeadFromFeed, openActivityFeedPanel, provider),
-    ...registerPanelCommands(provider, openInProgressPanel, openBead),
+    ...registerPanelCommands(provider, openInProgressPanel),
     ...registerExternalReferenceCommands(provider),
     ...registerDeletionCommands(provider, treeView),
     {
