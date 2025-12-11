@@ -231,7 +231,7 @@ function registerActivityFeedCommands(
 
 function registerPanelCommands(
   provider: BeadsTreeDataProvider,
-  openInProgressPanel: any,
+  openInProgressPanel: PanelOpeners['openInProgressPanel'],
   openBead: PanelOpeners['openBead']
 ): CommandDefinition[] {
   return [
@@ -239,7 +239,11 @@ function registerPanelCommands(
       id: 'beady.openInProgressPanel',
       handler: () => {
         const density = (provider as any).getDensity ? (provider as any).getDensity() : 'default';
-        return openInProgressPanel({ provider, openBead: (item: BeadItemData) => openBead(item, provider), density });
+        return openInProgressPanel({
+          provider,
+          openBead: (item: BeadItemData) => openBead(item, provider),
+          density,
+        });
       },
     },
   ];

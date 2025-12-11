@@ -56,7 +56,11 @@ export interface PanelOpeners {
     activityFeedProvider: ActivityFeedTreeDataProvider,
     beadsProvider: BeadsTreeDataProvider
   ) => Promise<void>;
-  openInProgressPanel: (provider: BeadsTreeDataProvider) => Promise<void>;
+  openInProgressPanel: (deps: {
+    provider: BeadsTreeDataProvider;
+    openBead: (item: BeadItemData) => Promise<void>;
+    density?: 'default' | 'compact';
+  }) => Promise<void>;
   visualizeDependencies: (provider: BeadsTreeDataProvider) => Promise<void>;
 }
 
