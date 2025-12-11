@@ -233,16 +233,19 @@
         {
           "type": "webview",
           "id": "beady.issuesView",
-          "name": "Tasks"
+          "name": "Tasks",
+          "icon": "$(checklist)"
         },
         {
           "id": "activityFeed",
-          "name": "Activity Feed"
+          "name": "Activity Feed",
+          "icon": "$(history)"
         },
         {
           "id": "beadyDependencyTree",
           "name": "%view.dependencyTree.name%",
-          "when": "config.beady.enableDependencyEditing"
+          "when": "config.beady.enableDependencyEditing",
+          "icon": "$(git-branch)"
         }
       ]
     },
@@ -736,44 +739,6 @@
     "sanitize-html": "^2.17.0",
     "zod": "^3.23.8"
   },
-  "activationEvents": [
-    "onView:beady.issuesView",
-    "onView:activityFeed",
-    "onCommand:beady.refresh",
-    "onCommand:beady.search",
-    "onCommand:beady.clearSearch",
-    "onCommand:beady.openBead",
-    "onCommand:beady.createBead",
-    "onCommand:beady.addDependency",
-    "onCommand:beady.editExternalReference",
-    "onCommand:beady.visualizeDependencies",
-    "onCommand:beady.exportCsv",
-    "onCommand:beady.exportMarkdown",
-    "onCommand:beady.inlineStatusChange",
-    "onCommand:beady.clearSortOrder",
-    "onCommand:beady.pickSortMode",
-    "onCommand:beady.toggleSortMode",
-    "onCommand:beady.applyQuickFilterPreset",
-    "onCommand:beady.clearQuickFilters",
-    "onCommand:beady.toggleClosedVisibility",
-    "onCommand:beady.refreshActivityFeed",
-    "onCommand:beady.filterActivityFeed",
-    "onCommand:beady.clearActivityFeedFilter",
-    "onCommand:beady.activityFeed.openEvent",
-    "onCommand:beady.activityFeed.openSelected",
-    "onCommand:beady.openActivityFeedPanel",
-    "onCommand:beady.bulkUpdateStatus",
-    "onCommand:beady.bulkAddLabel",
-    "onCommand:beady.bulkRemoveLabel",
-    "onCommand:beady.toggleFavorite",
-    "onCommand:beady.openInProgressPanel",
-    "onCommand:beady.inlineEditTitle",
-    "onCommand:beady.inlineEditLabels",
-    "onCommand:beady.editAssignee",
-    "onCommand:beady.selectWorkspace",
-    "onChatParticipant:beady.task-creator",
-    "onChatParticipant:beady.task-worker"
-  ],
   "files": [
     "dist",
     "package.json",
