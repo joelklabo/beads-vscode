@@ -657,7 +657,7 @@
     ]
   },
   "scripts": {
-    "vscode:prepublish": "node -e \"if (process.env.SKIP_VSCODE_PREPUBLISH==='1'){process.exit(0)}\" || (npm run typecheck && npm run bundle && npm run audit:bundle && npm run check:perf)",
+    "vscode:prepublish": "node -e \"if (process.env.SKIP_VSCODE_PREPUBLISH==='1'){process.exit(0)}\" || (npm run typecheck && npm run bundle && npm run audit:bundle && npm run check:size && npm run check:perf)",
     "typecheck": "tsc --noEmit",
     "compile": "tsc -b packages/platform-vscode/tsconfig.json",
     "viz:webviews": "npm run compile && node scripts/visual/webviews.js",
@@ -773,5 +773,12 @@
     "onCommand:beady.selectWorkspace",
     "onChatParticipant:beady.task-creator",
     "onChatParticipant:beady.task-worker"
+  ],
+  "files": [
+    "dist",
+    "package.json",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE.txt"
   ]
 }
