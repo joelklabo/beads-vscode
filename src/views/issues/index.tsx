@@ -3,11 +3,16 @@ import { createRoot } from 'react-dom/client';
 import { Row } from './Row';
 import { Section } from './Section';
 import { BeadViewModel, WebviewMessage, WebviewCommand } from './types';
-import { CMD_OPEN_IN_PROGRESS_PANEL, CMD_PICK_SORT_MODE } from '../../constants/commands';
 import './style.css';
 
 // VS Code API
 declare global {
+  // Provided by VS Code inside the webview
+  function acquireVsCodeApi(): {
+    postMessage: (message: WebviewCommand) => void;
+    getState: () => any;
+    setState: (state: any) => void;
+  };
   interface Window {
     vscode: {
       postMessage: (message: WebviewCommand) => void;
@@ -17,7 +22,7 @@ declare global {
   }
 }
 
-const vscode = window.vscode;
+const vscode = typeof acquireVsCodeApi === 'function' ? acquireVsCodeApi() : window.vscode;
 
 const App: React.FC = () => {
   const [beads, setBeads] = useState<BeadViewModel[]>([]);
@@ -26,20 +31,21 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    console.log('Beads Issues View mounted');
     const handler = (event: MessageEvent<WebviewMessage>) => {
-      console.log('Received message:', event.data);
       const message = event.data;
-      if (message.type === 'update') {
-        if ((message as any).density) {
-          document.body.classList.toggle('compact', (message as any).density === 'compact');
-        }
-        setBeads(message.beads);
-        if (message.sortMode) {
-          setSortMode(message.sortMode);
-        }
-        setLoading(false);
+      if (!message || typeof message !== 'object' || message.type !== 'update' || !Array.isArray((message as any).beads)) {
+        return;
       }
+
+      if (message.density === 'compact' || message.density === 'default') {
+        setCompact(message.density === 'compact');
+      }
+
+      setBeads(message.beads);
+      if (typeof message.sortMode === 'string') {
+        setSortMode(message.sortMode);
+      }
+      setLoading(false);
     };
 
     window.addEventListener('message', handler);
@@ -48,12 +54,20 @@ const App: React.FC = () => {
     return () => window.removeEventListener('message', handler);
   }, []);
 
+  useEffect(() => {
+    document.body.classList.toggle('compact', compact);
+  }, [compact]);
+
   const handleOpen = (id: string) => {
     vscode.postMessage({ command: 'open', id });
   };
 
   const handleSort = () => {
-    vscode.postMessage({ command: CMD_PICK_SORT_MODE } as any);
+    vscode.postMessage({ command: 'pickSort' } as any);
+  };
+
+  const handleOpenInProgress = () => {
+    vscode.postMessage({ command: 'openInProgressPanel' } as any);
   };
 
   const renderSection = (title: string, items: BeadViewModel[], icon: string, className: string = '', defaultCollapsed = false) => {
@@ -81,7 +95,7 @@ const App: React.FC = () => {
 
     if (beads.length === 0) {
       return (
-        <div style={{ padding: 20, textAlign: 'center', color: 'var(--vscode-descriptionForeground)' }}>
+        <div className="empty-state">
           No tasks found.
         </div>
       );
@@ -167,7 +181,7 @@ const App: React.FC = () => {
           <button className="icon-button" onClick={handleSort} title="Sort">
             <span className="codicon codicon-sort-precedence" />
           </button>
-          <button className="icon-button" onClick={() => vscode.postMessage({ command: CMD_OPEN_IN_PROGRESS_PANEL } as any)} title="Open In Progress">
+          <button className="icon-button" onClick={handleOpenInProgress} title="Open In Progress">
             <span className="codicon codicon-pulse" />
           </button>
         </div>

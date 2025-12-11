@@ -32,7 +32,6 @@ export const Row: React.FC<RowProps> = ({ bead, onClick, compact }) => {
       <div className="bead-icon-column">
         <span 
           className={`codicon codicon-${bead.icon?.id || 'circle-outline'}`} 
-          style={{ color: bead.icon?.color }} 
           title={bead.id}
         />
       </div>
@@ -79,12 +78,6 @@ export const Row: React.FC<RowProps> = ({ bead, onClick, compact }) => {
             <span
               className={`bead-chip assignee ${chipSize}`}
               aria-label={`Assignee ${bead.assignee?.name}`}
-              style={
-                {
-                  '--bead-assignee-color': assigneeToken.color,
-                  '--bead-assignee-bg': assigneeToken.background,
-                } as React.CSSProperties
-              }
               title={bead.assignee?.name}
             >
               <span className="codicon codicon-account" aria-hidden="true" />
