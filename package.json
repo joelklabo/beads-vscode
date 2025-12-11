@@ -254,14 +254,12 @@
         "id": "beady.task-creator",
         "name": "task-creator",
         "description": "Turn a feature request into a complete bd epic + task tree",
-        "icon": "$(comment-discussion)",
         "isSticky": true
       },
       {
         "id": "beady.task-worker",
         "name": "task-worker",
         "description": "Continuously work through ALL bd issues until none remain",
-        "icon": "$(person)",
         "isSticky": true
       }
     ],
@@ -711,11 +709,6 @@
     "check:manifest": "npm run bundle && npx vsce package --no-dependencies --yarn --out tmp/manifest-check.vsix"
   },
   "devDependencies": {
-    "playwright": "^1.42.0",
-    "eslint-plugin-import": "^2.29.1",
-    "eslint-plugin-no-unsanitized": "^4.0.2",
-    "eslint-plugin-promise": "^6.1.1",
-    "eslint-plugin-sonarjs": "^1.0.4",
     "@beads/bd": "^0.29.0",
     "@types/glob": "^8.1.0",
     "@types/mocha": "^10.0.6",
@@ -731,10 +724,15 @@
     "c8": "^10.1.3",
     "esbuild": "^0.23.0",
     "eslint": "^8.56.0",
+    "eslint-plugin-import": "^2.29.1",
+    "eslint-plugin-no-unsanitized": "^4.0.2",
+    "eslint-plugin-promise": "^6.1.1",
+    "eslint-plugin-sonarjs": "^1.0.4",
     "glob": "^10.3.10",
     "ink": "^4.4.1",
     "ink-testing-library": "^4.0.0",
     "mocha": "^10.2.0",
+    "playwright": "^1.42.0",
     "react": "^18.2.0",
     "react-dom": "^18.3.1",
     "ts-node": "^10.9.2",
