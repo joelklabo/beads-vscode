@@ -9,14 +9,20 @@
     "node": true,
     "es2020": true
   },
-  "plugins": ["@typescript-eslint"],
+  "plugins": ["@typescript-eslint", "no-unsanitized", "sonarjs", "promise", "import"],
   "extends": [
     "eslint:recommended",
     "plugin:@typescript-eslint/recommended"
   ],
   "rules": {
     "@typescript-eslint/no-explicit-any": "off",
-    "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_" }]
+    "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
+    "no-unsanitized/method": "warn",
+    "no-unsanitized/property": "warn",
+    "promise/no-return-wrap": "warn",
+    "promise/valid-params": "warn",
+    "import/no-cycle": "off",
+    "sonarjs/no-duplicate-string": "off"
   },
   "overrides": [
     {
