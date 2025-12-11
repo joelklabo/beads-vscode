@@ -392,6 +392,7 @@ export const registerCommands: CommandRegistrar = (
         if (resolved) {
           return openBead(resolved, provider);
         }
+        return undefined;
       },
     },
   ];

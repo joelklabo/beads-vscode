@@ -146,6 +146,7 @@ export function activate(context: vscode.ExtensionContext): void {
         console.error(`[beads] ${commandId} failed`, error);
         showActivationError(commandId, error);
       }
+      return undefined;
     });
     context.subscriptions.push(disposable);
   };
