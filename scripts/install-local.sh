@@ -5,7 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
 # Resolve extension identifier (publisher.name) from package.json.
-EXT_ID="$(node -p "const p=require('./package.json'); console.log(`${p.publisher}.${p.name}`)" )"
+EXT_ID="$(node -p "const p=require('./package.json'); p.publisher + '.' + p.name" )"
 
 # Find the newest VSIX produced by `npm run package`.
 VSIX_FILE=${VSIX_FILE:-$(ls -t beady-*.vsix 2>/dev/null | head -n 1 || true)}

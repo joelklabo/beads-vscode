@@ -64,13 +64,44 @@ describe('panel message validation', () => {
     delete require.cache[require.resolve('../../views/inProgress')];
     const panelModule = require('../../views/panels/inProgressPanel');
     await panelModule.openInProgressPanel({
-      provider: { items: [{ id: 'X', status: 'in_progress' }], onDidChangeTreeData: () => ({ dispose() {} }), refresh: () => undefined },
+      provider: { items: [{ id: 'X', status: 'in_progress' }], onDidChangeTreeData: () => ({ dispose() {} }) },
       openBead: async () => { throw new Error('should not be called'); },
     });
 
     assert.ok(createdPanels.length === 1, 'panel should be created');
     webviewHandlers[0]?.({ command: 'bad' });
     assert.ok(warnings.length > 0, 'warning should be emitted for invalid message');
+  });
+
+  it('does not throw if provider lacks refresh and items are empty', async () => {
+    const { vscodeStub, createdPanels } = createVscodeStub();
+    const moduleAny = Module as any;
+    restoreLoad = moduleAny._load;
+    moduleAny._load = (request: string, parent: any, isMain: boolean) => {
+      if (request === 'vscode') return vscodeStub;
+      if (request.includes('../inProgress')) {
+        return {
+          getInProgressPanelHtml: () => '<html></html>',
+          buildInProgressPanelStrings: () => ({ title: 'In Progress' }),
+        };
+      }
+      if (request.includes('../shared/theme')) {
+        return { buildSharedStyles: () => '' };
+      }
+      return restoreLoad(request, parent, isMain);
+    };
+
+    delete require.cache[require.resolve('../../views/panels/inProgressPanel')];
+    delete require.cache[require.resolve('../../views/shared/theme')];
+    delete require.cache[require.resolve('../../views/inProgress')];
+    const panelModule = require('../../views/panels/inProgressPanel');
+
+    await panelModule.openInProgressPanel({
+      provider: { items: [], onDidChangeTreeData: () => ({ dispose() {} }) },
+      openBead: async () => undefined,
+    });
+
+    assert.strictEqual(createdPanels.length, 1, 'panel should be created even without refresh');
   });
 
   it('drops invalid messages in activity feed panel', async () => {
