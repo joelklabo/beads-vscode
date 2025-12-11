@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Row } from './Row';
+import { Section } from './Section';
 import { BeadViewModel, WebviewMessage, WebviewCommand } from './types';
+import { CMD_OPEN_IN_PROGRESS_PANEL, CMD_PICK_SORT_MODE } from '../../constants/commands';
 import './style.css';
 
 // VS Code API
@@ -16,44 +18,6 @@ declare global {
 }
 
 const vscode = window.vscode;
-
-const Section: React.FC<{ 
-  title: string; 
-  count: number; 
-  children: React.ReactNode; 
-  defaultCollapsed?: boolean;
-  className?: string;
-  icon?: string;
-}> = ({ title, count, children, defaultCollapsed = false, className = '', icon }) => {
-  const [collapsed, setCollapsed] = useState(defaultCollapsed);
-  const toggle = () => setCollapsed(!collapsed);
-  const handleKeyDown = (event: React.KeyboardEvent) => {
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault();
-      toggle();
-    }
-  };
-  
-  return (
-    <div className={`section ${className} ${collapsed ? 'collapsed' : ''}`}>
-      <div 
-        className="section-header" 
-        onClick={toggle}
-        onKeyDown={handleKeyDown}
-        role="button"
-        tabIndex={0}
-        aria-expanded={!collapsed}
-        aria-controls={`section-${title}`}
-      >
-        <span className={`codicon codicon-chevron-${collapsed ? 'right' : 'down'}`} />
-        {icon && <span className={`codicon codicon-${icon}`} />}
-        <span className="section-title">{title}</span>
-        <span className="section-count">{count}</span>
-      </div>
-      {!collapsed && <div className="section-content" id={`section-${title}`}>{children}</div>}
-    </div>
-  );
-};
 
 const App: React.FC = () => {
   const [beads, setBeads] = useState<BeadViewModel[]>([]);
@@ -89,7 +53,7 @@ const App: React.FC = () => {
   };
 
   const handleSort = () => {
-    vscode.postMessage({ command: 'pickSort' } as any);
+    vscode.postMessage({ command: CMD_PICK_SORT_MODE } as any);
   };
 
   const renderSection = (title: string, items: BeadViewModel[], icon: string, className: string = '', defaultCollapsed = false) => {
@@ -203,7 +167,7 @@ const App: React.FC = () => {
           <button className="icon-button" onClick={handleSort} title="Sort">
             <span className="codicon codicon-sort-precedence" />
           </button>
-          <button className="icon-button" onClick={() => vscode.postMessage({ command: 'openInProgressPanel' } as any)} title="Open In Progress">
+          <button className="icon-button" onClick={() => vscode.postMessage({ command: CMD_OPEN_IN_PROGRESS_PANEL } as any)} title="Open In Progress">
             <span className="codicon codicon-pulse" />
           </button>
         </div>

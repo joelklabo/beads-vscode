@@ -1,6 +1,8 @@
 import * as vscode from 'vscode';
 import { BeadItemData, toViewModel } from '../../utils/beads';
 import { WebviewCommand } from '../../views/issues/types';
+import { buildCodiconLink } from '../../views/shared/assets';
+import { CMD_OPEN_BEAD, CMD_OPEN_IN_PROGRESS_PANEL, CMD_PICK_SORT_MODE } from '../../constants/commands';
 
 export interface BeadsDataSource {
   onDidChangeTreeData: vscode.Event<any>;
@@ -51,12 +53,12 @@ export class BeadsWebviewProvider implements vscode.WebviewViewProvider {
           // Let's find it from the data source.
           const item = this._dataSource.getVisibleBeads().find(b => b.id === message.id);
           if (item) {
-            vscode.commands.executeCommand('beady.openBead', item);
+            vscode.commands.executeCommand(CMD_OPEN_BEAD, item);
           }
           break;
         }
         case 'openInProgressPanel': {
-          vscode.commands.executeCommand('beady.openInProgressPanel');
+          vscode.commands.executeCommand(CMD_OPEN_IN_PROGRESS_PANEL);
           break;
         }
         case 'log': {
@@ -64,7 +66,7 @@ export class BeadsWebviewProvider implements vscode.WebviewViewProvider {
           break;
         }
         case 'pickSort': {
-          vscode.commands.executeCommand('beady.pickSortMode');
+          vscode.commands.executeCommand(CMD_PICK_SORT_MODE);
           break;
         }
         case 'ready': {
@@ -99,7 +101,6 @@ export class BeadsWebviewProvider implements vscode.WebviewViewProvider {
     
     const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'dist', 'views', 'issues.js'));
     const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'dist', 'views', 'issues.css'));
-    const codiconUri = vscode.Uri.parse('https://microsoft.github.io/vscode-codicons/dist/codicon.css');
 
     const nonce = getNonce();
 
@@ -112,7 +113,7 @@ export class BeadsWebviewProvider implements vscode.WebviewViewProvider {
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval'; script-src * 'unsafe-inline' 'unsafe-eval'; style-src * 'unsafe-inline';">
       <link href="${styleUri}" rel="stylesheet">
-      <link href="${codiconUri}" rel="stylesheet">
+      ${buildCodiconLink()}
       <title>Beads Issues</title>
     </head>
     <body ${densityClass}>

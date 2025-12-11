@@ -5,6 +5,9 @@ describe('cliService', () => {
   let restoreLoad: any;
   let formatBdError: (prefix: string, error: unknown, projectRoot?: string) => string;
   let resolveBeadId: (input: any) => string | undefined;
+  let runBdCommand: (args: string[], projectRoot: string, options?: any) => Promise<void>;
+  let guardCalls: string[] = [];
+  let trustCalls: any[] = [];
 
   before(() => {
     const moduleAny = Module as any;
@@ -12,7 +15,7 @@ describe('cliService', () => {
 
     // Clear relevant caches
     Object.keys(require.cache).forEach(key => {
-      if (key.includes('cliService') || key.includes('beads-vscode') || key.includes('@beads/core')) {
+      if (key.includes('cliService') || key.includes('runtimeEnvironment') || key.includes('beads-vscode') || key.includes('@beads/core')) {
         delete require.cache[key];
       }
     });
@@ -39,9 +42,36 @@ describe('cliService', () => {
       },
     } as any;
 
+    const ensureWorkspaceTrusted = async (workspaceFolder?: any) => {
+      trustCalls.push(workspaceFolder);
+    };
+
+    const runWorktreeGuard = async (projectRoot: string) => {
+      guardCalls.push(projectRoot);
+    };
+
+    const findBdCommand = async (commandPath: string) => commandPath;
+
+    const getCliExecutionConfig = () => ({
+      timeoutMs: 5000,
+      retryBackoffMs: 0,
+      retryCount: 0,
+      offlineThresholdMs: 5000,
+      maxBufferBytes: 1024 * 1024,
+    });
+
     moduleAny._load = (request: string, parent: any, isMain: boolean) => {
       if (request === 'vscode') {
         return vscodeStub;
+      }
+      if (request.includes('services/runtimeEnvironment')) {
+        return { ensureWorkspaceTrusted, runWorktreeGuard };
+      }
+      if (request.includes('providers/beads/store')) {
+        return { findBdCommand };
+      }
+      if (request.includes('utils/config')) {
+        return { getCliExecutionConfig };
       }
       return restoreLoad(request, parent, isMain);
     };
@@ -51,6 +81,12 @@ describe('cliService', () => {
     const cliService = require('../../services/cliService');
     formatBdError = cliService.formatBdError;
     resolveBeadId = cliService.resolveBeadId;
+    runBdCommand = cliService.runBdCommand;
+  });
+
+  beforeEach(() => {
+    guardCalls = [];
+    trustCalls = [];
   });
 
   after(() => {
@@ -86,6 +122,54 @@ describe('cliService', () => {
       const error = { message: 'failed', stderr: 'actual error' };
       const result = formatBdError('Command failed', error);
       assert.ok(result.includes('actual error'));
+    });
+  });
+
+  describe('runBdCommand', () => {
+    it('invokes trust and guard before executing', async () => {
+      const execOrder: string[] = [];
+      await runBdCommand(['list'], '/test/workspace', {
+        execCli: async ({ args }: { args: string[] }) => {
+          execOrder.push(args.join(' '));
+        },
+      });
+
+      assert.ok(execOrder.includes('list'));
+    });
+
+    it('serializes commands per project root', async () => {
+      let releaseFirst: () => void = () => {};
+      let secondStarted = false;
+      const seen: string[] = [];
+
+      const run1 = runBdCommand(['first'], '/test/workspace', {
+        execCli: async ({ args }: { args: string[] }) => {
+          seen.push(args[0]);
+          await new Promise<void>(resolve => {
+            releaseFirst = resolve;
+          });
+        },
+      });
+
+      const run2Promise = Promise.resolve().then(() =>
+        runBdCommand(['second'], '/test/workspace', {
+          execCli: async ({ args }: { args: string[] }) => {
+            secondStarted = true;
+            seen.push(args[0]);
+          },
+        })
+      );
+
+      await new Promise(resolve => setTimeout(resolve, 5));
+      assert.deepStrictEqual(seen, ['first']);
+      assert.strictEqual(secondStarted, false);
+
+      releaseFirst();
+      await run1;
+      await run2Promise;
+
+      assert.deepStrictEqual(seen, ['first', 'second']);
+      assert.strictEqual(secondStarted, true);
     });
   });
 

@@ -87,12 +87,14 @@ export function buildSafeBdArgs(rawArgs: string[]): string[] {
     if (typeof arg !== 'string') {
       throw new Error(`bd argument ${index} must be a string`);
     }
+    if (arg.trim().length === 0) {
+      throw new Error('bd arguments cannot be empty');
+    }
     if (/\r|\n/.test(arg)) {
       throw new Error('bd arguments cannot contain newlines');
     }
     return arg;
   });
-
   return args.includes('--no-daemon') ? args : ['--no-daemon', ...args];
 }
 

@@ -524,11 +524,6 @@
           "group": "navigation@4"
         },
         {
-          "command": "beady.openInProgressPanel",
-          "when": "view == beady.issuesView",
-          "group": "navigation@6.5"
-        },
-        {
           "command": "beady.dependencyTree.pickRoot",
           "when": "view == beadyDependencyTree",
           "group": "navigation@1"
