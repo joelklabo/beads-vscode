@@ -33,9 +33,14 @@ if (!existsSync('dist/extension.js')) {
 }
 
 const cmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
-const result = spawnSync(cmd, ['vsce', 'package', '--follow-symlinks', '--out', packagePath], {
-  stdio: 'inherit',
-});
+const result = spawnSync(
+  cmd,
+  ['vsce', 'package', '--follow-symlinks', '--out', packagePath],
+  {
+    stdio: 'inherit',
+    env: { ...process.env, SKIP_VSCODE_PREPUBLISH: '1' },
+  }
+);
 
 if (result.status !== 0) {
   fail('vsce package failed');

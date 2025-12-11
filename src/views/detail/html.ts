@@ -40,12 +40,15 @@ export function getBeadDetailHtml(
 
   const statusDisplay = getStatusLabel(item.status, strings) || strings.statusLabels.open;
 
+  const codiconHost = 'https://microsoft.github.io';
+  const codiconCss = `${codiconHost}/vscode-codicons/dist/codicon.css`;
+
   const csp = [
     "default-src 'none'",
     `img-src ${webview.cspSource} https: data:`,
-    `style-src 'nonce-${nonce}' ${webview.cspSource}`,
+    `style-src 'nonce-${nonce}' ${webview.cspSource} ${codiconHost}`,
     `script-src 'nonce-${nonce}'`,
-    `font-src ${webview.cspSource}`,
+    `font-src ${webview.cspSource} https:`,
     "connect-src 'none'",
     "frame-src 'none'"
   ].join('; ');
@@ -57,6 +60,7 @@ export function getBeadDetailHtml(
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${item.id}</title>
     <meta http-equiv="Content-Security-Policy" content="${csp}">
+    <link rel="stylesheet" href="${codiconCss}">
     <style nonce="${nonce}">
         ${buildSharedStyles()}
         :root {

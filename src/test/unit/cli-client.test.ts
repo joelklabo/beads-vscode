@@ -72,4 +72,9 @@ describe('BdCliClient', () => {
     assert.throws(() => buildSafeBdArgs(['list', 'bd-1\nrm -rf /']), /newlines/);
   });
 
+  it('rejects empty or whitespace-only arguments', () => {
+    assert.throws(() => buildSafeBdArgs(['', 'list']), /cannot be empty/);
+    assert.throws(() => buildSafeBdArgs(['   ']), /cannot be empty/);
+  });
+
 });
