@@ -20,6 +20,8 @@ async function enqueueCommand<T>(key: string, task: () => Promise<T>): Promise<T
 export interface BdCommandOptions {
   workspaceFolder?: vscode.WorkspaceFolder;
   requireGuard?: boolean;
+  guardRunner?: (projectRoot: string) => Promise<void>;
+  trustChecker?: (workspaceFolder?: vscode.WorkspaceFolder) => Promise<void>;
   execCli?: (options: {
     args: string[];
     projectRoot: string;
@@ -47,16 +49,18 @@ export function resolveBeadId(input: any): string | undefined {
 export async function runBdCommand(args: string[], projectRoot: string, options: BdCommandOptions = {}): Promise<void> {
   const workspaceFolder = options.workspaceFolder ?? vscode.workspace.getWorkspaceFolder(vscode.Uri.file(projectRoot));
   const requireGuard = options.requireGuard !== false;
+  const guardRunner = options.guardRunner ?? runWorktreeGuard;
+  const trustChecker = options.trustChecker ?? ensureWorkspaceTrusted;
 
   await enqueueCommand(projectRoot, async () => {
-    await ensureWorkspaceTrusted(workspaceFolder);
+    await trustChecker(workspaceFolder);
 
     if (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0 && !workspaceFolder) {
       throw new Error(t('Project root {0} is not within an open workspace folder', projectRoot));
     }
 
     if (requireGuard) {
-      await runWorktreeGuard(projectRoot);
+      await guardRunner(projectRoot);
     }
 
     const config = vscode.workspace.getConfiguration('beady', workspaceFolder);

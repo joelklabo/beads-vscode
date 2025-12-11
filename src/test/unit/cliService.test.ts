@@ -30,7 +30,7 @@ describe('cliService', () => {
         file: (fsPath: string) => ({ fsPath, toString: () => fsPath }),
       },
       workspace: {
-        isTrusted: true,
+        isTrusted: false,
         workspaceFolders: [{ uri: { fsPath: '/test/workspace' } }],
         getConfiguration: () => ({
         get: (_key: string, fallback: any) => fallback,
@@ -129,12 +129,15 @@ describe('cliService', () => {
     it('invokes trust and guard before executing', async () => {
       const execOrder: string[] = [];
       await runBdCommand(['list'], '/test/workspace', {
+        guardRunner: async (root: string) => { guardCalls.push(root); },
+        trustChecker: async (wf?: any) => { trustCalls.push(wf); },
         execCli: async ({ args }: { args: string[] }) => {
           execOrder.push(args.join(' '));
         },
       });
 
       assert.ok(execOrder.includes('list'));
+      assert.ok(guardCalls.includes('/test/workspace'), 'guard should run with project root');
     });
 
     it('serializes commands per project root', async () => {
@@ -176,6 +179,16 @@ describe('cliService', () => {
 
       assert.deepStrictEqual(seen, ['first', 'second']);
       assert.strictEqual(secondStarted, true);
+    });
+
+    it('skips guard when requireGuard is false', async () => {
+      await runBdCommand(['noop'], '/test/workspace', {
+        requireGuard: false,
+        guardRunner: async (root: string) => { guardCalls.push(root); },
+        trustChecker: async (wf?: any) => { trustCalls.push(wf); },
+        execCli: async () => undefined,
+      });
+      assert.strictEqual(guardCalls.length, 0, 'guard should be skipped');
     });
   });
 
