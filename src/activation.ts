@@ -24,14 +24,20 @@ const t = vscode.l10n.t;
  */
 export function setupProviders(
   context: vscode.ExtensionContext,
-  watchManager: WatcherManager
+  watchManager: WatcherManager,
+  options: { onDataRequested?: () => void } = {}
 ): ViewRegistryResult {
   const provider = new BeadsTreeDataProvider(context, watchManager);
   if (!provider) {
     throw new Error('Beads tree provider failed to initialize');
   }
 
-  const webviewProvider = new BeadsWebviewProvider(context.extensionUri, provider, () => provider.getDensity());
+  const webviewProvider = new BeadsWebviewProvider(
+    context.extensionUri,
+    provider,
+    () => provider.getDensity(),
+    options.onDataRequested
+  );
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(BeadsWebviewProvider.viewType, webviewProvider)
   );
@@ -40,6 +46,11 @@ export function setupProviders(
   const dependencyTreeView = vscode.window.createTreeView('beadyDependencyTree', {
     treeDataProvider: dependencyTreeProvider,
     showCollapseAll: true,
+  });
+  dependencyTreeView.onDidChangeVisibility((e) => {
+    if (e.visible && options.onDataRequested) {
+      options.onDataRequested();
+    }
   });
 
   const dependencySync = provider.onDidChangeTreeData(() => {
@@ -82,11 +93,21 @@ export function setupProviders(
 export function setupActivityFeed(
   context: vscode.ExtensionContext,
   watchManager: WatcherManager,
-  _beadsProvider: BeadsTreeDataProvider
+  _beadsProvider: BeadsTreeDataProvider,
+  options: { onDataRequested?: () => void; autoRefresh?: boolean } = {}
 ): ActivityFeedRegistryResult {
-  const activityFeedProvider = new ActivityFeedTreeDataProvider(context, { watchManager });
+  const activityFeedProvider = new ActivityFeedTreeDataProvider(context, {
+    watchManager,
+    enableAutoRefresh: options.autoRefresh !== false,
+  });
   const activityFeedView = vscode.window.createTreeView('activityFeed', {
     treeDataProvider: activityFeedProvider,
+  });
+  activityFeedView.onDidChangeVisibility((e) => {
+    if (e.visible && options.onDataRequested) {
+      options.onDataRequested();
+      activityFeedProvider.enableAutoRefresh();
+    }
   });
 
   const activityFeedStatus = activityFeedProvider.onHealthChanged((status) => {

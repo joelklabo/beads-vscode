@@ -24,7 +24,8 @@ export class BeadsWebviewProvider implements vscode.WebviewViewProvider {
   constructor(
     private readonly _extensionUri: vscode.Uri,
     private readonly _dataSource: BeadsDataSource,
-    private readonly _getDensity?: () => 'default' | 'compact'
+    private readonly _getDensity?: () => 'default' | 'compact',
+    private readonly _onResolve?: () => void
   ) { }
 
   public resolveWebviewView(
@@ -33,6 +34,13 @@ export class BeadsWebviewProvider implements vscode.WebviewViewProvider {
     _token: vscode.CancellationToken,
   ) {
     this._view = webviewView;
+    if (this._onResolve) {
+      try {
+        this._onResolve();
+      } catch (error) {
+        console.warn('[beads] issues webview resolve callback failed', error);
+      }
+    }
 
     webviewView.webview.options = {
       // Allow scripts in the webview

@@ -46,6 +46,28 @@ export function activate(context: vscode.ExtensionContext): void {
 
   let providerRef: BeadsTreeDataProvider | undefined;
   let activationError: unknown;
+  let activityFeedProviderRef: ActivityFeedTreeDataProvider | undefined;
+  let dataInitialized = false;
+
+  const ensureData = async (): Promise<void> => {
+    if (dataInitialized) {
+      return;
+    }
+    dataInitialized = true;
+    try {
+      if (providerRef) {
+        await providerRef.refresh();
+      }
+      if (activityFeedProviderRef) {
+        await activityFeedProviderRef.refresh();
+        if (typeof (activityFeedProviderRef as any).enableAutoRefresh === 'function') {
+          (activityFeedProviderRef as any).enableAutoRefresh();
+        }
+      }
+    } catch (error) {
+      console.warn('[beads] initial refresh failed', error);
+    }
+  };
 
   const showActivationError = (commandId?: string, error?: unknown): void => {
     const prefix = commandId ? t('Beads command {0} failed', commandId) : t('Beads activation failed');
@@ -72,11 +94,17 @@ export function activate(context: vscode.ExtensionContext): void {
 
   try {
     // Set up providers and tree views
-    const { provider, dependencyTreeProvider, dependencyTreeView } = setupProviders(context, watchManager);
+    const { provider, dependencyTreeProvider, dependencyTreeView } = setupProviders(context, watchManager, {
+      onDataRequested: ensureData,
+    });
     providerRef = provider;
 
-    // Set up activity feed
-    const { activityFeedProvider, activityFeedView } = setupActivityFeed(context, watchManager, provider);
+    // Set up activity feed (start paused; enable on first view open)
+    const { activityFeedProvider, activityFeedView } = setupActivityFeed(context, watchManager, provider, {
+      onDataRequested: ensureData,
+      autoRefresh: false,
+    });
+    activityFeedProviderRef = activityFeedProvider;
 
     // Register all commands
     const activationContext = { provider, dependencyTreeProvider, dependencyTreeView, activityFeedProvider, activityFeedView };
@@ -84,20 +112,23 @@ export function activate(context: vscode.ExtensionContext): void {
       context,
       activationContext,
       resolveCommandItem,
-      openBead,
-      openBeadFromFeed,
+      async (item, p) => {
+        await ensureData();
+        return openBead(item, p);
+      },
+      async (issueId, beadsProvider, opener) => {
+        await ensureData();
+        return openBeadFromFeed(issueId, beadsProvider, opener);
+      },
       (activityFeedProvider: ActivityFeedTreeDataProvider, beadsProvider: BeadsTreeDataProvider) =>
-        openActivityFeedPanel({ activityFeedProvider, beadsProvider, openBead: (item) => openBead(item, beadsProvider) }),
-      (provider: BeadsTreeDataProvider) => openInProgressPanel({ provider, openBead: (item) => openBead(item, provider) }),
+        openActivityFeedPanel({ activityFeedProvider, beadsProvider, openBead: async (item) => { await ensureData(); return openBead(item, beadsProvider); } }),
+      (provider: BeadsTreeDataProvider) => openInProgressPanel({ provider, openBead: async (item) => { await ensureData(); return openBead(item, provider); } }),
       pickBeadQuick,
       visualizeDependencies
     );
 
     // Set up configuration watchers
     setupConfigurationWatchers(context, provider);
-
-    // Initial data refresh
-    void provider.refresh();
   } catch (error) {
     activationError = error;
     console.error('[beads] activation failed', error);
