@@ -31,14 +31,16 @@ describe('Bulk status helpers', () => {
           throw new Error('boom');
         }
       }
-    );
+  );
 
-    assert.deepStrictEqual(calls, ['ok-1', 'fail-me', 'ok-2']);
-    assert.deepStrictEqual(result.successes, ['ok-1', 'ok-2']);
-    assert.strictEqual(result.failures.length, 1);
-    assert.strictEqual(result.failures[0].id, 'fail-me');
-    assert.ok(result.failures[0].error.includes('boom'));
-  });
+  assert.deepStrictEqual(calls, ['ok-1', 'fail-me', 'ok-2']);
+  assert.deepStrictEqual(result.successes, ['ok-1', 'ok-2']);
+  assert.strictEqual(result.failures.length, 1);
+  const failure = result.failures[0];
+  assert.ok(failure);
+  assert.strictEqual(failure?.id, 'fail-me');
+  assert.ok(failure?.error.includes('boom'));
+});
 
   it('reports progress for each item', async () => {
     const steps: Array<{ completed: number; total: number }> = [];

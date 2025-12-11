@@ -254,12 +254,14 @@
         "id": "beady.task-creator",
         "name": "task-creator",
         "description": "Turn a feature request into a complete bd epic + task tree",
+        "icon": "$(comment-discussion)",
         "isSticky": true
       },
       {
         "id": "beady.task-worker",
         "name": "task-worker",
         "description": "Continuously work through ALL bd issues until none remain",
+        "icon": "$(person)",
         "isSticky": true
       }
     ],

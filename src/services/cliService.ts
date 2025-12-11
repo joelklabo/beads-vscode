@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { sanitizeDependencyId, collectCliErrorOutput, sanitizeErrorMessage, BdCliClient } from '../utils';
-import type { CliExecutionPolicy } from '@beads/core';
+import type { CliExecutionPolicy, BdCliClientOptions } from '@beads/core';
 import { getCliExecutionConfig } from '../utils/config';
 import { findBdCommand } from '../providers/beads/store';
 import { currentWorktreeId } from '../worktree';
@@ -66,11 +66,36 @@ export async function runBdCommand(args: string[], projectRoot: string, options:
     const worktreeId = currentWorktreeId(projectRoot);
 
     if (options.execCli) {
-      await options.execCli({ args, projectRoot, cwd: projectRoot, commandPath, policy: cliPolicy, workspaceFolder, worktreeId });
+      const execOptions: {
+        args: string[];
+        projectRoot: string;
+        cwd?: string;
+        commandPath: string;
+        policy: CliExecutionPolicy;
+        workspaceFolder?: vscode.WorkspaceFolder;
+        worktreeId?: string;
+      } = { args, projectRoot, cwd: projectRoot, commandPath, policy: cliPolicy };
+      if (workspaceFolder) {
+        execOptions.workspaceFolder = workspaceFolder;
+      }
+      if (worktreeId) {
+        execOptions.worktreeId = worktreeId;
+      }
+      await options.execCli(execOptions);
       return;
     }
 
-    const client = new BdCliClient({ commandPath, cwd: projectRoot, policy: cliPolicy, workspacePaths: [projectRoot], worktreeId });
+    const clientOptions: BdCliClientOptions = {
+      commandPath,
+      cwd: projectRoot,
+      policy: cliPolicy,
+      workspacePaths: [projectRoot],
+    };
+    if (worktreeId) {
+      clientOptions.worktreeId = worktreeId;
+    }
+
+    const client = new BdCliClient(clientOptions);
 
     await client.run(args);
   });

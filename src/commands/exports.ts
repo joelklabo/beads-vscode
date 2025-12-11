@@ -74,11 +74,15 @@ export async function exportBeadsCsv(
     ? vscode.Uri.file(path.join(defaultWorkspace, 'beads-export.csv'))
     : undefined;
 
-  const saveUri = await vscode.window.showSaveDialog({
-    defaultUri,
+  const saveDialogOptions: vscode.SaveDialogOptions = {
     filters: { CSV: ['csv'], 'All Files': ['*'] },
     saveLabel: t('Export'),
-  });
+  };
+  if (defaultUri) {
+    saveDialogOptions.defaultUri = defaultUri;
+  }
+
+  const saveUri = await vscode.window.showSaveDialog(saveDialogOptions);
 
   if (!saveUri) {
     return;
@@ -142,11 +146,15 @@ export async function exportBeadsMarkdown(
     ? vscode.Uri.file(path.join(defaultWorkspace, 'beads-export.md'))
     : undefined;
 
-  const saveUri = await vscode.window.showSaveDialog({
-    defaultUri,
+  const markdownDialogOptions: vscode.SaveDialogOptions = {
     filters: { Markdown: ['md'], 'All Files': ['*'] },
     saveLabel: t('Export'),
-  });
+  };
+  if (defaultUri) {
+    markdownDialogOptions.defaultUri = defaultUri;
+  }
+
+  const saveUri = await vscode.window.showSaveDialog(markdownDialogOptions);
 
   if (!saveUri) {
     return;

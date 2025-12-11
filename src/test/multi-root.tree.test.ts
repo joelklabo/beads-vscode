@@ -107,7 +107,7 @@ describe('Workspace selection', () => {
       }
       if (request.endsWith('providers/beads/store') || request.includes('providers/beads/store')) {
         class StubStore {
-          private listener?: (snapshot: any) => void;
+          private listener: ((snapshot: any) => void) | undefined;
           private snapshot: any = { items: [], workspaces: [] };
 
           onDidChange(listener: (snapshot: any) => void): () => void {

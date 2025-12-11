@@ -46,7 +46,10 @@ export function setupProviders(
     dependencyTreeProvider.refresh();
     const items = provider['items'] as BeadItemData[] | undefined;
     if (!dependencyTreeProvider.getRootId() && items && items.length > 0) {
-      dependencyTreeProvider.setRoot(items[0].id);
+      const firstItem = items[0];
+      if (firstItem) {
+        dependencyTreeProvider.setRoot(firstItem.id);
+      }
     }
   });
 
@@ -90,9 +93,12 @@ export function setupActivityFeed(
     if (status.state === 'error') {
       activityFeedView.message = status.message ?? t('Activity feed refresh failed; retrying…');
     } else if (status.state === 'idle') {
-      activityFeedView.message = t('Activity feed idle (polling every {0}s)', Math.max(1, Math.round(status.intervalMs / 1000)));
+      activityFeedView.message = t(
+        'Activity feed idle (polling every {0}s)',
+        Math.max(1, Math.round(status.intervalMs / 1000))
+      );
     } else {
-      activityFeedView.message = undefined;
+      delete (activityFeedView as { message?: string | vscode.MarkdownString }).message;
     }
   });
 

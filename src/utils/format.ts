@@ -128,7 +128,8 @@ export function formatRelativeTime(dateString: string | undefined): string {
 }
 
 export function sanitizeErrorMessage(error: unknown, workspacePaths: string[] = [], worktreeId?: string): string {
-  return coreSanitizeErrorMessage(error, { workspacePaths, worktreeId });
+  const options = worktreeId ? { workspacePaths, worktreeId } : { workspacePaths };
+  return coreSanitizeErrorMessage(error, options);
 }
 
 export function formatSafeError(prefix: string, error: unknown, workspacePaths: string[] = [], worktreeId?: string): string {

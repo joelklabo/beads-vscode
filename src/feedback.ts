@@ -9,7 +9,7 @@ import {
   tailLogLines,
 } from './utils/fs';
 import { FeedbackConfig, FeedbackLabelMap } from './utils/config';
-import { collectEnvironmentInfo, EnvironmentInfo, formatEnvironmentMarkdown } from './utils/environment';
+import { collectEnvironmentInfo, EnvironmentInfo, EnvironmentOptions, formatEnvironmentMarkdown } from './utils/environment';
 
 export interface LogCaptureOptions {
   /** Explicit path to a log file to attach. */
@@ -95,7 +95,8 @@ export async function captureLogs(options: LogCaptureOptions): Promise<LogCaptur
   try {
     const raw = await fs.readFile(targetPath, 'utf8');
     const tailed = tailLogLines(raw, maxLines);
-    const sanitized = redactLogContent(tailed.log, { workspacePaths: options.workspacePaths });
+    const redactionOptions = options.workspacePaths ? { workspacePaths: options.workspacePaths } : {};
+    const sanitized = redactLogContent(tailed.log, redactionOptions);
     const limited = limitLogPayload(sanitized, maxBytes);
 
     return {
@@ -124,7 +125,8 @@ export interface FeedbackErrorOptions {
  */
 export function formatFeedbackError(error: unknown, options: FeedbackErrorOptions = {}): string {
   const rawMessage = error instanceof Error ? error.message : String(error ?? 'Unknown error');
-  const sanitized = redactLogContent(rawMessage, { workspacePaths: options.workspacePaths });
+  const redactionOptions = options.workspacePaths ? { workspacePaths: options.workspacePaths } : {};
+  const sanitized = redactLogContent(rawMessage, redactionOptions);
 
   const status = (error as any)?.status as number | undefined;
   if (status === 401 || /unauthorized/i.test(sanitized)) {
@@ -243,7 +245,8 @@ function buildIssueTemplate(input: FeedbackIssueInput, env: EnvironmentInfo): st
     blocks.push(renderSection('Actual', input.actual));
   }
 
-  blocks.push(`## Environment\n${formatEnvironmentMarkdown(env, { type: input.type })}`);
+  const formatExtras = input.type ? { type: input.type } : {};
+  blocks.push(`## Environment\n${formatEnvironmentMarkdown(env, formatExtras)}`);
 
   return blocks.join('\n\n');
 }
@@ -261,31 +264,52 @@ export async function createFeedbackIssue(
 
   const resolveEnv =
     options.environmentResolver ??
-    (() =>
-      collectEnvironmentInfo({
-        extensionId: input.extensionId,
-        bdCommandPath: input.bdCommandPath,
-        skipCliVersion: Boolean(input.environment?.beadsCli)
-      }));
+    (() => {
+      const envOptions: EnvironmentOptions = {
+        skipCliVersion: Boolean(input.environment?.beadsCli),
+      };
+      if (input.extensionId) {
+        envOptions.extensionId = input.extensionId;
+      }
+      if (input.bdCommandPath) {
+        envOptions.bdCommandPath = input.bdCommandPath;
+      }
+      return collectEnvironmentInfo(envOptions);
+    });
 
   const capturedEnv = await resolveEnv();
   const env: EnvironmentInfo = { ...capturedEnv, ...(input.environment ?? {}) };
 
   const baseBody = buildIssueTemplate(input, env);
   const includeLogs = Boolean(input.includeLogs && config.includeAnonymizedLogs !== false);
-  const body = await buildFeedbackBody({
+  const feedbackBodyOptions: FeedbackBodyOptions = {
     baseBody,
     includeLogs,
-    logPath: input.logPath,
-    logDir: input.logDir,
-    workspacePaths: input.workspacePaths,
-    maxBytes: input.maxBytes,
-    maxLines: input.maxLines,
-    privacyNotice: input.privacyNotice
-  });
+  };
+  if (input.maxBytes !== undefined) {
+    feedbackBodyOptions.maxBytes = input.maxBytes;
+  }
+  if (input.maxLines !== undefined) {
+    feedbackBodyOptions.maxLines = input.maxLines;
+  }
+  if (input.privacyNotice) {
+    feedbackBodyOptions.privacyNotice = input.privacyNotice;
+  }
+  if (input.logPath) {
+    feedbackBodyOptions.logPath = input.logPath;
+  }
+  if (input.logDir) {
+    feedbackBodyOptions.logDir = input.logDir;
+  }
+  if (input.workspacePaths) {
+    feedbackBodyOptions.workspacePaths = input.workspacePaths;
+  }
+
+  const body = await buildFeedbackBody(feedbackBodyOptions);
 
   const labels = buildFeedbackLabels(input.type, config.labels, input.labels ?? []);
-  const title = (input.summary ?? 'Feedback').split(/\r?\n/, 1)[0].trim() || 'Feedback';
+  const [firstLine] = (input.summary ?? 'Feedback').split(/\r?\n/, 1);
+  const title = (firstLine?.trim() ?? 'Feedback') || 'Feedback';
 
   const octokit: OctokitLike =
     options.octokit ??
@@ -304,13 +328,20 @@ export async function createFeedbackIssue(
     });
 
     const data = response?.data ?? {};
-    return {
-      id: data.id?.toString?.() ?? data.node_id,
-      number: data.number,
-      url: data.html_url
-    };
+    const result: FeedbackIssueResult = {};
+    const id = data.id?.toString?.() ?? data.node_id;
+    if (id) {
+      result.id = id;
+    }
+    if (typeof data.number === 'number') {
+      result.number = data.number;
+    }
+    if (data.html_url) {
+      result.url = data.html_url;
+    }
+    return result;
   } catch (error) {
-    const friendly = formatFeedbackError(error, { workspacePaths: input.workspacePaths });
+    const friendly = formatFeedbackError(error, input.workspacePaths ? { workspacePaths: input.workspacePaths } : {});
     console.error(friendly);
     throw new Error(friendly);
   }

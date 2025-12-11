@@ -1719,7 +1719,11 @@ export class BeadsTreeDataProvider implements vscode.TreeDataProvider<TreeItemTy
 
     parts.push(this.showClosed ? t('Closed visible') : t('Closed hidden'));
 
-    this.treeView.description = parts.length > 0 ? parts.join(' · ') : undefined;
+    if (parts.length > 0) {
+      this.treeView.description = parts.join(' · ');
+    } else {
+      delete (this.treeView as { description?: string }).description;
+    }
   }
 
   private getQuickFilterKey(): string | undefined {

@@ -31,11 +31,20 @@ export function computeFeedbackEnablement(
     reason = feedbackConfig.validationError ? `invalidConfig:${feedbackConfig.validationError}` : 'flagDisabled';
   }
 
-  return {
+  const result: FeedbackEnablement = {
     enabled,
-    reason,
     config: feedbackConfig,
-    projectRoot,
-    workspaceFolder,
   };
+
+  if (reason) {
+    result.reason = reason;
+  }
+  if (projectRoot) {
+    result.projectRoot = projectRoot;
+  }
+  if (workspaceFolder) {
+    result.workspaceFolder = workspaceFolder;
+  }
+
+  return result;
 }

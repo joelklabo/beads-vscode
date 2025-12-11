@@ -22,6 +22,8 @@ import { openBeadPanel, openBeadFromFeed as openBeadFromFeedPanel } from './view
 import { setupProviders, setupActivityFeed, registerCommands, setupConfigurationWatchers } from './activation';
 
 type DependencyEdge = GraphEdgeData;
+type BeadQuickPick = vscode.QuickPickItem & { bead: BeadItemData };
+type EdgeQuickPick = vscode.QuickPickItem & { edge: DependencyEdge };
 
 const t = vscode.l10n.t;
 const INVALID_ID_MESSAGE = t('Issue ids must contain only letters, numbers, ._- and be under 64 characters.');
@@ -125,16 +127,19 @@ async function pickBeadQuick(
     return undefined;
   }
 
-  const picks = items
+  const picks: BeadQuickPick[] = items
     .filter((i) => i.id !== excludeId)
-    .map((i) => ({
-      label: i.id,
-      description: i.title,
-      detail: i.status ? t('Status: {0}', i.status) : undefined,
-      bead: i,
-    }));
+    .map((i) => {
+      const detail = i.status ? t('Status: {0}', i.status) : undefined;
+      return {
+        label: i.id,
+        description: i.title,
+        ...(detail ? { detail } : {}),
+        bead: i,
+      };
+    });
 
-  const selection = await vscode.window.showQuickPick(picks, { placeHolder });
+  const selection = await vscode.window.showQuickPick<BeadQuickPick>(picks, { placeHolder });
   return selection?.bead;
 }
 
@@ -229,14 +234,24 @@ async function removeDependencyCommand(provider: BeadsTreeDataProvider, edge?: D
       return;
     }
 
-    const picks = scopedEdges.map((e) => ({
-      label: `${e.sourceId} → ${e.targetId}`,
-      description: e.type,
-      detail: [e.sourceTitle, e.targetTitle].filter((v) => v && v.length > 0).join(' → '),
-      edge: e,
-    }));
+    const picks: EdgeQuickPick[] = scopedEdges.map((e) => {
+      const detail = [e.sourceTitle, e.targetTitle].filter((v) => v && v.length > 0).join(' → ');
+      const pick: EdgeQuickPick = {
+        label: `${e.sourceId} → ${e.targetId}`,
+        edge: e,
+      };
+      if (e.type) {
+        pick.description = e.type;
+      }
+      if (detail) {
+        pick.detail = detail;
+      }
+      return pick;
+    });
 
-    const selection = await vscode.window.showQuickPick(picks, { placeHolder: t('Select a dependency to remove') });
+    const selection = await vscode.window.showQuickPick<EdgeQuickPick>(picks, {
+      placeHolder: t('Select a dependency to remove'),
+    });
     if (!selection) {
       return;
     }
@@ -258,11 +273,8 @@ async function visualizeDependencies(provider: BeadsTreeDataProvider): Promise<v
       await addDependencyCommand(provider, undefined, { sourceId, targetId });
     },
     removeDependency: async (sourceId, targetId, contextId) => {
-      await removeDependencyCommand(
-        provider,
-        sourceId && targetId ? { sourceId, targetId } : undefined,
-        { contextId }
-      );
+      const contextOptions = contextId ? { contextId } : {};
+      await removeDependencyCommand(provider, sourceId && targetId ? { sourceId, targetId } : undefined, contextOptions);
     },
   });
 }

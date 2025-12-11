@@ -442,10 +442,9 @@ export function normalizeEvent(
   const createdAt = parseUtcDate(raw.created_at);
   const issueInfo = issueInfoMap?.get(raw.issue_id);
   
-  const baseEvent = {
+  const baseEvent: Omit<EventData, 'description' | 'iconName' | 'colorClass'> = {
     id: raw.id,
     issueId: raw.issue_id,
-    issueTitle: issueInfo?.title,
     eventType,
     actor: raw.actor,
     oldValue,
@@ -453,6 +452,9 @@ export function normalizeEvent(
     comment: raw.comment,
     createdAt,
   };
+  if (issueInfo?.title) {
+    baseEvent.issueTitle = issueInfo.title;
+  }
   
   return {
     ...baseEvent,

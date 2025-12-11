@@ -244,7 +244,10 @@ function calculateLayout() {
 
   Object.keys(savedPositions || {}).forEach((id) => {
     if (!nodePositions.has(id)) {
-      nodePositions.set(id, savedPositions[id]);
+      const saved = savedPositions[id];
+      if (saved) {
+        nodePositions.set(id, saved);
+      }
     }
   });
 }

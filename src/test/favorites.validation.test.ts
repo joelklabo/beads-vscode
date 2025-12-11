@@ -192,7 +192,9 @@ describe.skip('toggleFavorites validation', () => {
     await toggleFavorites(provider, treeView, context, runner);
 
     assert.strictEqual(runnerCalls.length, 1, 'should toggle only once for duplicates');
-    assert.deepStrictEqual(runnerCalls[0].args, ['label', 'add', 'DUP-1', 'favorite']);
+    const firstCall = runnerCalls[0];
+    assert.ok(firstCall);
+    assert.deepStrictEqual(firstCall?.args, ['label', 'add', 'DUP-1', 'favorite']);
     assert.ok(vscodeStub._warnings.some((msg: string) => msg.toLowerCase().includes('duplicate')));
     const favorites = vscodeStub._stateStore.get('beady.favorites.local') ?? [];
     assert.ok(favorites.includes('DUP-1'));

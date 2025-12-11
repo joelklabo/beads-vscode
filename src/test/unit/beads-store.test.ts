@@ -46,8 +46,9 @@ describe('BeadsStore', () => {
     });
 
     const snapshot = await store.refresh([{ id: 'ws1', root: '/tmp/ws1' }]);
-    assert.strictEqual(snapshot.items[0].id, 'B2');
-    assert.strictEqual(snapshot.items[1].id, 'B10');
+    assert.ok(snapshot.items[0] && snapshot.items[1], 'Expected two items in snapshot');
+    assert.strictEqual(snapshot.items[0]?.id, 'B2');
+    assert.strictEqual(snapshot.items[1]?.id, 'B10');
   });
 
   it('debounces watch-triggered refreshes', async () => {
@@ -91,7 +92,8 @@ describe('BeadsStore', () => {
     await store.refresh([{ id: 'ws', root: '/tmp/ws' }]);
     const stale = store.getStaleItems();
     assert.strictEqual(stale.length, 1);
-    assert.strictEqual(stale[0].id, 'stale');
+    assert.ok(stale[0]);
+    assert.strictEqual(stale[0]?.id, 'stale');
   });
 
   it('disposes watchers on teardown', async () => {

@@ -10,6 +10,7 @@ import {
   BeadsStoreSnapshot,
   WorkspaceConfig,
   WorkspaceTarget,
+  WorkspaceFavoritesConfig,
   WatchAdapter,
   WatcherManager,
   naturalSort,
@@ -26,6 +27,7 @@ export {
   BeadsStoreSnapshot,
   WorkspaceConfig,
   WorkspaceTarget,
+  WorkspaceFavoritesConfig,
   WatcherManager,
   naturalSort,
   readBeadsDocument,
@@ -43,6 +45,15 @@ export function createWorkspaceTarget(input: WorkspaceTargetInput): WorkspaceTar
   const commandPath = config.get<string>('commandPath', 'bd');
   const dataFile = config.get<string>('dataFile', '.beads/issues.jsonl');
   const policy = getCliExecutionConfig(config);
+  const favoritesEnabled = config.get<boolean>('favorites.enabled', false);
+  const favoritesLabel = config.get<string>('favorites.label');
+  const favorites: WorkspaceFavoritesConfig = {
+    enabled: favoritesEnabled,
+    useLabelStorage: config.get<boolean>('favorites.useLabelStorage', true),
+  };
+  if (favoritesLabel) {
+    favorites.label = favoritesLabel;
+  }
 
   return {
     id: workspaceId,
@@ -52,11 +63,7 @@ export function createWorkspaceTarget(input: WorkspaceTargetInput): WorkspaceTar
       dataFile,
       policy,
       workspacePaths: [projectRoot],
-      favorites: {
-        enabled: config.get<boolean>('favorites.enabled', false),
-        label: config.get<string>('favorites.label'),
-        useLabelStorage: config.get<boolean>('favorites.useLabelStorage', true),
-      },
+      favorites,
     },
   };
 }

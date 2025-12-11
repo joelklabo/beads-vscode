@@ -19,7 +19,10 @@ export function normalizeQuickFilter(preset?: QuickFilterPreset): QuickFilterPre
     }
     case 'label': {
       const safeValue = typeof preset.value === 'string' ? sanitizeInlineText(preset.value) : undefined;
-      return { kind: 'label', value: safeValue && safeValue.length > 0 ? safeValue : undefined };
+      if (safeValue && safeValue.length > 0) {
+        return { kind: 'label', value: safeValue };
+      }
+      return { kind: 'label' };
     }
     case 'stale':
       return { kind: 'stale' };

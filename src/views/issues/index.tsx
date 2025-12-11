@@ -132,8 +132,8 @@ const App: React.FC = () => {
 
       return (
         <>
-          {Object.keys(groups).sort().map(assignee => 
-            renderSection(assignee, groups[assignee], 'account')
+          {Object.keys(groups).sort().map(assignee =>
+            renderSection(assignee, groups[assignee] ?? [], 'account')
           )}
         </>
       );
@@ -147,8 +147,8 @@ const App: React.FC = () => {
 
       return (
         <>
-          {Object.keys(groups).sort().map(epic => 
-            renderSection(epic, groups[epic], 'milestone')
+          {Object.keys(groups).sort().map(epic =>
+            renderSection(epic, groups[epic] ?? [], 'milestone')
           )}
         </>
       );

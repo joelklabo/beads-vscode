@@ -13,11 +13,19 @@ import { findBdCommand } from '../../providers/beads/store';
 
 const execFileAsync = promisify(execFile);
 
+function extractIssueId(output: string): string {
+  const match = output.match(/Created issue: ([\w-]+)/);
+  if (!match?.[1]) {
+    throw new Error('Failed to parse created issue id');
+  }
+  return match[1];
+}
+
 suite('BD CLI Integration Test Suite', function() {
   // CLI calls and bd setup take a bit longer inside VS Code's test host
   this.timeout(60000);
-  let testWorkspace: string;
-  let bdCommand: string;
+  let testWorkspace = '';
+  let bdCommand = '';
 
   suiteSetup(async function() {
     // Set a longer timeout for setup
@@ -86,9 +94,7 @@ suite('BD CLI Integration Test Suite', function() {
       ['create', 'Status test issue'],
       { cwd: testWorkspace }
     );
-    const issueIdMatch = createOutput.match(/Created issue: ([\w-]+)/);
-    assert.ok(issueIdMatch, 'Should extract issue ID from create output');
-    const issueId = issueIdMatch![1];
+    const issueId = extractIssueId(createOutput);
 
     // Update status
     await execFileAsync(bdCommand, ['update', issueId, '--status', 'in_progress'], { cwd: testWorkspace });
@@ -107,8 +113,7 @@ suite('BD CLI Integration Test Suite', function() {
       ['create', 'Assignee test issue'],
       { cwd: testWorkspace }
     );
-    const issueIdMatch = createOutput.match(/Created issue: ([\w-]+)/);
-    const issueId = issueIdMatch![1];
+    const issueId = extractIssueId(createOutput);
 
     await execFileAsync(bdCommand, ['update', issueId, '--assignee', 'Integration User'], { cwd: testWorkspace });
     let { stdout: listOutput } = await execFileAsync(bdCommand, ['list', '--json'], { cwd: testWorkspace });
@@ -132,8 +137,7 @@ suite('BD CLI Integration Test Suite', function() {
       ['create', 'Label test issue'],
       { cwd: testWorkspace }
     );
-    const issueIdMatch = createOutput.match(/Created issue: ([\w-]+)/);
-    const issueId = issueIdMatch![1];
+    const issueId = extractIssueId(createOutput);
 
     // Add label
     await execFileAsync(bdCommand, ['label', 'add', issueId, 'test-label'], { cwd: testWorkspace });
@@ -154,8 +158,7 @@ suite('BD CLI Integration Test Suite', function() {
       ['create', 'Label remove test'],
       { cwd: testWorkspace }
     );
-    const issueIdMatch = createOutput.match(/Created issue: ([\w-]+)/);
-    const issueId = issueIdMatch![1];
+    const issueId = extractIssueId(createOutput);
 
     await execFileAsync(bdCommand, ['label', 'add', issueId, 'temp-label'], { cwd: testWorkspace });
 
@@ -177,8 +180,7 @@ suite('BD CLI Integration Test Suite', function() {
       ['create', 'Close test issue'],
       { cwd: testWorkspace }
     );
-    const issueIdMatch = createOutput.match(/Created issue: ([\w-]+)/);
-    const issueId = issueIdMatch![1];
+    const issueId = extractIssueId(createOutput);
 
     // Close the issue
     await execFileAsync(bdCommand, ['close', issueId], { cwd: testWorkspace });
@@ -205,9 +207,7 @@ suite('BD CLI Integration Test Suite', function() {
       ['create', 'Stale test issue'],
       { cwd: testWorkspace }
     );
-    const issueIdMatch = createOutput.match(/Created issue: ([\w-]+)/);
-    assert.ok(issueIdMatch, 'Should extract issue ID from create output');
-    const issueId = issueIdMatch![1];
+    const issueId = extractIssueId(createOutput);
 
     // Update status to in_progress
     await execFileAsync(bdCommand, ['update', issueId, '--status', 'in_progress'], { cwd: testWorkspace });
@@ -364,8 +364,7 @@ suite('Stale Task Detection Integration Tests', function() {
       ['create', 'Stale test 1'],
       { cwd: testWorkspace }
     );
-    const issueIdMatch = createOutput.match(/Created issue: ([\w-]+)/);
-    const issueId = issueIdMatch![1];
+    const issueId = extractIssueId(createOutput);
 
     await execFileAsync(bdCommand, ['update', issueId, '--status', 'in_progress'], { cwd: testWorkspace });
 
@@ -388,8 +387,7 @@ suite('Stale Task Detection Integration Tests', function() {
       ['create', 'Stale test 2'],
       { cwd: testWorkspace }
     );
-    const issueIdMatch = createOutput.match(/Created issue: ([\w-]+)/);
-    const issueId = issueIdMatch![1];
+    const issueId = extractIssueId(createOutput);
 
     await execFileAsync(bdCommand, ['update', issueId, '--status', 'in_progress'], { cwd: testWorkspace });
 
@@ -411,8 +409,7 @@ suite('Stale Task Detection Integration Tests', function() {
       ['create', 'Open task test'],
       { cwd: testWorkspace }
     );
-    const issueIdMatch = createOutput.match(/Created issue: ([\w-]+)/);
-    const issueId = issueIdMatch![1];
+    const issueId = extractIssueId(createOutput);
 
     const { stdout: listOutput } = await execFileAsync(bdCommand, ['list', '--json'], { cwd: testWorkspace });
     const issues = JSON.parse(listOutput);
@@ -431,8 +428,7 @@ suite('Stale Task Detection Integration Tests', function() {
       ['create', 'Closed task test'],
       { cwd: testWorkspace }
     );
-    const issueIdMatch = createOutput.match(/Created issue: ([\w-]+)/);
-    const issueId = issueIdMatch![1];
+    const issueId = extractIssueId(createOutput);
 
     await execFileAsync(bdCommand, ['close', issueId], { cwd: testWorkspace });
 
@@ -453,8 +449,7 @@ suite('Stale Task Detection Integration Tests', function() {
       ['create', 'Stale info test'],
       { cwd: testWorkspace }
     );
-    const issueIdMatch = createOutput.match(/Created issue: ([\w-]+)/);
-    const issueId = issueIdMatch![1];
+    const issueId = extractIssueId(createOutput);
 
     await execFileAsync(bdCommand, ['update', issueId, '--status', 'in_progress'], { cwd: testWorkspace });
 
@@ -514,7 +509,8 @@ suite('Stale Task Detection Integration Tests', function() {
     const staleItems = items.filter(item => isStale(item, thresholdHours));
     
     assert.strictEqual(staleItems.length, 1, 'Should find 1 stale item');
-    assert.strictEqual(staleItems[0].id, 'task-2', 'Stale item should be task-2');
+    assert.ok(staleItems[0]);
+    assert.strictEqual(staleItems[0]?.id, 'task-2', 'Stale item should be task-2');
   });
 });
 
@@ -563,6 +559,9 @@ suite('Epic tree integration', () => {
     const epicNode = epicNodes[0];
 
     assert.ok(epicNode, 'Epic node should be present in epic status section');
+    if (!epicNode) {
+      return;
+    }
     assert.strictEqual(epicNode.collapsibleState, vscode.TreeItemCollapsibleState.Expanded);
     assert.strictEqual(epicNode.contextValue, 'epicItem');
   });
@@ -575,6 +574,9 @@ suite('Epic tree integration', () => {
     const epicSection = roots.find(item => item instanceof EpicStatusSectionItem) as EpicStatusSectionItem;
     const epicNodes = await provider.getChildren(epicSection) as EpicTreeItem[];
     const epicNode = epicNodes[0];
+    if (!epicNode) {
+      assert.fail('Epic node should be present in epic status section');
+    }
     const childNodes = await provider.getChildren(epicNode) as BeadTreeItem[];
 
     const childIds = childNodes.map(child => child.bead.id);
@@ -589,6 +591,9 @@ suite('Epic tree integration', () => {
     const epicSection = roots.find(item => item instanceof EpicStatusSectionItem) as EpicStatusSectionItem;
     const epicNodes = await provider.getChildren(epicSection) as EpicTreeItem[];
     const epicNode = epicNodes[0];
+    if (!epicNode) {
+      assert.fail('Epic node should be present in epic status section');
+    }
 
     provider.handleCollapseChange(epicNode, true);
     assert.strictEqual(epicNode.collapsibleState, vscode.TreeItemCollapsibleState.Collapsed);

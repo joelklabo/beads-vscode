@@ -8,7 +8,9 @@
     "declarationMap": true,
     "tsBuildInfoFile": "../../tmp/platform-vscode.tsbuildinfo",
     "jsx": "react",
-    "lib": ["es2020", "dom"]
+    "lib": ["es2020", "dom"],
+    "exactOptionalPropertyTypes": true,
+    "noUncheckedIndexedAccess": true
   },
   "include": ["../../src/**/*.ts", "../../src/**/*.tsx"],
   "exclude": [

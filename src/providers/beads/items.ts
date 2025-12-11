@@ -32,12 +32,17 @@ export function getAssigneeInfo(bead: BeadItemData): { name: string; display: st
   const truncated = name.length > 18 ? `${name.slice(0, 17)}…` : name;
 
   if (!safe || safe.length === 0) {
-    const neutral = ASSIGNEE_COLORS[ASSIGNEE_COLORS.length - 1];
+    const neutral =
+      ASSIGNEE_COLORS[ASSIGNEE_COLORS.length - 1] ??
+      { colorId: 'foreground', name: t('Unassigned'), dot: '⚪' };
     return { name, display: truncated, dot: neutral.dot, colorName: neutral.name, colorId: neutral.colorId };
   }
 
   const colorIndex = hashString(name.toLowerCase()) % ASSIGNEE_COLORS.length;
-  const paletteEntry = ASSIGNEE_COLORS[colorIndex] ?? ASSIGNEE_COLORS[ASSIGNEE_COLORS.length - 1];
+  const paletteEntry =
+    ASSIGNEE_COLORS[colorIndex] ??
+    ASSIGNEE_COLORS[ASSIGNEE_COLORS.length - 1] ??
+    { colorId: 'foreground', name: t('Unassigned'), dot: '⚪' };
   const dot = paletteEntry.dot;
   const colorName = paletteEntry.name;
 
@@ -48,7 +53,9 @@ export class SummaryHeaderItem extends vscode.TreeItem {
   constructor(label: string, description?: string, tooltip?: string, accessibilityLabel?: string) {
     super(label, vscode.TreeItemCollapsibleState.None);
     this.contextValue = 'summaryHeader';
-    this.description = description;
+    if (description !== undefined) {
+      this.description = description;
+    }
     this.tooltip = tooltip ?? description ?? label;
     this.iconPath = new vscode.ThemeIcon('info');
     const ariaLabel = accessibilityLabel || (description ? `${label}: ${description}` : label);
@@ -186,7 +193,9 @@ export class BeadDetailItem extends vscode.TreeItem {
     super(label, vscode.TreeItemCollapsibleState.None);
     this.contextValue = 'beadDetail';
     this.iconPath = new vscode.ThemeIcon('circle-small');
-    this.description = description;
+    if (description !== undefined) {
+      this.description = description;
+    }
     this.tooltip = description ? `${label}: ${description}` : label;
   }
 }

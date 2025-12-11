@@ -174,7 +174,17 @@ export function validateLittleGlenMessage(
         && (targetId === undefined || isValidBeadId(targetId))
         && (contextId === undefined || isValidBeadId(contextId));
       if (idsValid) {
-        return { command, sourceId, targetId, contextId };
+        const commandResult: LittleGlenCommand = { command };
+        if (sourceId) {
+          commandResult.sourceId = sourceId;
+        }
+        if (targetId) {
+          commandResult.targetId = targetId;
+        }
+        if (contextId) {
+          commandResult.contextId = contextId;
+        }
+        return commandResult;
       }
       return undefined;
     }

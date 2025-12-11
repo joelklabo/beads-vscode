@@ -15,29 +15,42 @@ export {
 export function toViewModel(item: BeadItemData): BeadViewModel {
   const raw = item.raw as any;
   const assignee = pickAssignee(item);
-  
-  return {
+  const assigneeInfo = assignee
+    ? {
+        name: assignee,
+        color: 'var(--vscode-charts-blue)', // Placeholder, ideally derived from name
+        initials: assignee.slice(0, 2).toUpperCase(),
+      }
+    : undefined;
+
+  const viewModel: BeadViewModel = {
     id: item.id,
     title: item.title,
     description: raw?.description,
     status: item.status || 'open',
     priority: typeof raw?.priority === 'number' ? raw.priority : 2,
     issueType: item.issueType || raw?.issue_type || raw?.issueType || raw?.type,
-    assignee: assignee ? {
-      name: assignee,
-      color: 'var(--vscode-charts-blue)', // Placeholder, ideally derived from name
-      initials: assignee.slice(0, 2).toUpperCase()
-    } : undefined,
     labels: Array.isArray(raw?.labels) ? raw.labels : [],
     updatedAt: item.updatedAt || new Date().toISOString(),
     isStale: false, // TODO: Pass in stale threshold logic
-    worktree: raw?.worktree,
-    epicId: item.parentId,
-    icon: {
-      id: getIconForType(item.issueType),
-      color: getColorForType(item.issueType)
-    }
+    icon: (() => {
+      const id = getIconForType(item.issueType);
+      const color = getColorForType(item.issueType);
+      return color ? { id, color } : { id };
+    })()
   };
+
+  if (assigneeInfo) {
+    viewModel.assignee = assigneeInfo;
+  }
+  if (raw?.worktree) {
+    viewModel.worktree = raw.worktree;
+  }
+  if (item.parentId) {
+    viewModel.epicId = item.parentId;
+  }
+
+  return viewModel;
 }
 
 function getIconForType(type?: string): string {

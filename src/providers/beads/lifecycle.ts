@@ -39,7 +39,7 @@ export class BeadsLifecycle implements vscode.Disposable {
 
   private readonly watchManager: WatcherManager;
   private readonly store: BeadsStore;
-  private storeSubscription?: () => void;
+  private storeSubscription: (() => void) | undefined;
   private activeTargets: WorkspaceTarget[] = [];
   private started = false;
 

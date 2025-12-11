@@ -86,5 +86,5 @@ export class CommandRegistry implements vscode.Disposable {
  * Create a command definition helper.
  */
 export function defineCommand(id: string, handler: CommandHandler, description?: string): CommandDefinition {
-  return { id, handler, description };
+  return description ? { id, handler, description } : { id, handler };
 }

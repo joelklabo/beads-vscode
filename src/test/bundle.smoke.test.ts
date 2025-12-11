@@ -28,8 +28,12 @@ const mockVscode = {
     label?: string;
     collapsibleState?: number;
     constructor(label?: string, collapsibleState?: number) {
-      this.label = label;
-      this.collapsibleState = collapsibleState;
+      if (label !== undefined) {
+        this.label = label;
+      }
+      if (collapsibleState !== undefined) {
+        this.collapsibleState = collapsibleState;
+      }
     }
   },
   TreeItemCollapsibleState: { None: 0, Collapsed: 1, Expanded: 2 },

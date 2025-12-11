@@ -130,8 +130,9 @@ describe('Multi-root bd command resolution', () => {
     await runBdCommand(['list'], '/workspace/two', { workspaceFolder: workspaceFolders[1], execCli: execCliStub });
 
     const lastCall = execCalls[execCalls.length - 1];
-    assert.strictEqual(lastCall.command, '/custom/bd-two');
-    assert.strictEqual(lastCall.options?.cwd, '/workspace/two');
+    assert.ok(lastCall, 'Expected execCli to be invoked');
+    assert.strictEqual(lastCall?.command, '/custom/bd-two');
+    assert.strictEqual(lastCall?.options?.cwd, '/workspace/two');
   });
 
   it('rejects when project root is outside open workspaces', async () => {

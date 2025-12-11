@@ -31,7 +31,8 @@ suite('File Handling Test Suite', () => {
       const lines = readContent.trim().split('\n');
 
       assert.strictEqual(lines.length, 2);
-      const first = JSON.parse(lines[0]);
+      assert.ok(lines[0]);
+      const first = JSON.parse(lines[0] ?? '');
       assert.strictEqual(first.id, 'BEAD-1');
       assert.strictEqual(first.title, 'First Bead');
     });
@@ -52,7 +53,8 @@ suite('File Handling Test Suite', () => {
 
       const parsedLines = readContent.trim().split('\n').map(line => JSON.parse(line));
       assert.strictEqual(parsedLines.length, 2);
-      assert.strictEqual(parsedLines[0].id, 'BEAD-1');
+      assert.ok(parsedLines[0]);
+      assert.strictEqual(parsedLines[0]?.id, 'BEAD-1');
     });
 
     test('should handle empty lines in JSONL', async () => {

@@ -189,23 +189,28 @@ describe('Dependency graph helpers', () => {
     );
 
     assert.strictEqual(adjacency.downstream.length, 1);
-    assert.strictEqual(adjacency.downstream[0].id, 'DOWN');
-    assert.strictEqual(adjacency.downstream[0].direction, 'downstream');
+    const downstream = adjacency.downstream[0];
+    assert.ok(downstream);
+    assert.strictEqual(downstream?.id, 'DOWN');
+    assert.strictEqual(downstream?.direction, 'downstream');
 
     const trees = buildDependencyTrees(items, 'ROOT');
 
     const blocker = trees.upstream.find((n) => n.id === 'BLOCK');
     assert.ok(blocker);
-    assert.strictEqual(blocker?.children[0].id, 'LEAF');
-    assert.strictEqual(blocker?.children[0].direction, 'upstream');
+    const blockerChild = blocker?.children[0];
+    assert.ok(blockerChild);
+    assert.strictEqual(blockerChild?.id, 'LEAF');
+    assert.strictEqual(blockerChild?.direction, 'upstream');
 
     const missing = trees.upstream.find((n) => n.id === 'MISSING');
     assert.ok(missing?.missing);
     assert.deepStrictEqual(missing?.children, []);
 
     const down = trees.downstream[0];
-    assert.strictEqual(down.id, 'DOWN');
-    assert.strictEqual(down.direction, 'downstream');
-    assert.deepStrictEqual(down.children.map((c) => c.id), ['DOWN-CHILD']);
+    assert.ok(down, 'Expected downstream tree node');
+    assert.strictEqual(down?.id, 'DOWN');
+    assert.strictEqual(down?.direction, 'downstream');
+    assert.deepStrictEqual(down?.children.map((c) => c.id), ['DOWN-CHILD']);
   });
 });

@@ -46,7 +46,7 @@ export class ActivityFeedTreeDataProvider implements vscode.TreeDataProvider<Act
   private lastEventCount = 0;
   private lastNewestTimestamp = 0;
   private autoRefreshEnabled: boolean;
-  private readonly watchManager?: WatcherManager;
+  private readonly watchManager: WatcherManager | undefined;
   private statusMessage: string | undefined;
 
   constructor(private readonly context: vscode.ExtensionContext, options: ActivityFeedProviderOptions = {}) {
@@ -312,15 +312,17 @@ export class ActivityFeedTreeDataProvider implements vscode.TreeDataProvider<Act
         return projectRootConfig;
       }
       const workspaceFolders = vscode.workspace.workspaceFolders;
-      if (workspaceFolders && workspaceFolders.length > 0) {
-        return path.join(workspaceFolders[0].uri.fsPath, projectRootConfig);
+      const firstWorkspace = workspaceFolders?.[0];
+      if (firstWorkspace) {
+        return path.join(firstWorkspace.uri.fsPath, projectRootConfig);
       }
       return undefined;
     }
 
     const workspaceFolders = vscode.workspace.workspaceFolders;
-    if (workspaceFolders && workspaceFolders.length > 0) {
-      return workspaceFolders[0].uri.fsPath;
+    const firstWorkspace = workspaceFolders?.[0];
+    if (firstWorkspace) {
+      return firstWorkspace.uri.fsPath;
     }
 
     return undefined;

@@ -513,14 +513,19 @@ describe('Utility Functions', () => {
   });
 
   describe('isStale', () => {
-    const createBead = (status: string, inProgressSince?: string): BeadItemData => ({
-      id: 'test-1',
-      idKey: 'test-1',
-      title: 'Test Task',
-      status,
-      inProgressSince,
-      raw: {}
-    });
+    const createBead = (status: string, inProgressSince?: string): BeadItemData => {
+      const bead: BeadItemData = {
+        id: 'test-1',
+        idKey: 'test-1',
+        title: 'Test Task',
+        status,
+        raw: {}
+      };
+      if (inProgressSince) {
+        bead.inProgressSince = inProgressSince;
+      }
+      return bead;
+    };
 
     it('should return false for non-in_progress tasks', () => {
       const bead = createBead('open');
@@ -564,14 +569,19 @@ describe('Utility Functions', () => {
   });
 
   describe('getStaleInfo', () => {
-    const createBead = (status: string, inProgressSince?: string): BeadItemData => ({
-      id: 'test-1',
-      idKey: 'test-1',
-      title: 'Test Task',
-      status,
-      inProgressSince,
-      raw: {}
-    });
+    const createBead = (status: string, inProgressSince?: string): BeadItemData => {
+      const bead: BeadItemData = {
+        id: 'test-1',
+        idKey: 'test-1',
+        title: 'Test Task',
+        status,
+        raw: {},
+      };
+      if (inProgressSince) {
+        bead.inProgressSince = inProgressSince;
+      }
+      return bead;
+    };
 
     it('should return undefined for non-in_progress tasks', () => {
       const bead = createBead('open');

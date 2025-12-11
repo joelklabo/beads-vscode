@@ -15,9 +15,12 @@ suite('Headless harness smoke', () => {
 
     assert.ok(userArg, 'runTest should pass --user-data-dir');
     assert.ok(extArg, 'runTest should pass --extensions-dir');
+    if (!userArg || !extArg) {
+      return;
+    }
 
-    const userDir = userArg!.split('=')[1];
-    const extDir = extArg!.split('=')[1];
+    const userDir = userArg.split('=')[1] ?? '';
+    const extDir = extArg.split('=')[1] ?? '';
     const baseDir = path.dirname(userDir);
     const baseName = path.basename(baseDir);
 

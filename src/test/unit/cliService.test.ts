@@ -144,7 +144,10 @@ describe('cliService', () => {
 
       const run1 = runBdCommand(['first'], '/test/workspace', {
         execCli: async ({ args }: { args: string[] }) => {
-          seen.push(args[0]);
+          const firstArg = args[0];
+          if (firstArg) {
+            seen.push(firstArg);
+          }
           await new Promise<void>(resolve => {
             releaseFirst = resolve;
           });
@@ -155,7 +158,10 @@ describe('cliService', () => {
         runBdCommand(['second'], '/test/workspace', {
           execCli: async ({ args }: { args: string[] }) => {
             secondStarted = true;
-            seen.push(args[0]);
+            const firstArg = args[0];
+            if (firstArg) {
+              seen.push(firstArg);
+            }
           },
         })
       );

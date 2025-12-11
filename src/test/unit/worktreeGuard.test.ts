@@ -52,7 +52,8 @@ describe('worktree helpers', () => {
     writeRegistry(tmp, reg);
     const saved = readRegistry(tmp);
     assert.ok(saved);
-    assert.strictEqual(saved?.entries[0].id, 'worker/task');
+    assert.ok(saved?.entries[0], 'Registry should contain one entry');
+    assert.strictEqual(saved?.entries[0]?.id, 'worker/task');
     assert.strictEqual(registryPath(tmp).startsWith(tmp), true);
   });
 

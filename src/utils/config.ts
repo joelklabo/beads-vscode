@@ -111,16 +111,25 @@ export function getFeedbackConfig(workspaceFolder?: vscode.WorkspaceFolder): Fee
   const useGitHubCli = config.get<boolean>('feedback.useGitHubCli', false);
   const includeAnonymizedLogs = config.get<boolean>('feedback.includeAnonymizedLogs', true);
 
-  return {
+  const feedbackConfig: FeedbackConfig = {
     enabled: enabledFlag && repoValid,
     repository: repositoryRaw,
-    owner,
-    repo,
     labels,
     useGitHubCli,
     includeAnonymizedLogs,
-    validationError: enabledFlag && !repoValid ? 'feedback.repository must use owner/repo format' : undefined
   };
+
+  if (owner) {
+    feedbackConfig.owner = owner;
+  }
+  if (repo) {
+    feedbackConfig.repo = repo;
+  }
+  if (enabledFlag && !repoValid) {
+    feedbackConfig.validationError = 'feedback.repository must use owner/repo format';
+  }
+
+  return feedbackConfig;
 }
 
 export function getBulkActionsConfig(workspaceFolder?: vscode.WorkspaceFolder): BulkActionsConfig {
@@ -130,11 +139,16 @@ export function getBulkActionsConfig(workspaceFolder?: vscode.WorkspaceFolder): 
     config.get<number>('bulkActions.maxSelection', DEFAULT_BULK_MAX_SELECTION)
   );
 
-  return {
+  const bulkConfig: BulkActionsConfig = {
     enabled: enabled && !validationError,
     maxSelection,
-    validationError,
   };
+
+  if (validationError) {
+    bulkConfig.validationError = validationError;
+  }
+
+  return bulkConfig;
 }
 
 export function getCliExecutionConfig(

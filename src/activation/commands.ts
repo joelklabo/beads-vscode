@@ -111,10 +111,11 @@ function registerDependencyTreeCommands({
         if (!node || !node.sourceId || !node.targetId) {
           return;
         }
+        const contextId = dependencyTreeProvider.getRootId();
         await removeDependencyCommand(
           provider as any,
           { sourceId: node.sourceId, targetId: node.targetId },
-          { contextId: dependencyTreeProvider.getRootId() }
+          contextId ? { contextId } : {}
         );
         dependencyTreeProvider.refresh();
       },
@@ -329,9 +330,10 @@ function registerDeletionCommands(provider: BeadsTreeDataProvider, treeView: vsc
 
           await provider.refresh();
 
-          const successMessage = beadItems.length === 1
-            ? t('Deleted bead: {0}', beadItems[0].bead.id)
-            : t('Deleted {0} beads', beadItems.length);
+          const successMessage =
+            beadItems.length === 1 && beadItems[0]
+              ? t('Deleted bead: {0}', beadItems[0].bead.id)
+              : t('Deleted {0} beads', beadItems.length);
           void vscode.window.showInformationMessage(successMessage);
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : String(error);

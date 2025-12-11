@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { buildFeedbackBody } from '../feedback';
+import type { FeedbackBodyOptions } from '../feedback';
 import { computeFeedbackEnablement } from '../feedback/enablement';
 
 const t = vscode.l10n.t;
@@ -90,29 +91,37 @@ export async function sendFeedback(context: vscode.ExtensionContext): Promise<vo
     return;
   }
 
-  const baseBody = [summary, details].filter(Boolean).join('\n\n');
+  const summaryText = summary ?? '';
+  const baseBody = [summaryText, details].filter(Boolean).join('\n\n');
 
   const workspacePaths = vscode.workspace.workspaceFolders?.map((folder) => folder.uri.fsPath);
   const logDir = context.logUri?.fsPath;
 
   let body = baseBody;
   try {
-    body = await buildFeedbackBody({
+    const bodyOptions: FeedbackBodyOptions = {
       baseBody,
       includeLogs: includeLogsSelection,
-      logDir,
-      workspacePaths,
-    });
+    };
+    if (logDir) {
+      bodyOptions.logDir = logDir;
+    }
+    if (workspacePaths && workspacePaths.length > 0) {
+      bodyOptions.workspacePaths = workspacePaths;
+    }
+    body = await buildFeedbackBody(bodyOptions);
   } catch (error: any) {
     console.warn('Failed to build feedback body, falling back to base text', error);
   }
 
-  const issueTitle = summary.split(/\r?\n/, 1)[0].trim() || t('Feedback');
-  const issueUrl = buildIssueUrl(enablement.config.repository ?? '', issueTitle, body);
+  const [firstLine] = summaryText.split(/\r?\n/, 1);
+  const issueTitle = (firstLine?.trim() ?? '') || t('Feedback');
+  const repository = enablement.config.repository ?? '';
+  const issueUrl = buildIssueUrl(repository, issueTitle, body);
 
   await vscode.env.openExternal(issueUrl);
   void vscode.window.showInformationMessage(
-    t('Opening GitHub to create feedback in {0}', enablement.config.repository ?? '')
+    t('Opening GitHub to create feedback in {0}', repository)
   );
 }
 

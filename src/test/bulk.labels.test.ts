@@ -136,8 +136,10 @@ describe('Bulk label helpers', () => {
     assert.deepStrictEqual(calls, ['one', 'fail', 'two']);
     assert.deepStrictEqual(result.successes, ['one', 'two']);
     assert.strictEqual(result.failures.length, 1);
-    assert.strictEqual(result.failures[0].id, 'fail');
-    assert.ok(result.failures[0].error.includes('nope'));
+    const failure = result.failures[0];
+    assert.ok(failure);
+    assert.strictEqual(failure?.id, 'fail');
+    assert.ok(failure?.error.includes('nope'));
   });
 
   it('reports progress for each id', async () => {

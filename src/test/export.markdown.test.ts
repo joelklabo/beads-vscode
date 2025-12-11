@@ -29,10 +29,14 @@ describe('Markdown export', () => {
     const markdown = buildBeadsMarkdownTable(beads, headers);
     const lines = markdown.split('\n');
 
+    assert.ok(lines[0]);
     assert.strictEqual(lines[0], '| ID | Title | Status | Type | Labels | Updated |');
+    assert.ok(lines[1]);
     assert.strictEqual(lines[1], '| --- | --- | --- | --- | --- | --- |');
-    assert.ok(lines[2].includes('Pipe \\| break'));
-    assert.ok(!/\n/.test(lines[2]), 'Row should not contain raw newlines');
+    const dataRow = lines[2];
+    assert.ok(dataRow);
+    assert.ok(dataRow?.includes('Pipe \\| break'));
+    assert.ok(!/\n/.test(dataRow ?? ''), 'Row should not contain raw newlines');
   });
 
   it('writes markdown export to the workspace tmp directory', async () => {

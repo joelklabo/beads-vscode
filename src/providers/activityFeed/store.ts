@@ -99,9 +99,13 @@ export class ActivityFeedStore {
       const options: FetchEventsOptions = {
         limit: targetLimit,
         offset: 0,
-        eventTypes: this.filterEventTypes,
-        issueId: this.filterIssueId,
       };
+      if (this.filterEventTypes) {
+        options.eventTypes = this.filterEventTypes;
+      }
+      if (this.filterIssueId) {
+        options.issueId = this.filterIssueId;
+      }
 
       if (this.filterTimeRange !== 'all') {
         const now = new Date();
@@ -122,7 +126,8 @@ export class ActivityFeedStore {
       const unique = new Map<number, EventData>();
       result.events.forEach((event) => {
         if (!unique.has(event.id)) {
-          unique.set(event.id, { ...event, worktreeId: this.worktreeId });
+          const enriched: EventData = this.worktreeId ? { ...event, worktreeId: this.worktreeId } : { ...event };
+          unique.set(event.id, enriched);
         }
       });
 
@@ -182,29 +187,35 @@ export class ActivityFeedStore {
     let currentStreak = 0;
     const dayMap = new Set<string>();
     for (const event of this.events) {
-      const dayKey = event.createdAt.toISOString().split('T')[0];
-      dayMap.add(dayKey);
+      const [dayKey] = event.createdAt.toISOString().split('T');
+      if (dayKey) {
+        dayMap.add(dayKey);
+      }
     }
 
     const today = new Date();
     for (let i = 0; i < 365; i++) {
       const checkDate = new Date(today.getTime() - i * 24 * 60 * 60 * 1000);
-      const dayKey = checkDate.toISOString().split('T')[0];
-      if (dayMap.has(dayKey)) {
+      const [dayKey] = checkDate.toISOString().split('T');
+      if (dayKey && dayMap.has(dayKey)) {
         currentStreak++;
       } else {
         break;
       }
     }
 
-    return {
+    const stats: ActivityStatistics = {
       eventsToday,
       eventsThisWeek,
-      mostActiveIssue,
       issuesClosedLastWeek,
       velocity,
       currentStreak,
     };
+    if (mostActiveIssue) {
+      stats.mostActiveIssue = mostActiveIssue;
+    }
+
+    return stats;
   }
 
   getStatsSummary(): { total: number; byType: Record<string, number> } {

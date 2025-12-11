@@ -28,6 +28,8 @@ const PROJECT_ROOT_ERROR = 'Beady: No project root configured. Set "beady.projec
  * Type for a function that runs bd CLI commands.
  */
 export type RunBdCommandFn = (args: string[], projectRoot: string) => Promise<void>;
+type LabelActionPick = vscode.QuickPickItem & { action: 'add' | 'remove' };
+type StatusPick = vscode.QuickPickItem & { value: string };
 
 /**
  * Interface for tree items that represent beads.
@@ -198,6 +200,9 @@ export async function inlineEditTitle(
   }
 
   const bead = beads[0];
+  if (!bead) {
+    return;
+  }
   const newTitle = await vscode.window.showInputBox({
     prompt: t('Enter a new title'),
     value: bead.title,
@@ -237,31 +242,33 @@ export async function inlineEditLabels(
   }
 
   const bead = beads[0];
+  if (!bead) {
+    return;
+  }
   const raw = bead.raw as Record<string, unknown> | undefined;
   const labels: string[] = Array.isArray(raw?.labels)
     ? (raw.labels as unknown[]).map((l) => String(l))
     : bead.tags ?? [];
 
-  const action = await vscode.window.showQuickPick(
-    [
-      { label: t('Add label'), value: 'add' },
-      {
-        label: t('Remove label'),
-        value: 'remove',
-        description: labels.length === 0 ? t('No labels to remove') : undefined,
-      },
-    ],
+  const actions: LabelActionPick[] = [
+    { label: t('Add label'), action: 'add' },
     {
-      placeHolder: t('Select a label action'),
-      canPickMany: false,
-    }
-  );
+      label: t('Remove label'),
+      action: 'remove',
+      ...(labels.length === 0 ? { description: t('No labels to remove') } : {}),
+    },
+  ];
+
+  const action = await vscode.window.showQuickPick<LabelActionPick>(actions, {
+    placeHolder: t('Select a label action'),
+    canPickMany: false,
+  });
 
   if (!action) {
     return;
   }
 
-  if (action.value === 'add') {
+  if (action.action === 'add') {
     const labelInput = await vscode.window.showInputBox({
       prompt: t('Enter a label to add'),
       placeHolder: t('example: urgent'),
@@ -319,18 +326,17 @@ export async function inlineStatusQuickChange(
   }
 
   const statusLabels = getStatusLabels();
-  const statusPick = await vscode.window.showQuickPick(
-    [
-      { label: statusLabels.open, description: 'open', value: 'open' },
-      { label: statusLabels.in_progress, description: 'in_progress', value: 'in_progress' },
-      { label: statusLabels.blocked, description: 'blocked', value: 'blocked' },
-      { label: statusLabels.closed, description: 'closed', value: 'closed' },
-    ],
-    {
-      placeHolder: t('Select a new status to apply'),
-      ignoreFocusOut: true,
-    }
-  );
+  const statusOptions: StatusPick[] = [
+    { label: statusLabels.open, description: 'open', value: 'open' },
+    { label: statusLabels.in_progress, description: 'in_progress', value: 'in_progress' },
+    { label: statusLabels.blocked, description: 'blocked', value: 'blocked' },
+    { label: statusLabels.closed, description: 'closed', value: 'closed' },
+  ];
+
+  const statusPick = await vscode.window.showQuickPick<StatusPick>(statusOptions, {
+    placeHolder: t('Select a new status to apply'),
+    ignoreFocusOut: true,
+  });
 
   if (!statusPick) {
     return;

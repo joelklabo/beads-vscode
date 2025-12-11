@@ -49,12 +49,12 @@ function colorForAssignee(name: string): string {
 
 function formatInProgressAge(timestamp: string | undefined): { label: string; ms?: number } {
   if (!timestamp) {
-    return { label: t('N/A'), ms: undefined };
+    return { label: t('N/A') };
   }
 
   const date = new Date(timestamp);
   if (Number.isNaN(date.getTime())) {
-    return { label: t('N/A'), ms: undefined };
+    return { label: t('N/A') };
   }
 
   const diffMs = Date.now() - date.getTime();
@@ -120,6 +120,8 @@ export function getInProgressPanelHtml(items: BeadItemData[], strings: InProgres
     .filter((entry) => entry.ageMs !== undefined)
     .sort((a, b) => (b.ageMs ?? 0) - (a.ageMs ?? 0))
     .slice(0, 3);
+  const oldestSummaryAge = oldest[0]?.ageLabel ?? t('N/A');
+  const oldestSummaryTitle = oldest[0]?.item.title ?? t('No aging data yet');
 
   const orderedItems = normalized
     .slice()
@@ -465,8 +467,8 @@ export function getInProgressPanelHtml(items: BeadItemData[], strings: InProgres
       </div>
       <div class="summary-card">
         <div class="summary-label">${escapeHtml(strings.oldestLabel)}</div>
-        <div>${oldest.length > 0 ? escapeHtml(oldest[0].ageLabel) : escapeHtml(t('N/A'))}</div>
-        <div class="summary-subtext">${oldest.length > 0 ? escapeHtml(oldest[0].item.title) : escapeHtml(t('No aging data yet'))}</div>
+        <div>${escapeHtml(oldestSummaryAge)}</div>
+        <div class="summary-subtext">${escapeHtml(oldestSummaryTitle)}</div>
       </div>
     </div>
 

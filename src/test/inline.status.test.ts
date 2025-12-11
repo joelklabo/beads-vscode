@@ -181,8 +181,11 @@ describe.skip('Inline status quick change', () => {
     });
 
     assert.strictEqual(updateCalls.length, 2);
-    assert.deepStrictEqual(normalizeArgs(updateCalls[0].args), ['update', 'A', '--status', 'closed']);
-    assert.deepStrictEqual(normalizeArgs(updateCalls[1].args), ['update', 'B', '--status', 'closed']);
+    const firstUpdate = updateCalls[0];
+    const secondUpdate = updateCalls[1];
+    assert.ok(firstUpdate && secondUpdate);
+    assert.deepStrictEqual(normalizeArgs(firstUpdate?.args), ['update', 'A', '--status', 'closed']);
+    assert.deepStrictEqual(normalizeArgs(secondUpdate?.args), ['update', 'B', '--status', 'closed']);
     assert.ok(updateCalls.every((c) => Array.isArray(c.args) && c.args[0] === '--no-daemon'));
     assert.ok((provider as any)._refreshed, 'provider.refresh should be called');
     assert.ok(vscodeStub._info.some((msg: string) => msg.includes('Updated status')));
