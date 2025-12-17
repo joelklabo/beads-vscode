@@ -32,6 +32,33 @@ This document summarizes the accessibility affordances for dependency visualizat
 - Assignee labels used for UI, aria-labels, and collapse state are sanitized; aria-label keeps the full sanitized name even when the visible label is truncated.
  
 
+## Release checklist
+
+Before publishing a release, validate the following in VS Code with at least one representative workspace:
+
+### Keyboard-only navigation
+- Beady explorer: reach all controls (views, toolbar actions, search/filter/sort) without a mouse.
+- Tree navigation: arrow keys move selection predictably; Enter/Space activate the selected action; focus ring remains visible.
+- Webviews/panels: focus moves into the webview, stays trapped appropriately, and returns to VS Code when closed.
+
+### Screen reader semantics
+- Views and controls have meaningful labels (commands, buttons, status badges, quick picks).
+- Announcements reflect state changes (expanded/collapsed, linking mode, “closed hidden/visible”, filter mode, errors).
+- Webviews expose headings/landmarks where appropriate and do not announce duplicated labels.
+
+### Color contrast + theming
+- Verify light + dark theme readability.
+- Verify high-contrast / forced-colors mode does not rely on color-only meaning (status dots, dependency edges, badges).
+- Icons and badges remain legible against the background and with focus outlines.
+
+### Motion / animation
+- No critical information relies only on animation.
+- Respect reduced-motion settings where applicable (avoid unnecessary animated transitions in webviews).
+
+### Errors + validation messaging
+- Validation errors (invalid ids, unsafe input, disallowed transitions) are communicated via text (not only color).
+- Error toasts and inline messages provide actionable guidance and are screen-reader readable.
+
 ## Known limitations
 - Tree items are always expanded; Left/Right navigation only moves focus (no collapse state yet).
 - Graph layout relies on scrolling for very large graphs; there is no keyboard panning shortcut beyond standard scroll behavior.
