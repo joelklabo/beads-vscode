@@ -5,6 +5,7 @@ import { buildTestEnv } from './utils/env';
 import './setup/resolve-extension';
 
 async function main(): Promise<void> {
+  const keepDirs = process.env.BEADY_TEST_KEEP_DIRS === '1';
   let cleanupTargets: string[] = [];
   try {
     const testEnv = await buildTestEnv();
@@ -21,6 +22,10 @@ async function main(): Promise<void> {
       version: testEnv.channel === 'insiders' ? 'insider' : 'stable',
       extensionDevelopmentPath,
       extensionTestsPath,
+      extensionTestsEnv: {
+        BEADY_TEST_USER_DATA_DIR: testEnv.userDataDir,
+        BEADY_TEST_EXTENSIONS_DIR: testEnv.extensionsDir,
+      },
       launchArgs: [
         '--disable-extensions',
         '--disable-gpu',
@@ -35,10 +40,12 @@ async function main(): Promise<void> {
     console.error('Failed to run tests:', err);
     process.exitCode = 1;
   } finally {
-    const uniqueTargets = Array.from(new Set(cleanupTargets));
-    await Promise.allSettled(
-      uniqueTargets.map((target) => fs.rm(target, { recursive: true, force: true })),
-    );
+    if (!keepDirs) {
+      const uniqueTargets = Array.from(new Set(cleanupTargets));
+      await Promise.allSettled(
+        uniqueTargets.map((target) => fs.rm(target, { recursive: true, force: true })),
+      );
+    }
   }
 }
 

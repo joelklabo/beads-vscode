@@ -1,8 +1,51 @@
+import * as path from 'path';
+
 export function stripNoDaemon(args: any[]): any[] {
   if (!Array.isArray(args) || args.length === 0) {
     return args;
   }
   return args[0] === '--no-daemon' ? args.slice(1) : args;
+}
+
+export function resetVscodeRequireCache(): void {
+  if (typeof require === 'undefined') {
+    return;
+  }
+
+  try {
+    const resolved = require.resolve('vscode');
+    delete require.cache[resolved];
+  } catch {
+    // ignore when vscode is not resolvable (unit test runtime)
+  }
+
+  if (require.cache['vscode']) {
+    delete require.cache['vscode'];
+  }
+}
+
+export function resetBeadyRequireCache(): void {
+  if (typeof require === 'undefined') {
+    return;
+  }
+
+  const projectRoot = path.resolve(__dirname, '../../..');
+  const outDir = path.join(projectRoot, 'out') + path.sep;
+  const outTestDir = path.join(outDir, 'test') + path.sep;
+  const packagesDir = path.join(projectRoot, 'packages') + path.sep;
+  const packagesOutFragment = `${path.sep}out${path.sep}`;
+  const packagesOutTestFragment = `${path.sep}out${path.sep}test${path.sep}`;
+
+  for (const key of Object.keys(require.cache)) {
+    if (key.startsWith(outDir) && !key.startsWith(outTestDir)) {
+      delete require.cache[key];
+      continue;
+    }
+
+    if (key.startsWith(packagesDir) && key.includes(packagesOutFragment) && !key.includes(packagesOutTestFragment)) {
+      delete require.cache[key];
+    }
+  }
 }
 
 export interface VscodeStubOptions {
@@ -71,6 +114,63 @@ export function createVscodeStub(options: VscodeStubOptions = {}) {
     constructor(public id: string) {}
   }
 
+  class QuickPick<T = any> {
+    public items: T[] = [];
+    public activeItems: T[] = [];
+    public selectedItems: T[] = [];
+    public matchOnDetail = false;
+    public matchOnDescription = false;
+    public placeholder?: string;
+    public title?: string;
+
+    private acceptEmitter = new EventEmitter<void>();
+    private hideEmitter = new EventEmitter<void>();
+
+    constructor(private readonly api: any) {}
+
+    onDidAccept(listener: () => void) {
+      return this.acceptEmitter.event(listener);
+    }
+
+    onDidHide(listener: () => void) {
+      return this.hideEmitter.event(listener);
+    }
+
+    show(): void {
+      if (this.api._nextQuickPick !== undefined) {
+        const result = this.api._nextQuickPick;
+        this.api._nextQuickPick = undefined;
+        this.selectedItems = [result];
+        this.activeItems = [result];
+      } else if (!this.selectedItems.length) {
+        const candidates = this.items as any[];
+        const firstPreset = candidates.find((item) => item?.preset !== undefined);
+        const firstNonSeparator = candidates.find((item) => item?.kind !== this.api.QuickPickItemKind?.Separator);
+        const fallback = firstPreset ?? firstNonSeparator ?? candidates[0];
+        if (fallback) {
+          this.selectedItems = [fallback];
+          this.activeItems = [fallback];
+        }
+      }
+
+      const first = this.selectedItems[0] as any;
+      if (!first || first.kind === this.api.QuickPickItemKind?.Separator) {
+        this.hide();
+        return;
+      }
+      this.acceptEmitter.fire();
+    }
+
+    hide(): void {
+      this.hideEmitter.fire();
+    }
+
+    dispose(): void {
+      this.acceptEmitter.dispose();
+      this.hideEmitter.dispose();
+    }
+  }
+
   const t = (message: string, ...args: any[]) =>
     message.replace(/\{(\d+)\}/g, (_match, index) => String(args[Number(index)] ?? `{${index}}`));
 
@@ -83,6 +183,7 @@ export function createVscodeStub(options: VscodeStubOptions = {}) {
     ThemeIcon,
     ThemeColor,
     EventEmitter,
+    QuickPickItemKind: { Separator: -1 },
     TreeItemCollapsibleState: { None: 0, Collapsed: 1, Expanded: 2 },
     StatusBarAlignment: { Left: 1 },
     RelativePattern: class {},
@@ -101,6 +202,7 @@ export function createVscodeStub(options: VscodeStubOptions = {}) {
         }
         return items?.find((item: any) => item?.preset) ?? items?.[0];
       },
+      createQuickPick: () => new QuickPick(vscodeStub),
       showInformationMessage: (message: string) => { info.push(message); return Promise.resolve(undefined); },
       showWarningMessage: (message: string) => { warnings.push(message); return Promise.resolve(undefined); },
       showErrorMessage: (message: string) => { errors.push(message); return Promise.resolve(undefined); },

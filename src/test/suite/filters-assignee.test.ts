@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import Module = require('module');
-import { createContextStub, createVscodeStub } from '../utils/webview';
+import { createContextStub, createVscodeStub, resetBeadyRequireCache, resetVscodeRequireCache } from '../utils/webview';
 import { BeadItemData } from '../../utils';
 
 suite('Filter & assignee flows', () => {
@@ -13,20 +13,15 @@ suite('Filter & assignee flows', () => {
     restoreLoad = moduleAny._load;
     vscodeStub = createVscodeStub();
 
+    resetVscodeRequireCache();
+    resetBeadyRequireCache();
+
     moduleAny._load = (request: string, parent: any, isMain: boolean) => {
       if (request === 'vscode') {
         return vscodeStub;
       }
       return restoreLoad(request, parent, isMain);
     };
-
-    ['../../extension', '../../providers/beads/items', '../../utils'].forEach((id) => {
-      try {
-        delete require.cache[require.resolve(id)];
-      } catch {
-        // ignore cache misses
-      }
-    });
 
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const extension = require('../../extension');

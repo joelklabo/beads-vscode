@@ -10,17 +10,17 @@ function sanitize(raw: string): string {
 
 suite('Headless harness smoke', () => {
   test('uses isolated temp dirs tied to instance id', async () => {
-    const userArg = process.argv.find((arg) => arg.startsWith('--user-data-dir='));
-    const extArg = process.argv.find((arg) => arg.startsWith('--extensions-dir='));
+    const userDir =
+      process.env.BEADY_TEST_USER_DATA_DIR ||
+      process.argv.find((arg) => arg.startsWith('--user-data-dir='))?.split('=')[1] ||
+      '';
+    const extDir =
+      process.env.BEADY_TEST_EXTENSIONS_DIR ||
+      process.argv.find((arg) => arg.startsWith('--extensions-dir='))?.split('=')[1] ||
+      '';
 
-    assert.ok(userArg, 'runTest should pass --user-data-dir');
-    assert.ok(extArg, 'runTest should pass --extensions-dir');
-    if (!userArg || !extArg) {
-      return;
-    }
-
-    const userDir = userArg.split('=')[1] ?? '';
-    const extDir = extArg.split('=')[1] ?? '';
+    assert.ok(userDir, 'runTest should pass user-data-dir (argv or env)');
+    assert.ok(extDir, 'runTest should pass extensions-dir (argv or env)');
     const baseDir = path.dirname(userDir);
     const baseName = path.basename(baseDir);
 

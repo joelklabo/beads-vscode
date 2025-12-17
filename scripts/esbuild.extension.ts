@@ -16,6 +16,7 @@ const extensionOptions = {
   target: ['node18'],
   sourcemap: true,
   minify,
+  keepNames: true,
   external: ['vscode', '@vscode/test-electron'],
   tsconfig: 'tsconfig.base.json',
   metafile: true,

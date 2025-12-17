@@ -246,18 +246,19 @@ suite('BD CLI Integration Test Suite', function() {
     ];
 
     const roots = await provider.getChildren();
-    const labels = roots.map((r: any) => r.contextValue === 'warningSection' ? 'warning' : r.status);
+    const rootsWithoutHeader = roots.filter((r: any) => r.contextValue !== 'summaryHeader');
+    const labels = rootsWithoutHeader.map((r: any) => r.contextValue === 'warningSection' ? 'warning' : r.status);
     assert.deepStrictEqual(labels, ['warning', 'in_progress', 'open']);
 
-    const warning = roots.find((r: any) => r.contextValue === 'warningSection') as any;
+    const warning = rootsWithoutHeader.find((r: any) => r.contextValue === 'warningSection') as any;
     const warningIds = warning.beads.map((b: any) => b.id).sort();
     assert.deepStrictEqual(warningIds, ['epic-empty', 'task-stale']);
 
-    const inprogSection = roots.find((r: any) => r instanceof EpicStatusSectionItem && r.status === 'in_progress') as any;
+    const inprogSection = rootsWithoutHeader.find((r: any) => r instanceof EpicStatusSectionItem && r.status === 'in_progress') as any;
     const inprogChildren = await provider.getChildren(inprogSection);
     assert.ok(inprogChildren.some((node: any) => node instanceof EpicTreeItem && node.epic && node.epic.id === 'epic-inprog'));
 
-    const openSection = roots.find((r: any) => r instanceof EpicStatusSectionItem && r.status === 'open') as any;
+    const openSection = rootsWithoutHeader.find((r: any) => r instanceof EpicStatusSectionItem && r.status === 'open') as any;
     const openChildren = await provider.getChildren(openSection);
     assert.ok(openChildren.some((node: any) => node instanceof EpicTreeItem && node.epic && node.epic.id === 'epic-open'));
   });

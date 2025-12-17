@@ -2,10 +2,13 @@
 // to keep business logic in a dedicated module. When tests reload this module,
 // ensure the underlying implementation is also reloaded so stubs take effect.
 if (typeof require !== 'undefined') {
-  try {
-    delete require.cache[require.resolve('./extension.main')];
-  } catch {
-    // ignore cache misses
+  const reloadTargets = ['./extension.main', './activation', './activation/commands'];
+  for (const target of reloadTargets) {
+    try {
+      delete require.cache[require.resolve(target)];
+    } catch {
+      // ignore cache misses
+    }
   }
 }
 

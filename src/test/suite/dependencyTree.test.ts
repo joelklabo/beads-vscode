@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import Module = require('module');
-import { stripNoDaemon } from '../utils/webview';
+import { resetBeadyRequireCache, resetVscodeRequireCache, stripNoDaemon } from '../utils/webview';
 
 function createVscodeStub() {
   const info: string[] = [];
@@ -102,6 +102,9 @@ suite('Dependency tree flows', () => {
     restoreLoad = moduleAny._load;
     vscodeStub = createVscodeStub();
 
+    resetVscodeRequireCache();
+    resetBeadyRequireCache();
+
     moduleAny._load = (request: string, parent: any, isMain: boolean) => {
       if (request === 'vscode') {
         return vscodeStub;
@@ -122,20 +125,6 @@ suite('Dependency tree flows', () => {
       }
       return restoreLoad(request, parent, isMain);
     };
-
-    [
-      '../../extension',
-      '../../dependencyTreeProvider',
-      '../../utils',
-      '../../utils/cli',
-      '../../providers/beads/store',
-    ].forEach((id) => {
-      try {
-        delete require.cache[require.resolve(id)];
-      } catch {
-        // ignore cache misses
-      }
-    });
 
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const extension = require('../../extension');
