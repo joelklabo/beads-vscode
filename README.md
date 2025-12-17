@@ -4,7 +4,7 @@
 [![VS Code Installs](https://img.shields.io/visual-studio-marketplace/i/klabo.beady?style=flat-square&label=Installs&logo=visual-studio-code)](https://marketplace.visualstudio.com/items?itemName=klabo.beady)
 [![VS Code Rating](https://img.shields.io/visual-studio-marketplace/r/klabo.beady?style=flat-square&label=Rating&logo=visual-studio-code)](https://marketplace.visualstudio.com/items?itemName=klabo.beady)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
-[![Build Status](https://img.shields.io/github/actions/workflow/status/kris-hansen/beads-vscode/ci.yml?branch=main&style=flat-square&logo=github)](https://github.com/kris-hansen/beads-vscode/actions)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/joelklabo/beads-vscode/test.yml?branch=main&style=flat-square&logo=github)](https://github.com/joelklabo/beads-vscode/actions/workflows/test.yml)
 
 > Worktree-friendly issue tracker for VS Code — browse issues, dependencies, and activity from your [Beads](https://github.com/steveyegge/beads) database.
 
@@ -19,6 +19,10 @@
 </p>
 
 ---
+
+## Screenshot
+
+![Beady issues view showing tasks with status badges and dependency indicators](media/screenshot.png)
 
 ## Features
 
@@ -170,7 +174,7 @@ Beady is designed to work seamlessly with AI coding agents in multi-worktree env
 - Check for file conflicts before starting tasks
 - Run `bd sync` at the end of agent sessions
 
-See [AGENTS.md](AGENTS.md) for the complete agent workflow guide.
+See [AGENTS.md](https://github.com/joelklabo/beads-vscode/blob/main/AGENTS.md) for the complete agent workflow guide.
 
 ---
 
@@ -196,7 +200,7 @@ npm run bundle
 npm run package
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed contribution guidelines.
+See [CONTRIBUTING.md](https://github.com/joelklabo/beads-vscode/blob/main/CONTRIBUTING.md) for detailed contribution guidelines.
 
 ---
 
