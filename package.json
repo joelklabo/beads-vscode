@@ -8,15 +8,20 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/joelklabo/beady.git"
+    "url": "https://github.com/joelklabo/beads-vscode.git"
   },
   "workspaces": [
     "packages/*"
   ],
   "bugs": {
-    "url": "https://github.com/joelklabo/beady/issues"
+    "url": "https://github.com/joelklabo/beads-vscode/issues"
   },
-  "homepage": "https://github.com/joelklabo/beady#readme",
+  "homepage": "https://github.com/joelklabo/beads-vscode#readme",
+  "icon": "media/icon.png",
+  "galleryBanner": {
+    "color": "#0b1220",
+    "theme": "dark"
+  },
   "keywords": [
     "bd",
     "beady",
@@ -32,7 +37,8 @@
     "vscode": "^1.90.0"
   },
   "categories": [
-    "Other"
+    "Productivity",
+    "Visualization"
   ],
   "main": "./dist/extension.js",
   "types": "./dist/extension.d.ts",
