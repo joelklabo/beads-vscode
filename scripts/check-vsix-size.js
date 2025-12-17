@@ -48,7 +48,17 @@ function writeResult(result) {
 }
 
 if (!existsSync("dist/extension.js")) {
-  fail("dist/extension.js missing. Run `npm run bundle` first.");
+  log("dist/extension.js missing; running `npm run bundle`...");
+  const npmCmd = process.platform === "win32" ? "npm.cmd" : "npm";
+  const bundleResult = spawnSync(npmCmd, ["run", "bundle"], {
+    stdio: "inherit",
+  });
+  if (bundleResult.status !== 0) {
+    fail("npm run bundle failed");
+  }
+  if (!existsSync("dist/extension.js")) {
+    fail("dist/extension.js missing after bundle.");
+  }
 }
 
 const cmd = process.platform === "win32" ? "npx.cmd" : "npx";
